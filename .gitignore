@@ -1,8 +1,9 @@
 # 세계판 창 서버가 쓰는 시험 그림 (다시 만들 수 있음)
 .도구/창/out/
 
-# 이 PC에만 맞는 설정 · 화면 상태
-.claude/
+# 이 PC에만 맞는 설정 · 화면 상태 (메러노더 작업 규칙 스킬은 다른 PC에서도 쓰게 올림)
+.claude/*
+!.claude/skills/
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
 .trash/

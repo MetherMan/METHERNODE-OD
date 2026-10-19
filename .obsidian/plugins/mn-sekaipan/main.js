@@ -2411,6 +2411,26 @@ class SekaiView extends ItemView {
     return null;
   }
 
+  /** 이 판에 있는 지역 표식(노트)의 판 (없으면 null) */
+  placeMapOf(pl) {
+    const cur = this.currentMap();
+    return cur && pl ? this.plugin.settings.maps.find((m) => m.parent === cur.name && m.place === pl.name) || null : null;
+  }
+
+  /** 지역 표식 둘레의 3:2 창 (지도 폭의 6%, 수도·도시 하나를 크게 볼 만큼) */
+  placeWindowOf(xy) {
+    const ww = this.W * 0.06;
+    const wh = ww / 1.5;
+    return [xy[0] - ww / 2, xy[1] - wh / 2, ww, wh];
+  }
+
+  /** 지역 표식에서 새 판 만들기 */
+  createPlaceMap(pl) {
+    if (!pl || !pl.xy || !this.terrain) return;
+    this.select(null);
+    this.createChildMap({ name: pl.name, pts: [] }, { place: pl.name, window: this.placeWindowOf(pl.xy), subtitle: pl.capital ? '수 도  지 도' : '지 역  지 도' });
+  }
+
   /** 영역 둘레에 여유를 둔 3:2 창 (지도 px). 아래 판은 이 창을 그대로 키운 것 */
   childWindowOf(r) {
     const xs = r.pts.map((p) => p[0]);
@@ -2516,15 +2536,16 @@ class SekaiView extends ItemView {
     return true;
   }
 
-  /** 영역에서 새 판 만들기: 부모 지형(해안·숲·영역)을 그 자리만큼 크게 옮겨 와서 시작 */
-  async createChildMap(r) {
+  /** 영역(또는 지역 표식)에서 새 판 만들기: 부모 지형(해안·숲·영역)을 그 자리만큼 크게 옮겨 와서 시작.
+   *  opts.place: 지역 표식 이름 (r 은 { name, pts: [] }), opts.window: 창, opts.subtitle: 제목판 작은 글 */
+  async createChildMap(r, opts = {}) {
     const P = this.currentMap();
     const T = this.terrain;
     if (!P || !T || !r || this.baking) return;
     const maps = this.plugin.settings.maps;
-    const have = maps.find((m) => m.parent === P.name && m.region === r.name);
+    const have = maps.find((m) => m.parent === P.name && (opts.place ? m.place === opts.place : m.region === r.name));
     if (have) {
-      this.enterChild(have, r);
+      this.enterChild(have, opts.place ? null : r);
       return;
     }
     if (maps.some((m) => m.name === r.name)) {
@@ -2537,7 +2558,7 @@ class SekaiView extends ItemView {
     await new Promise((res) => setTimeout(res, 40));
     try {
       // 1) 창: 영역 둘레에 여유를 두고 3:2로
-      const [x0, y0, ww, wh] = this.childWindowOf(r);
+      const [x0, y0, ww, wh] = opts.window || this.childWindowOf(r);
       const CW = 6000;
       const CH = 4000;
       const k = CW / ww; // 부모 1px = 새 판 k px
@@ -2572,12 +2593,13 @@ class SekaiView extends ItemView {
           C.cover[p] = C.ground[p] && pick(T.cover, px, py) >= 0.5 ? 1 : 0;
         }
       }
-      // 3) 창 안에 걸친 영역들 (이 영역 포함)
+      // 3) 창 안에 걸친 영역들 (이 영역 포함, 창을 통째로 품은 영역도)
+      const corners = [[x0, y0], [x0 + ww, y0], [x0, y0 + wh], [x0 + ww, y0 + wh]];
       C.regions = T.regions
-        .filter((q) => isPlace(q) && q.pts.some(([x, y]) => x >= x0 && x <= x0 + ww && y >= y0 && y <= y0 + wh))
+        .filter((q) => isPlace(q) && (q.pts.some(([x, y]) => x >= x0 && x <= x0 + ww && y >= y0 && y <= y0 + wh) || corners.some((c) => inPoly(c, q.pts))))
         .map((q) => ({ name: q.name, pts: q.pts.map(([x, y]) => [(x - x0) * k, (y - y0) * k]), ...(q.detail ? { detail: q.detail } : {}) }));
       C.title = r.name;
-      C.subtitle = '지 역  지 도';
+      C.subtitle = opts.subtitle || '지 역  지 도';
       C.seed = (T.seed + [...r.name].reduce((h, ch) => (h * 31 + ch.codePointAt(0)) >>> 0, 7)) >>> 0;
       C.coast = T.coast;
       C.isles = T.isles;
@@ -2617,12 +2639,12 @@ class SekaiView extends ItemView {
       await ad.write(`${dir}${r.name}.지형.json`, JSON.stringify(C.encode()));
       // 6) 지도 목록에 넣고 들어가기
       const rnd = (v) => Math.round(v * 100) / 100;
-      maps.push({ name: r.name, path: C.output, parent: P.name, region: r.name, window: [rnd(x0), rnd(y0), rnd(ww), rnd(wh)] });
+      maps.push({ name: r.name, path: C.output, parent: P.name, ...(opts.place ? { place: opts.place } : { region: r.name }), window: [rnd(x0), rnd(y0), rnd(ww), rnd(wh)] });
       await this.plugin.saveSettings();
       new Notice(`「${r.name}」 판을 만들었어요. 지형 그리기로 바로 그릴 수 있어요.`);
       this.baking = false;
       this.setBusy(false);
-      this.enterChild(maps[maps.length - 1], r);
+      this.enterChild(maps[maps.length - 1], opts.place ? null : r);
     } catch (err) {
       console.error('[MN 세계판] 판 만들기 실패', err);
       new Notice('판을 만들지 못했어요.');
@@ -3671,7 +3693,7 @@ class SekaiView extends ItemView {
     const { places, people } = this.here;
     for (const pl of places) {
       if (!pl.xy) continue;
-      const el = this.marker(pl.xy).createDiv({ cls: 'mnsk-place' + (pl.area ? ' is-area' : pl.capital ? ' is-capital' : '') });
+      const el = this.marker(pl.xy).createDiv({ cls: 'mnsk-place' + (pl.area ? ' is-area' : pl.capital ? ' is-capital' : '') + (this.placeMapOf(pl) ? ' has-map' : '') });
       el.createDiv({ cls: 'mnsk-place-dot' });
       el.createDiv({ cls: 'mnsk-place-name', text: pl.name });
       this.bindMarker(el, pl);
@@ -3770,6 +3792,12 @@ class SekaiView extends ItemView {
         this.hideBanner();
         this.plugin.movePerson(person, item);
       }
+      return;
+    }
+    const pm = item.kind === 'place' && this.mode === 'view' ? this.placeMapOf(item) : null;
+    if (pm) {
+      this.select(null);
+      this.enterChild(pm, null);
       return;
     }
     this.select(item);
@@ -3878,6 +3906,11 @@ class SekaiView extends ItemView {
     const actions = c.createDiv({ cls: 'mnsk-card-actions' });
     const open = actions.createEl('button', { cls: 'mnsk-btn is-primary', text: '노트 열기' });
     open.onclick = () => this.app.workspace.getLeaf('split', 'vertical').openFile(it.file);
+    if (!person && it.xy && it.map === this.mapName) {
+      const pm = this.placeMapOf(it);
+      if (pm) actions.createEl('button', { cls: 'mnsk-btn', text: '판으로 들어가기' }).onclick = () => this.enterChild(pm, null);
+      else if (this.terrain) actions.createEl('button', { cls: 'mnsk-btn', text: '판 만들기' }).onclick = () => this.createPlaceMap(it);
+    }
     if (person) {
       const mv = actions.createEl('button', { cls: 'mnsk-btn', text: '위치 옮기기' });
       mv.onclick = () => {

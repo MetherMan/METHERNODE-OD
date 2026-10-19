@@ -19,6 +19,18 @@
         686.1,
         457.4
       ]
+    },
+    {
+      "name": "라하니아 수도",
+      "path": "The Archive - 자료/라하니아 수도.jpg",
+      "parent": "라하니아",
+      "place": "라하니아 수도",
+      "window": [
+        3210,
+        1830,
+        360,
+        240
+      ]
     }
   ],
   "logFolder": "The Rule - TRPG/기록",
