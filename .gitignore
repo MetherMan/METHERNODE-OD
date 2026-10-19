@@ -1,0 +1,12 @@
+# 세계판 창 서버가 쓰는 시험 그림 (다시 만들 수 있음)
+.도구/창/out/
+
+# 이 PC에만 맞는 설정 · 화면 상태
+.claude/
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.trash/
+
+# 임시 파일
+*.tmp
+__pycache__/

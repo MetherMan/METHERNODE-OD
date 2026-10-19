@@ -1,0 +1,9 @@
+{
+  "id": "mn-sekaipan",
+  "name": "MN 세계판",
+  "version": "0.5.0",
+  "minAppVersion": "1.4.0",
+  "description": "노트의 위치·좌표 속성으로 인물과 지역을 지도에 올리고, 찾고, 옮기면 기록을 남깁니다. 땅·바다·숲·영역을 직접 그리면 둘레 지형이 저절로 그려집니다.",
+  "author": "MetherNode",
+  "isDesktopOnly": false
+}

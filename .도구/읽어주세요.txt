@@ -1,0 +1,17 @@
+메러노더 세계 지도 다시 그리기 (Codex 파이썬: C:\Users\dayba\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe)
+1. python mn_world_analyze.py "The Archive - 자료/MN2.jpg" world.npz world_class.png      ← 손그림에서 땅/바다/선 뽑기
+2. python regions_extract.py "The Archive - 자료/MN2.jpg" regions.npz regions_check.png  ← 숲·바다 모양, 라하니아 모양 뽑기
+3. python mn_world_render.py world.npz regions.npz "The Archive - 자료/메러노더.jpg" "The Archive - 자료/메러노더 (이름).jpg" preview.jpg   ← Opus 미술 검토판(숲 4간구 양식, 바다 2줄 물결) + 원본 윤곽을 딴 어브릴
+mn2_regions.py: 번호판(칸 + 구역 번호) 그림 만들기
+
+(2026-10-19 이후) 지도는 세계판 플러그인의 「지형 그리기」로 직접 고쳐요.
+- 데이터: The Archive - 자료/메러노더.지형.json (땅·바다·숲 칸 + 각진 영역). 그림: The Archive - 자료/메러노더.jpg (지형 그리기에서 「지도 그림 저장」하거나 모드를 나가면 새로 구워짐)
+- terrain_from_map.py: 손그림 분석 결과(world.npz, regions.npz)를 지형 데이터로 처음 옮길 때 썼어요. 다시 돌리면 직접 그린 것을 덮어쓰니 주의.
+
+세계판 창 (Obsidian 없이 Claude 앱 브라우저에서 지형 그리기)
+- .도구/창/serve3.py 를 켜면 http://localhost:8732 에서 세계판이 바로 메러노더 지형 그리기로 열려요.
+  python .도구/창/serve3.py "C:/Users/dayba/Downloads/MN 실험실" "C:/Users/dayba/Downloads/MN 실험실/.도구/창" 8732
+- 저장은 The Archive - 자료/메러노더.지형.json 과 The Archive - 자료/메러노더.jpg 두 파일만 보관소에 바로 써요 (나머지는 .도구/창/out/).
+
+(2026-10-19) 보관소 폴더 이름: The Archive - 자료 (그림·데이터) · The Main - 지리 · The Main - 인물 · The Rule - TRPG · The Guide - 시작.md
+판 타고 들어가기: 지형 그리기 → 영역 → 판 만들기. 판 목록은 .obsidian/plugins/mn-sekaipan/data.json (maps 의 parent·region)

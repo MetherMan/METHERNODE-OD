@@ -1,0 +1,885 @@
+/* MN 세계판 — ITS wotc-beyond 색을 그대로 씀. 테마와 상관없이 같은 모습 */
+.workspace-leaf-content[data-type="mn-sekaipan"] .view-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+.mnsk {
+  --mn-note: #fff9f0;
+  --mn-side: #fff6e4;
+  --mn-outer: #fbe2c5;
+  --mn-td: #fae0be;
+  --mn-accent: #c75959;
+  --mn-head: #c14343;
+  --mn-lite: #a35158;
+  --mn-text: #412f2f;
+  --mn-ink: #2e1010;
+  --mn-sandy: #f4a460;
+  --mn-line: rgba(251, 180, 87, 0.55);
+  --mn-shadow: 0 10px 28px rgba(20, 6, 6, 0.38);
+  --mn-gap: 22px;
+  position: relative;
+  height: 100%;
+  color: var(--mn-text);
+  font-family: var(--font-interface);
+  user-select: none;
+}
+
+/* ---------- 판 ---------- */
+.mnsk-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(122, 59, 46, 0.55), transparent 70%),
+    #2e1010;
+}
+
+/* 지도판 액자: 화면에 붙어 있어서 확대해도 두께가 그대로 */
+.mnsk-stage::before {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  box-shadow:
+    inset 0 0 0 5px var(--mn-ink),
+    inset 0 0 0 6px rgba(244, 164, 96, 0.55),
+    inset 0 0 110px rgba(46, 16, 16, 0.45);
+  pointer-events: none;
+  content: "";
+}
+
+.mnsk-stage::after {
+  --c: linear-gradient(var(--mn-sandy), var(--mn-sandy));
+  position: absolute;
+  inset: 9px;
+  z-index: 1;
+  background:
+    var(--c) 0 0 / 20px 2px, var(--c) 0 0 / 2px 20px,
+    var(--c) 100% 0 / 20px 2px, var(--c) 100% 0 / 2px 20px,
+    var(--c) 0 100% / 20px 2px, var(--c) 0 100% / 2px 20px,
+    var(--c) 100% 100% / 20px 2px, var(--c) 100% 100% / 2px 20px;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  content: "";
+}
+
+.mnsk-stage.is-panning { cursor: grabbing; }
+.mnsk.is-stamp .mnsk-stage { cursor: crosshair; }
+
+.mnsk-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.mnsk-map {
+  display: block;
+  max-width: none !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 30px 80px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.mnsk-pins {
+  position: absolute;
+  inset: 0;
+}
+
+.mnsk-m {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.mnsk-m.is-top { z-index: 5; }
+
+.mnsk-m-in {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: scale(var(--inv, 1));
+  transform-origin: 0 0;
+}
+
+/* ---------- 지역 표식: 먹색으로 낮게, 인물이 주인공 ---------- */
+.mnsk-place {
+  position: absolute;
+  left: -6px;
+  top: -6px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.mnsk-place-dot {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  background: var(--mn-ink);
+  border: 2px solid var(--mn-note);
+  box-shadow: 0 0 0 1px var(--mn-ink), 0 2px 4px rgba(20, 6, 6, 0.4);
+  transform: rotate(45deg);
+  transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.mnsk-place-name {
+  color: var(--mn-text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow:
+    1px 0 var(--mn-note), -1px 0 var(--mn-note), 0 1px var(--mn-note), 0 -1px var(--mn-note),
+    1px 1px var(--mn-note), -1px -1px var(--mn-note), 1px -1px var(--mn-note), -1px 1px var(--mn-note);
+}
+
+.mnsk-place:hover .mnsk-place-dot { transform: rotate(45deg) scale(1.2); }
+
+.mnsk-place.is-selected .mnsk-place-dot {
+  background: var(--mn-accent);
+  transform: rotate(45deg) scale(1.2);
+  box-shadow: 0 0 0 1px var(--mn-ink), 0 0 0 5px rgba(244, 164, 96, 0.4);
+}
+
+.mnsk-place.is-selected .mnsk-place-name { color: var(--mn-head); }
+
+.mnsk-place.is-drop .mnsk-place-dot {
+  background: var(--mn-sandy);
+  transform: rotate(45deg) scale(1.6);
+  box-shadow: 0 0 0 1px var(--mn-ink), 0 0 0 6px rgba(244, 164, 96, 0.4);
+}
+
+/* 넓은 땅(표식: 영역): 점 없이 크게 벌린 이름표 */
+.mnsk-place.is-area { left: 0; top: 0; transform: translate(-50%, -50%); }
+.mnsk-place.is-area .mnsk-place-dot { display: none; }
+
+.mnsk-place.is-area .mnsk-place-name {
+  padding: 1px 4px 1px calc(4px + 0.32em);
+  border-radius: 4px;
+  color: var(--mn-ink);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.32em;
+}
+
+.mnsk-place.is-area:hover .mnsk-place-name,
+.mnsk-place.is-area.is-selected .mnsk-place-name { color: var(--mn-head); }
+.mnsk-place.is-area.is-drop .mnsk-place-name { background: rgba(244, 164, 96, 0.45); text-shadow: none; }
+
+.mnsk-stem.is-area { top: -22px; height: 9px; }
+
+.mnsk.is-stamp .mnsk-place { cursor: move; }
+.mnsk.is-stamp .mnsk-place-name { padding: 1px 6px; border-radius: 3px; background: rgba(255, 249, 240, 0.92); text-shadow: none; }
+.mnsk.is-far .mnsk-place:not(.is-area):not(.is-selected):not(:hover) .mnsk-place-name { opacity: 0; }
+
+/* 지도 고르기 (위 가운데) */
+.mnsk-maps {
+  position: absolute;
+  top: var(--mn-gap);
+  left: 50%;
+  z-index: 10;
+  display: flex;
+  height: 42px;
+  padding: 4px;
+  border-radius: 6px;
+  background: var(--mn-note);
+  box-shadow: 0 0 0 1px var(--mn-line), var(--mn-shadow);
+  transform: translateX(-50%);
+}
+
+.mnsk-maps.is-hidden { display: none; }
+
+.mnsk-maps button {
+  height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--mn-text);
+  background: transparent;
+  box-shadow: none;
+  font-size: 13.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mnsk-maps button.is-active { color: var(--mn-note); background: var(--mn-accent); }
+.mnsk-maps button:not(.is-active):hover { background: var(--mn-td); }
+
+/* ---------- 인물 말 ---------- */
+.mnsk-stem {
+  position: absolute;
+  left: -1px;
+  top: -15px;
+  width: 2px;
+  height: 8px;
+  background: rgba(46, 16, 16, 0.75);
+}
+
+.mnsk-token {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -22px);
+  cursor: grab;
+}
+
+.mnsk-token-face {
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border: 2px solid var(--mn-note);
+  border-radius: 50%;
+  background: var(--mn-outer);
+  box-shadow: 0 0 0 2px var(--mn-ink), 0 0 0 3px rgba(244, 164, 96, 0.75), 0 6px 12px rgba(20, 6, 6, 0.5);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.mnsk-token-face img,
+.mnsk-card-face img,
+.mnsk-result-face img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 12%;
+  pointer-events: none;
+}
+
+.mnsk-token-face.is-initial,
+.mnsk-card-face.is-initial,
+.mnsk-result-face.is-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mn-outer);
+  font-weight: 900;
+}
+
+.mnsk-token-face.is-initial { font-size: 18px; }
+
+.mnsk-token-name {
+  margin-top: 5px;
+  padding: 1px 8px 2px;
+  border-radius: 3px;
+  color: var(--mn-note);
+  background: rgba(46, 16, 16, 0.9);
+  box-shadow: 0 0 0 1px rgba(244, 164, 96, 0.45);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mnsk-token-doing {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  display: none;
+  padding: 3px 10px;
+  border-radius: 3px;
+  color: var(--mn-outer);
+  background: var(--mn-ink);
+  box-shadow: 0 0 0 1px var(--mn-sandy), 0 4px 10px rgba(20, 6, 6, 0.35);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.mnsk-token-doing::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  border: 5px solid transparent;
+  border-top-color: var(--mn-ink);
+  transform: translateX(-50%);
+  content: "";
+}
+
+.mnsk-token:hover .mnsk-token-doing,
+.mnsk-token.is-selected .mnsk-token-doing { display: block; }
+
+.mnsk-token:hover .mnsk-token-face { transform: scale(1.06); }
+
+.mnsk-token.is-selected .mnsk-token-face {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px var(--mn-ink), 0 0 0 4px var(--mn-sandy), 0 8px 16px rgba(20, 6, 6, 0.5);
+}
+
+.mnsk-token.is-selected .mnsk-token-name { background: var(--mn-accent); }
+
+.mnsk-token.is-dragging { cursor: grabbing; opacity: 0.92; }
+.mnsk-token.is-dragging .mnsk-token-face { transform: scale(1.18); }
+
+/* ---------- 떠 있는 판들 ---------- */
+.mnsk-search-field,
+.mnsk-results,
+.mnsk-card,
+.mnsk-seg,
+.mnsk-zoom {
+  border-radius: 6px;
+  background: var(--mn-note);
+  box-shadow: 0 0 0 1px var(--mn-line), var(--mn-shadow);
+}
+
+/* 검색 */
+.mnsk-search {
+  position: absolute;
+  top: var(--mn-gap);
+  left: var(--mn-gap);
+  z-index: 10;
+  width: min(320px, calc(100% - 2 * var(--mn-gap)));
+}
+
+.mnsk-search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 14px;
+  border-left: 3px solid var(--mn-accent);
+}
+
+.mnsk-search-icon { display: flex; color: var(--mn-accent); }
+.mnsk-search-icon svg { width: 18px; height: 18px; }
+
+.mnsk-search-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  color: var(--mn-ink);
+  background: transparent;
+  box-shadow: none;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.mnsk-search-field input:focus { outline: none; box-shadow: none; }
+.mnsk-search-field input::placeholder { color: rgba(65, 47, 47, 0.45); font-weight: 600; }
+
+.mnsk-results {
+  max-height: 320px;
+  margin-top: 4px;
+  padding: 4px;
+  overflow-y: auto;
+  box-shadow: 0 0 0 1px var(--mn-line), 0 8px 18px rgba(20, 6, 6, 0.3);
+}
+
+.mnsk-results:empty,
+.mnsk-search:not(:focus-within) .mnsk-results { display: none; }
+
+.mnsk-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.mnsk-result.is-active,
+.mnsk-result:hover { background: rgba(199, 89, 89, 0.09); box-shadow: inset 3px 0 0 var(--mn-accent); }
+.mnsk-result.is-empty { color: var(--mn-lite); font-size: 13px; cursor: default; box-shadow: none; background: none; }
+
+.mnsk-result-face {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  overflow: hidden;
+  border: 2px solid var(--mn-note);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--mn-ink);
+}
+
+.mnsk-result-face.is-initial { font-size: 13px; }
+
+.mnsk-result-place {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  margin: 0 11px;
+  background: var(--mn-ink);
+  transform: rotate(45deg);
+}
+
+.mnsk-result-text { min-width: 0; }
+.mnsk-result-name { color: var(--mn-ink); font-size: 14px; font-weight: 800; }
+.mnsk-result-sub { overflow: hidden; color: var(--mn-text); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
+
+/* 카드 */
+.mnsk-card {
+  position: absolute;
+  top: var(--mn-gap);
+  right: var(--mn-gap);
+  z-index: 10;
+  width: 300px;
+  max-width: calc(100% - 2 * var(--mn-gap));
+  padding: 18px 18px 16px;
+  border-top: 3px solid var(--mn-accent);
+  user-select: text;
+}
+
+.mnsk-card.is-hidden { display: none; }
+
+.mnsk-card-head { display: flex; align-items: center; gap: 14px; }
+
+.mnsk-card-face {
+  width: 62px;
+  height: 62px;
+  flex: none;
+  overflow: hidden;
+  border: 2px solid var(--mn-note);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--mn-ink), 0 0 0 3px rgba(244, 164, 96, 0.75), 0 4px 10px rgba(20, 6, 6, 0.25);
+}
+
+.mnsk-card-face.is-initial { font-size: 24px; }
+
+.mnsk-card-placeicon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin: 0 8px 0 6px;
+  background: var(--mn-accent);
+  border: 3px solid var(--mn-note);
+  box-shadow: 0 0 0 2px var(--mn-ink);
+  transform: rotate(45deg);
+}
+
+.mnsk-card-title { flex: 1; min-width: 0; }
+
+.mnsk-card-kind {
+  display: inline-block;
+  padding: 1px 10px 1px 8px;
+  color: var(--mn-note);
+  background: var(--mn-accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+
+.mnsk-card-name {
+  margin-top: 3px;
+  color: var(--mn-ink);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.mnsk-card-close { align-self: flex-start; color: var(--mn-lite); }
+
+.mnsk-card-rows { margin: 14px 0 0; }
+
+.mnsk-card-rows > div {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(193, 67, 67, 0.15);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mnsk-card-rows dt { color: var(--mn-lite); font-size: 12.5px; font-weight: 800; }
+.mnsk-card-rows dd { margin: 0; color: var(--mn-text); }
+
+.mnsk-card-rows dd.is-doing {
+  justify-self: start;
+  padding: 1px 8px;
+  border-radius: 2px;
+  color: var(--mn-ink);
+  background: rgba(244, 164, 96, 0.22);
+  box-shadow: inset 3px 0 0 var(--mn-sandy);
+  font-weight: 800;
+}
+
+.mnsk-dim { color: rgba(65, 47, 47, 0.55); font-size: 12px; }
+
+.mnsk-link {
+  color: var(--mn-head);
+  font-weight: 700;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.mnsk-chip {
+  display: inline-block;
+  margin: 0 6px 6px 0;
+  padding: 1px 9px;
+  border-radius: 3px;
+  color: var(--mn-note);
+  background: var(--mn-ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mnsk-chip:hover { background: var(--mn-accent); }
+
+.mnsk-card-actions { display: flex; gap: 8px; margin-top: 14px; }
+
+.mnsk-btn {
+  flex: 1;
+  height: 36px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--mn-head);
+  background: var(--mn-note);
+  box-shadow: inset 0 0 0 1.5px rgba(199, 89, 89, 0.5);
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mnsk-btn:hover { background: var(--mn-td); }
+.mnsk-btn.is-primary { color: var(--mn-note); background: var(--mn-accent); box-shadow: none; }
+.mnsk-btn.is-primary:hover { background: var(--mn-head); }
+
+/* 아래 조작부: 높이 40px, 모서리 6px로 통일 */
+.mnsk-bar {
+  position: absolute;
+  left: var(--mn-gap);
+  bottom: var(--mn-gap);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mnsk-seg { display: flex; height: 40px; padding: 4px; }
+
+.mnsk-seg button {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--mn-text);
+  background: transparent;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mnsk-seg button.is-active { color: var(--mn-note); background: var(--mn-ink); }
+
+.mnsk-info {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 6px;
+  color: var(--mn-outer);
+  background: rgba(46, 16, 16, 0.82);
+  box-shadow: 0 0 0 1px rgba(244, 164, 96, 0.35);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.mnsk-zoom {
+  position: absolute;
+  right: var(--mn-gap);
+  bottom: var(--mn-gap);
+  z-index: 11;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+}
+
+.mnsk-zoom button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: var(--mn-ink);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.mnsk-zoom button:hover,
+.mnsk-seg button:not(.is-active):hover { color: var(--mn-ink); background: var(--mn-td); }
+.mnsk-zoom svg { width: 18px; height: 18px; }
+
+/* 안내 띠 · 메시지 */
+.mnsk-banner {
+  position: absolute;
+  top: calc(var(--mn-gap) + 54px);
+  left: 50%;
+  z-index: 11;
+  max-width: calc(100% - 2 * var(--mn-gap));
+  padding: 9px 18px;
+  border-radius: 6px;
+  color: var(--mn-outer);
+  background: var(--mn-ink);
+  box-shadow: 0 0 0 1px var(--mn-sandy), var(--mn-shadow);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.mnsk-banner.is-hidden,
+.mnsk-msg.is-hidden { display: none; }
+
+.mnsk-msg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 9;
+  padding: 16px 22px;
+  border-radius: 6px;
+  color: var(--mn-note);
+  background: rgba(46, 16, 16, 0.9);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-line;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+@media (max-width: 760px) {
+  .mnsk-card { top: auto; right: var(--mn-gap); bottom: 76px; left: var(--mn-gap); width: auto; }
+  .mnsk-banner { top: 76px; white-space: normal; text-align: center; }
+}
+
+/* ---------- 땅 칠하기 ---------- */
+.mnsk-lands,
+.mnsk-lands-preview {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.mnsk-lands-preview { opacity: 0.5; }
+
+.mnsk.is-paint .mnsk-pins { pointer-events: none; }
+.mnsk.is-paint .mnsk-stage { cursor: crosshair; }
+.mnsk.is-paint .mnsk-stage.is-pan-ready,
+.mnsk.is-paint .mnsk-stage.is-panning { cursor: grab; }
+.mnsk.is-busy .mnsk-stage { cursor: progress; }
+
+.mnsk-brush {
+  position: absolute;
+  z-index: 6;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--mn-ink), 0 0 0 3px rgba(255, 249, 240, 0.85);
+  pointer-events: none;
+}
+
+.mnsk-brush.is-erase { box-shadow: 0 0 0 1.5px var(--mn-accent), 0 0 0 3px rgba(255, 249, 240, 0.85); background: rgba(199, 89, 89, 0.08); }
+.mnsk-brush.is-hidden { display: none; }
+
+.mnsk-paint {
+  position: absolute;
+  top: var(--mn-gap);
+  right: var(--mn-gap);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 300px;
+  max-width: calc(100% - 2 * var(--mn-gap));
+  max-height: calc(100% - 2 * var(--mn-gap) - 56px);
+  padding: 16px 16px 14px;
+  overflow-y: auto;
+  border-top: 3px solid var(--mn-accent);
+  border-radius: 6px;
+  background: var(--mn-note);
+  box-shadow: 0 0 0 1px var(--mn-line), var(--mn-shadow);
+}
+
+.mnsk-paint.is-hidden { display: none; }
+
+.mnsk-paint-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.mnsk-paint-title { color: var(--mn-ink); font-size: 20px; font-weight: 900; letter-spacing: -0.02em; }
+.mnsk-paint-busy { width: 100%; color: var(--mn-lite); font-size: 12px; font-weight: 700; }
+.mnsk-paint-busy.is-hidden { display: none; }
+.mnsk-paint-empty { color: var(--mn-text); font-size: 13.5px; }
+
+.mnsk-paint-sec { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid rgba(193, 67, 67, 0.15); }
+.mnsk-paint-label { color: var(--mn-lite); font-size: 12px; font-weight: 800; }
+
+.mnsk-terr-list { display: flex; flex-direction: column; gap: 2px; max-height: 230px; overflow-y: auto; }
+
+.mnsk-terr {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--mn-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.mnsk-terr:hover { background: rgba(199, 89, 89, 0.08); }
+.mnsk-terr.is-active { background: rgba(199, 89, 89, 0.12); box-shadow: inset 3px 0 0 var(--mn-accent); color: var(--mn-ink); font-weight: 800; }
+
+.mnsk-terr-sw { width: 14px; height: 14px; border-radius: 3px; box-shadow: 0 0 0 1px var(--mn-ink); }
+.mnsk-terr-sw.is-hatch { background: repeating-linear-gradient(-45deg, #8fa9b2 0 2px, #f6ead0 2px 5px) !important; }
+.mnsk-terr-area { color: var(--mn-lite); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.mnsk-terr-add { flex: none; height: 32px; }
+
+.mnsk-seg.mnsk-seg-small { height: 36px; box-shadow: inset 0 0 0 1px var(--mn-line); }
+.mnsk-seg.mnsk-seg-small button { flex: 1; height: 28px; }
+
+.mnsk-slider { display: flex; flex-direction: column; gap: 2px; }
+.mnsk-slider-top { display: flex; justify-content: space-between; color: var(--mn-text); font-size: 12.5px; font-weight: 700; }
+.mnsk-slider-val { color: var(--mn-lite); font-variant-numeric: tabular-nums; }
+.mnsk-slider input[type="range"] { width: 100%; accent-color: var(--mn-accent); }
+
+.mnsk-paint-area { display: flex; align-items: baseline; justify-content: space-between; }
+.mnsk-paint-area-name { color: var(--mn-ink); font-size: 14px; font-weight: 800; }
+.mnsk-paint-area-val { color: var(--mn-head); font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.mnsk-btn.is-on { color: var(--mn-note); background: var(--mn-ink); box-shadow: none; }
+
+.mnsk-paint-foot { display: flex; align-items: center; gap: 10px; padding-top: 10px; border-top: 1px solid rgba(193, 67, 67, 0.15); }
+.mnsk-paint-foot .mnsk-btn { flex: none; padding: 0 12px; }
+.mnsk-paint-foot .mnsk-btn:disabled { opacity: 0.45; cursor: default; }
+.mnsk-paint-saved { color: var(--mn-lite); font-size: 12px; }
+.mnsk-paint-hint { color: rgba(65, 47, 47, 0.7); font-size: 11.5px; line-height: 1.5; }
+
+/* ---------- 지형 그리기 ---------- */
+.mnsk-terrain,
+.mnsk-under,
+.mnsk-regions {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.mnsk-terrain.is-hidden,
+.mnsk-under.is-hidden,
+.mnsk-regions.is-hidden { display: none; }
+
+.mnsk-under { max-width: none !important; mix-blend-mode: multiply; }
+
+.mnsk.is-terrain .mnsk-pins { pointer-events: none; opacity: 0.35; }
+.mnsk.is-terrain .mnsk-stage { cursor: crosshair; }
+.mnsk.is-terrain .mnsk-stage.is-pan-ready,
+.mnsk.is-terrain .mnsk-stage.is-panning { cursor: grab; }
+
+.mnsk-regions { overflow: visible; }
+.mnsk-rg {
+  fill: rgba(199, 89, 89, 0.05);
+  stroke: #c14343;
+  stroke-width: calc(1.5px * var(--inv, 1));
+  stroke-dasharray: calc(6px * var(--inv, 1)) calc(4px * var(--inv, 1));
+  pointer-events: visiblePainted;
+  cursor: pointer;
+}
+.mnsk-rg.is-sel { fill: rgba(199, 89, 89, 0.1); stroke-width: calc(2.5px * var(--inv, 1)); stroke-dasharray: none; }
+.mnsk-rd { fill: none; stroke: #c14343; stroke-width: calc(2px * var(--inv, 1)); stroke-dasharray: calc(5px * var(--inv, 1)) calc(4px * var(--inv, 1)); }
+.mnsk-rv {
+  r: calc(6px * var(--inv, 1));
+  fill: #fff9f0;
+  stroke: #2e1010;
+  stroke-width: calc(2px * var(--inv, 1));
+  pointer-events: all;
+  cursor: move;
+}
+.mnsk-rv.is-first { fill: #c75959; }
+
+.mnsk-tools { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.mnsk-tool {
+  height: 32px;
+  padding: 0 !important;
+  border: 0;
+  border-radius: 4px;
+  color: var(--mn-text);
+  background: var(--mn-side);
+  box-shadow: inset 0 0 0 1px var(--mn-line);
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.mnsk-tool:hover { background: var(--mn-td); }
+.mnsk-tool.is-active { color: var(--mn-note); background: var(--mn-ink); box-shadow: none; }
+
+.mnsk-terr-sw.is-region { background: #ecc8b8; box-shadow: 0 0 0 1.5px #5c3426; }
+.mnsk-row-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.mnsk-row-btns .mnsk-btn { flex: 1 1 auto; height: 30px; padding: 0 10px; }
+.mnsk-row-btns .mnsk-btn:disabled { opacity: 0.55; cursor: default; }
+
+/* ---------- 확대 · 축소 ---------- */
+.mnsk-zoom button { width: 38px; height: 38px; }
+.mnsk-zoom-val { min-width: 52px; color: var(--mn-ink); font-size: 13px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+@media (min-width: 760px) {
+  .mnsk.is-paint .mnsk-zoom,
+  .mnsk.is-terrain .mnsk-zoom { right: calc(var(--mn-gap) + 312px); }
+}
+.mnsk-zoomrow { display: grid; grid-template-columns: 40px 1fr 40px 52px; align-items: center; gap: 6px; }
+.mnsk-zoomrow .mnsk-btn { height: 32px; padding: 0; font-size: 15px; }
+.mnsk-zoomrow input[type="range"] { width: 100%; accent-color: var(--mn-accent); }
+.mnsk-tools { grid-template-columns: repeat(3, 1fr); }
+.mnsk.is-terrain.is-zoomtool .mnsk-stage { cursor: zoom-in; }
+.mnsk.is-terrain.is-zoomtool .mnsk-stage.is-panning { cursor: grabbing; }
+
+/* ---------- 판 타고 들어가기 ---------- */
+.mnsk-maps-sep { align-self: center; padding: 0 2px; color: var(--mn-lite); font-weight: 900; }
+.mnsk-maps button.is-path { opacity: 0.8; }
+.mnsk.mnsk .mnsk-stage.is-enterable { cursor: pointer; }
+
+/* 판 사이를 이어 주는 덮개 */
+.mnsk-fade { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; transition: opacity 0.38s ease; }
+.mnsk-fade.is-out { opacity: 0; }
+.mnsk-fade-inner { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.mnsk-fade-inner img,
+.mnsk-fade-inner canvas { position: absolute; left: 0; top: 0; max-width: none !important; }
+.mnsk-ghost { position: absolute; max-width: none !important; pointer-events: none; transition: opacity 0.5s ease 0.12s; }
+.mnsk-ghost.is-out { opacity: 0; }
+
+/* ---------- 자국(골) ---------- */
+.mnsk-rg.is-line { fill: none; stroke-width: calc(5px * var(--inv, 1)); stroke-dasharray: none; stroke-opacity: 0.55; pointer-events: stroke; }
+.mnsk-rg.is-line.is-sel { stroke-opacity: 0.9; }
+.mnsk-rt-up { fill: none; stroke: #2e1010; stroke-width: calc(2px * var(--inv, 1)); stroke-dasharray: calc(3px * var(--inv, 1)) calc(5px * var(--inv, 1)); opacity: 0.6; }
+.mnsk-terr-sw.is-trench { background: linear-gradient(90deg, #5b5046 0 30%, #2d2722 30% 70%, #5b5046 70%); box-shadow: 0 0 0 1.5px #34281e; }
+
+/* ---------- 재해 지대 ---------- */
+.mnsk-rg.is-wreck { fill: rgba(116, 104, 90, 0.08); stroke: #6a5644; }
+.mnsk-terr-sw.is-wreck { background: repeating-linear-gradient(60deg, #8a7c6c 0 2px, #cfc3ad 2px 5px); box-shadow: 0 0 0 1.5px #5a4838; }
+
+/* 수도(표식: 수도): 둥근 테 안의 별 */
+.mnsk-place.is-capital { left: -12px; top: -12px; gap: 8px; }
+.mnsk-place.is-capital .mnsk-place-dot,
+.mnsk-place.is-capital:hover .mnsk-place-dot,
+.mnsk-place.is-capital.is-selected .mnsk-place-dot,
+.mnsk-place.is-capital.is-drop .mnsk-place-dot {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10.6' fill='%23f6ecd8' stroke='%233e2f22' stroke-width='1.8'/%3E%3Ccircle cx='12' cy='12' r='8.1' fill='none' stroke='%233e2f22' stroke-width='0.7'/%3E%3Cpolygon points='12,5.6 13.5,9.9 18,10 14.4,12.8 15.7,17.2 12,14.6 8.3,17.2 9.6,12.8 6,10 10.5,9.9' fill='%238a2e22'/%3E%3C/svg%3E") center / contain no-repeat;
+  box-shadow: 0 2px 4px rgba(20, 6, 6, 0.35);
+  transform: none;
+}
+.mnsk-place.is-capital:hover .mnsk-place-dot { transform: scale(1.12); }
+.mnsk-place.is-capital.is-selected .mnsk-place-dot { transform: scale(1.12); box-shadow: 0 0 0 5px rgba(244, 164, 96, 0.45), 0 2px 4px rgba(20, 6, 6, 0.35); }
+.mnsk-place.is-capital.is-drop .mnsk-place-dot { transform: scale(1.3); box-shadow: 0 0 0 6px rgba(244, 164, 96, 0.45); }
+.mnsk-place.is-capital .mnsk-place-name { font-size: 15px; font-weight: 800; letter-spacing: 0.06em; color: var(--mn-ink); }
+.mnsk.is-far .mnsk-place.is-capital .mnsk-place-name { opacity: 1; }

@@ -1,0 +1,161 @@
+<!doctype html><html><head><meta charset="utf-8"><title>세계판</title>
+<link rel="stylesheet" href="/vault/.obsidian/plugins/mn-sekaipan/styles.css">
+<style>html,body{margin:0;height:100%;font-family:'Malgun Gothic',sans-serif} #leaf{position:absolute;inset:0} .modal-container{position:fixed;inset:0;background:#0006;display:flex;align-items:center;justify-content:center;z-index:99} .modal{background:#fff;padding:16px;min-width:300px}</style></head>
+<body><div id="leaf" class="workspace-leaf-content" data-type="mn-sekaipan"><div class="view-content" id="content" style="position:absolute;inset:0"></div></div>
+<script>
+// ---- 옵시디언 흉내 (시험용) ----
+const P = HTMLElement.prototype;
+P.createEl = function (tag, o = {}) { const e = document.createElement(tag); if (o.cls) e.className = o.cls; if (o.text != null) e.textContent = o.text; if (o.type) e.type = o.type; if (o.attr) for (const k in o.attr) e.setAttribute(k, o.attr[k]); this.appendChild(e); return e; };
+P.createDiv = function (o) { return this.createEl('div', typeof o === 'string' ? { cls: o } : o || {}); };
+P.createSpan = function (o) { return this.createEl('span', o || {}); };
+P.empty = function () { while (this.firstChild) this.removeChild(this.firstChild); };
+P.addClass = function (c) { this.classList.add(c); };
+P.removeClass = function (c) { this.classList.remove(c); };
+P.toggleClass = function (c, v) { this.classList.toggle(c, !!v); };
+P.hasClass = function (c) { return this.classList.contains(c); };
+P.setText = function (t) { this.textContent = t; };
+window.notices = [];
+class TFile { constructor(path) { this.path = path; this.name = path.split('/').pop(); this.basename = this.name.replace(/\.[^.]+$/, ''); this.extension = this.name.split('.').pop(); } }
+const files = new Set(); // 시작할 때 /list 로 채움 (The Archive - 자료 · 세계판 설정 · 지역·인물·기록 노트)
+const written = {};
+const url = (p) => '/vault/' + p.split('/').map(encodeURIComponent).join('/');
+// ---- 노트 (지역 · 인물 · 기록): 시작할 때 다 읽어 두고, 고치면 보관소에 그대로 씀 ----
+const notes = new Map(); // 경로 → { text, fm }
+const tfiles = new Map();
+const fileOf = (p) => { if (!tfiles.has(p)) tfiles.set(p, new TFile(p)); return tfiles.get(p); };
+const bus = {};
+const onEv = (k) => (name, fn) => { (bus[k + name] ||= []).push(fn); return {}; };
+const emit = (k, name, ...a) => (bus[k + name] || []).forEach((fn) => { try { fn(...a); } catch (e) { console.error(e); } });
+function fmVal(v) {
+  if (/^\[.*\]$/.test(v) && !/^\[\[/.test(v)) return v.slice(1, -1).split(',').map((x) => x.trim()).filter(Boolean).map(fmVal);
+  if (/^".*"$/.test(v) || /^'.*'$/.test(v)) return v.slice(1, -1);
+  if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);
+  if (v === 'true' || v === 'false') return v === 'true';
+  return v;
+}
+function parseFm(text) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+  if (!m) return null;
+  const fm = {};
+  let last = null;
+  for (const line of m[1].split(/\r?\n/)) {
+    const li = /^\s+-\s+(.*)$/.exec(line);
+    if (li && last) { if (!Array.isArray(fm[last])) fm[last] = []; fm[last].push(fmVal(li[1].trim())); continue; }
+    const kv = /^([^\s:#][^:]*):(?:\s(.*))?$/.exec(line);
+    if (!kv) continue;
+    last = kv[1].trim();
+    const v = (kv[2] || '').trim();
+    fm[last] = v === '' ? null : fmVal(v);
+  }
+  return fm;
+}
+function fmText(fm) {
+  const one = (v) => (typeof v === 'number' || typeof v === 'boolean' ? String(v) : /[\[\]:#{}"',&*!|>%@`]|^\s|\s$|^-/.test(String(v)) ? JSON.stringify(String(v)) : String(v));
+  return Object.entries(fm).map(([k, v]) => `${k}: ${v == null ? '' : Array.isArray(v) ? (v.every((x) => typeof x === 'number') ? `[${v.join(', ')}]` : '\n' + v.map((x) => `  - ${one(x)}`).join('\n')) : one(v)}`.replace(/: $/, ':')).join('\n');
+}
+async function putNote(p, text) {
+  const isNew = !notes.has(p);
+  notes.set(p, { text, fm: parseFm(text) });
+  files.add(p);
+  await fetch('/save?name=' + encodeURIComponent(p), { method: 'POST', body: text });
+  if (isNew) emit('v:', 'create', fileOf(p));
+  emit('m:', 'changed', fileOf(p));
+}
+const app = {
+  vault: {
+    getAbstractFileByPath: (p) => (files.has(p) || written[p] ? fileOf(p) : null),
+    getResourcePath: (f) => url(f.path) + '?t=1',
+    getMarkdownFiles: () => [...notes.keys()].map(fileOf),
+    getFiles: () => [...files].map(fileOf),
+    on: onEv('v:'),
+    createFolder: async () => {},
+    create: async (p, text) => { await putNote(p, text); return fileOf(p); },
+    read: async (f) => (notes.get(f.path) || {}).text || '',
+    cachedRead: async (f) => (notes.get(f.path) || {}).text || '',
+    process: async (f, fn) => { const t = fn((notes.get(f.path) || {}).text || ''); await putNote(f.path, t); return t; },
+    adapter: {
+      exists: async (p) => files.has(p) || !!written[p],
+      read: async (p) => (written[p] != null ? written[p] : (await fetch(url(p))).text()),
+      write: async (p, data) => { written[p] = data; await fetch('/save?name=' + encodeURIComponent(p), { method: 'POST', body: data }); },
+      writeBinary: async (p, buf) => { written[p] = '[binary]'; await fetch('/save?name=' + encodeURIComponent(p), { method: 'POST', body: buf }); window.lastBinary = p; },
+      getResourcePath: (p) => url(p) + '?t=' + Date.now(),
+    },
+  },
+  metadataCache: {
+    on: onEv('m:'),
+    getFileCache: (f) => { const n = notes.get(f.path); return n && n.fm ? { frontmatter: n.fm } : null; },
+    getFirstLinkpathDest: (lp) => {
+      const want = String(lp).split(/[#|]/)[0].trim();
+      for (const p of [...notes.keys(), ...files]) {
+        const name = p.split('/').pop();
+        if (p === want || p === want + '.md' || name === want || name === want + '.md') return fileOf(p);
+      }
+      return null;
+    },
+    fileToLinktext: (f) => {
+      const same = [...notes.keys()].filter((p) => p.split('/').pop() === f.name).length;
+      return same > 1 ? f.path.replace(/\.md$/, '') : f.basename;
+    },
+  },
+  workspace: { getActiveViewOfType: () => window.view, getLeavesOfType: () => [], revealLeaf: () => {}, getRightLeaf: () => null, getLeaf: () => null },
+  fileManager: {
+    processFrontMatter: async (f, fn) => {
+      const n = notes.get(f.path);
+      if (!n) return;
+      const fm = JSON.parse(JSON.stringify(n.fm || {}));
+      fn(fm);
+      const m = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(n.text);
+      const body = m ? n.text.slice(m[0].length) : n.text;
+      await putNote(f.path, `---\n${fmText(fm)}\n---\n${body}`);
+    },
+  },
+};
+class Component { registerEvent() {} registerDomEvent(el, ev, fn, o) { el.addEventListener(ev, fn, o); } register() {} }
+const SETTINGS = '.obsidian/plugins/mn-sekaipan/data.json';
+class Plugin extends Component { constructor(a) { super(); this.app = a; } registerView(t, f) { this.viewFactory = f; } addRibbonIcon() {} addCommand() {} addSettingTab() {}
+  async loadData() { if (!files.has(SETTINGS) && !written[SETTINGS]) return null; try { return JSON.parse(await app.vault.adapter.read(SETTINGS)); } catch (e) { return null; } }
+  async saveData(d) { await app.vault.adapter.write(SETTINGS, JSON.stringify(d, null, 2)); } }
+class ItemView extends Component { constructor(leaf) { super(); this.leaf = leaf; this.app = app; this.contentEl = document.getElementById('content'); } }
+class Modal { constructor(a) { this.app = a; this.container = document.createElement('div'); this.container.className = 'modal-container'; const m = this.container.createDiv('modal'); this.titleEl = m.createDiv('modal-title'); this.contentEl = m.createDiv('modal-content'); } open() { document.body.appendChild(this.container); this.onOpen(); } close() { if (this.onClose) this.onClose(); this.container.remove(); } }
+class SuggestModal extends Modal { setPlaceholder() {} }
+class Notice {
+  constructor(t) {
+    window.notices.push(t);
+    const el = document.createElement('div');
+    el.textContent = t;
+    el.style.cssText = 'position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:100;background:#2e1010;color:#fff9f0;padding:8px 14px;border-radius:6px;font:600 13px Malgun Gothic,sans-serif;box-shadow:0 6px 18px #0006';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+}
+const obsidian = { Plugin, ItemView, Modal, Notice, SuggestModal, PluginSettingTab: class {}, Setting: class {}, TFile, setIcon: () => {} };
+window.addEventListener('error', (e) => { window.err = (window.err || '') + '\n' + e.message + ' @' + e.lineno; });
+(async () => {
+  try {
+    for (const f of await (await fetch('/list')).json()) files.add(f);
+    await Promise.all([...files].filter((p) => p.endsWith('.md')).map(async (p) => {
+      const text = await (await fetch(url(p))).text();
+      notes.set(p, { text, fm: parseFm(text) });
+    }));
+    const src = await (await fetch('/vault/.obsidian/plugins/mn-sekaipan/main.js')).text();
+    const module = { exports: {} };
+    new Function('module', 'exports', 'require', src + '\n//# sourceURL=main.js')(module, module.exports, () => obsidian);
+    const plugin = new module.exports(app, {});
+    await plugin.onload();
+    window.plugin = plugin;
+    window.view = plugin.viewFactory({});
+    await window.view.onOpen();
+    // 시험판: 바로 메러노더 지형 그리기로
+    window.view.switchMap('메러노더 전체', () => {
+      const wait = setInterval(() => {
+        if (window.view.terrain) {
+          clearInterval(wait);
+          window.view.setMode('terrain');
+        }
+      }, 200);
+    });
+    document.title = '세계판 (보관소에 저장됨)';
+    window.ready = true;
+  } catch (e) { window.err = String(e.stack || e); console.error(e); }
+})();
+</script></body></html>

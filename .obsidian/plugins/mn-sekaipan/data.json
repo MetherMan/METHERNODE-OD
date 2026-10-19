@@ -1,0 +1,26 @@
+{
+  "maps": [
+    {
+      "name": "4간구",
+      "path": "The Archive - 자료/4간구.jpg"
+    },
+    {
+      "name": "메러노더 전체",
+      "path": "The Archive - 자료/메러노더.jpg"
+    },
+    {
+      "name": "라하니아",
+      "path": "The Archive - 자료/라하니아.jpg",
+      "parent": "메러노더 전체",
+      "region": "라하니아",
+      "window": [
+        1886.95,
+        885.3,
+        686.1,
+        457.4
+      ]
+    }
+  ],
+  "logFolder": "The Rule - TRPG/기록",
+  "placeFolder": "The Main - 지리"
+}
