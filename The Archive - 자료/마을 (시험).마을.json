@@ -1,0 +1,582 @@
+{
+ "blocks": [
+  {
+   "id": "plaza",
+   "name": "중앙 광장",
+   "g": "#d9cfae",
+   "poly": [
+    [
+     640,
+     350
+    ],
+    [
+     800,
+     290
+    ],
+    [
+     960,
+     350
+    ],
+    [
+     990,
+     520
+    ],
+    [
+     960,
+     650
+    ],
+    [
+     800,
+     710
+    ],
+    [
+     640,
+     650
+    ],
+    [
+     610,
+     520
+    ]
+   ],
+   "items": [
+    {
+     "id": "bbj1026",
+     "kind": "building",
+     "asset": "공공/06 분수 광장.png",
+     "x": 800,
+     "y": 560,
+     "w": 150,
+     "name": "분수 광장",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "3lgf6ac",
+     "kind": "building",
+     "asset": "공공/05 장터 천막.png",
+     "x": 900,
+     "y": 680,
+     "w": 120,
+     "name": "광장 장터",
+     "state": "활기",
+     "story": ""
+    },
+    {
+     "id": "bcnhfic",
+     "kind": "building",
+     "asset": "공공/11 빛 구슬 탑.png",
+     "x": 690,
+     "y": 640,
+     "w": 60,
+     "name": "빛 구슬 탑",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "038ep3w",
+     "kind": "person",
+     "asset": "사람/02 상인.png",
+     "x": 860,
+     "y": 600,
+     "w": 30,
+     "name": "상인",
+     "state": "활기",
+     "story": ""
+    },
+    {
+     "id": "7lm8yw0",
+     "kind": "person",
+     "asset": "사람/09 악사.png",
+     "x": 735,
+     "y": 560,
+     "w": 30,
+     "name": "광장 악사",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "c64u5xo",
+     "kind": "person",
+     "asset": "사람/04 아이.png",
+     "x": 805,
+     "y": 650,
+     "w": 26,
+     "name": "연을 날리는 아이",
+     "state": "평온",
+     "story": ""
+    }
+   ]
+  },
+  {
+   "id": "north",
+   "name": "학당 거리",
+   "g": "#c6c79b",
+   "poly": [
+    [
+     520,
+     80
+    ],
+    [
+     1080,
+     80
+    ],
+    [
+     1010,
+     290
+    ],
+    [
+     590,
+     290
+    ]
+   ],
+   "items": [
+    {
+     "id": "89mrom8",
+     "kind": "building",
+     "asset": "공공/01 돔 학당.png",
+     "x": 690,
+     "y": 250,
+     "w": 150,
+     "name": "돔 학당",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "srbl5pt",
+     "kind": "building",
+     "asset": "공공/02 기둥 회관.png",
+     "x": 910,
+     "y": 250,
+     "w": 150,
+     "name": "기둥 회관",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "xxvl66n",
+     "kind": "building",
+     "asset": "공공/03 둥근 열람탑 도서관.png",
+     "x": 600,
+     "y": 175,
+     "w": 105,
+     "name": "도서관",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "55azzaz",
+     "kind": "building",
+     "asset": "공공/04 천문대.png",
+     "x": 1000,
+     "y": 165,
+     "w": 100,
+     "name": "천문대",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "slif752",
+     "kind": "building",
+     "asset": "집/01 좁은 집.png",
+     "x": 800,
+     "y": 140,
+     "w": 60,
+     "name": "학자의 집",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "816k05t",
+     "kind": "person",
+     "asset": "사람/01 학자.png",
+     "x": 780,
+     "y": 270,
+     "w": 30,
+     "name": "학자",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "35zqxp8",
+     "kind": "person",
+     "asset": "사람/10 기술자.png",
+     "x": 870,
+     "y": 280,
+     "w": 30,
+     "name": "기술자",
+     "state": "평온",
+     "story": ""
+    }
+   ]
+  },
+  {
+   "id": "west",
+   "name": "서쪽 주거",
+   "g": "#c9c49a",
+   "poly": [
+    [
+     80,
+     180
+    ],
+    [
+     500,
+     180
+    ],
+    [
+     560,
+     330
+    ],
+    [
+     560,
+     700
+    ],
+    [
+     80,
+     790
+    ]
+   ],
+   "items": [
+    {
+     "id": "csiya9o",
+     "kind": "building",
+     "asset": "집/02 연립 주택.png",
+     "x": 210,
+     "y": 330,
+     "w": 120,
+     "name": "연립 주택",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "tc7d46s",
+     "kind": "building",
+     "asset": "집/03 정원 딸린 모퉁이 집.png",
+     "x": 400,
+     "y": 330,
+     "w": 100,
+     "name": "모퉁이 집",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "zzvx6l3",
+     "kind": "building",
+     "asset": "집/08 4층 공동주택.png",
+     "x": 160,
+     "y": 520,
+     "w": 85,
+     "name": "공동주택",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "0vm3pi8",
+     "kind": "building",
+     "asset": "집/05 차양 가게.png",
+     "x": 320,
+     "y": 500,
+     "w": 95,
+     "name": "차양 가게",
+     "state": "활기",
+     "story": ""
+    },
+    {
+     "id": "9kwc00u",
+     "kind": "building",
+     "asset": "집/06 굴뚝 공방.png",
+     "x": 470,
+     "y": 520,
+     "w": 95,
+     "name": "굴뚝 공방",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "q3w8gc2",
+     "kind": "building",
+     "asset": "집/04 안뜰 저택.png",
+     "x": 260,
+     "y": 700,
+     "w": 120,
+     "name": "안뜰 저택",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "nuq86id",
+     "kind": "building",
+     "asset": "자연/01 둥근 나무 1.png",
+     "x": 480,
+     "y": 650,
+     "w": 55,
+     "name": "나무",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "lruijgt",
+     "kind": "building",
+     "asset": "자연/08 사이프러스.png",
+     "x": 110,
+     "y": 690,
+     "w": 28,
+     "name": "사이프러스",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "n9ttci4",
+     "kind": "person",
+     "asset": "사람/06 빵집 주인.png",
+     "x": 360,
+     "y": 560,
+     "w": 30,
+     "name": "빵집 주인",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "vsok9kr",
+     "kind": "person",
+     "asset": "사람/05 노인.png",
+     "x": 230,
+     "y": 590,
+     "w": 30,
+     "name": "지팡이 노인",
+     "state": "근심",
+     "story": ""
+    }
+   ]
+  },
+  {
+   "id": "east",
+   "name": "강변",
+   "g": "#c3c69c",
+   "poly": [
+    [
+     1100,
+     120
+    ],
+    [
+     1520,
+     120
+    ],
+    [
+     1520,
+     870
+    ],
+    [
+     1050,
+     700
+    ],
+    [
+     1050,
+     330
+    ]
+   ],
+   "items": [
+    {
+     "id": "mbi845j",
+     "kind": "building",
+     "asset": "집/07 발코니 여관.png",
+     "x": 1180,
+     "y": 330,
+     "w": 110,
+     "name": "발코니 여관",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "zcn3ywu",
+     "kind": "building",
+     "asset": "집/10 긴 창고.png",
+     "x": 1400,
+     "y": 300,
+     "w": 140,
+     "name": "긴 창고",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "cpcugfv",
+     "kind": "building",
+     "asset": "공공/09 목욕장.png",
+     "x": 1200,
+     "y": 560,
+     "w": 140,
+     "name": "목욕장",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "t02mlxw",
+     "kind": "building",
+     "asset": "집/09 작은 탑집.png",
+     "x": 1440,
+     "y": 520,
+     "w": 55,
+     "name": "탑집",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "2tvd667",
+     "kind": "building",
+     "asset": "공공/08 의례 아치문.png",
+     "x": 1350,
+     "y": 700,
+     "w": 90,
+     "name": "의례 아치문",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "0isb6xt",
+     "kind": "building",
+     "asset": "자연/05 침엽수 1.png",
+     "x": 1480,
+     "y": 820,
+     "w": 50,
+     "name": "침엽수",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "mb5qnvn",
+     "kind": "person",
+     "asset": "사람/11 나그네.png",
+     "x": 1300,
+     "y": 600,
+     "w": 30,
+     "name": "나그네",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "7bru06x",
+     "kind": "person",
+     "asset": "사람/03 경비.png",
+     "x": 1240,
+     "y": 690,
+     "w": 30,
+     "name": "경비",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "wdijd2s",
+     "kind": "person",
+     "asset": "사람/08 전령.png",
+     "x": 1390,
+     "y": 420,
+     "w": 30,
+     "name": "전령",
+     "state": "분주",
+     "story": ""
+    }
+   ]
+  },
+  {
+   "id": "south",
+   "name": "정원 마을",
+   "g": "#bcc794",
+   "poly": [
+    [
+     590,
+     760
+    ],
+    [
+     1010,
+     760
+    ],
+    [
+     1090,
+     950
+    ],
+    [
+     510,
+     950
+    ]
+   ],
+   "items": [
+    {
+     "id": "rv3hjdb",
+     "kind": "building",
+     "asset": "공공/12 유리 온실.png",
+     "x": 680,
+     "y": 900,
+     "w": 140,
+     "name": "유리 온실",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "dfp8fm5",
+     "kind": "building",
+     "asset": "자연/11 작은 연못.png",
+     "x": 870,
+     "y": 900,
+     "w": 95,
+     "name": "연못",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "53stmr6",
+     "kind": "building",
+     "asset": "자연/03 버드나무.png",
+     "x": 980,
+     "y": 880,
+     "w": 70,
+     "name": "버드나무",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "ri3v1d1",
+     "kind": "building",
+     "asset": "자연/10 꽃밭.png",
+     "x": 790,
+     "y": 840,
+     "w": 70,
+     "name": "꽃밭",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "7973x5f",
+     "kind": "building",
+     "asset": "자연/12 돌 벤치와 등.png",
+     "x": 950,
+     "y": 935,
+     "w": 45,
+     "name": "벤치",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "0rzat2v",
+     "kind": "person",
+     "asset": "사람/07 정원사.png",
+     "x": 820,
+     "y": 905,
+     "w": 30,
+     "name": "정원사",
+     "state": "평온",
+     "story": ""
+    },
+    {
+     "id": "eh2s6er",
+     "kind": "person",
+     "asset": "사람/12 양산을 든 숙녀.png",
+     "x": 900,
+     "y": 840,
+     "w": 30,
+     "name": "양산을 든 숙녀",
+     "state": "평온",
+     "story": ""
+    }
+   ]
+  }
+ ]
+}

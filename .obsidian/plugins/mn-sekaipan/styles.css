@@ -886,3 +886,30 @@
 /* 판이 있는 지역 표식: 누르면 그 판으로 들어감 */
 .mnsk-place.has-map { cursor: zoom-in; }
 .mnsk.is-stamp .mnsk-place.has-map { cursor: move; }
+
+/* ---------- 배치: 산 · 언덕 · 강 · 길 ---------- */
+.mnsk-terr-sw.is-river { background: rgb(69, 109, 114); border-radius: 2px; height: 4px; align-self: center; }
+.mnsk-terr-sw.is-road { background: repeating-linear-gradient(90deg, rgb(116, 66, 44) 0 5px, transparent 5px 8px); height: 3px; align-self: center; }
+.mnsk-rg.is-line.is-river { stroke: rgb(46, 82, 86); }
+.mnsk-rg.is-line.is-road { stroke: rgb(116, 66, 44); stroke-dasharray: calc(6px * var(--inv)) calc(4px * var(--inv)); }
+.mnsk-mk-sel { fill: rgba(244, 164, 96, 0.12); stroke: #c0643c; stroke-width: calc(1.5px * var(--inv)); stroke-dasharray: calc(4px * var(--inv)) calc(3px * var(--inv)); }
+
+/* 건물(표식: 건물): 그림이 지도와 같이 커지고 작아짐, 이름표는 밑동 아래 */
+.mnsk-bicon { position: absolute; left: 0; top: 0; max-width: none !important; transform: translate(-50%, -90%); cursor: pointer; filter: drop-shadow(0 2px 3px rgba(40, 20, 10, 0.35)); }
+.mnsk-bicon:hover { filter: drop-shadow(0 0 6px rgba(244, 164, 96, 0.9)); }
+.mnsk-place.is-building { left: 0; top: 0; transform: translate(-50%, 6px); }
+.mnsk-place.is-building .mnsk-place-dot { display: none; }
+.mnsk-place.is-building .mnsk-place-name { font-size: 13px; }
+
+/* ---------- 스케치 ---------- */
+.mnsk-sketch { image-rendering: auto; }
+.mnsk.is-sketch .mnsk-stage { cursor: crosshair; }
+.mnsk.is-sketch .mnsk-stage.is-pan-ready,
+.mnsk.is-sketch .mnsk-stage.is-panning { cursor: grab; }
+.mnsk.is-sketch .mnsk-pins { pointer-events: none; opacity: 0.35; }
+.mnsk-sk-ink { display: flex; align-items: center; gap: 6px; justify-content: flex-start; padding-left: 8px; }
+.mnsk-sk-sw { width: 12px; height: 12px; border-radius: 3px; flex: none; box-shadow: 0 0 0 1px rgba(60, 40, 30, 0.35); }
+.mnsk-sk-sw.is-erase { background: repeating-linear-gradient(45deg, #fff 0 3px, #d9cbb3 3px 6px); }
+.mnsk-sk-note { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: 12.5px; padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(92, 62, 40, 0.3); background: #fffaf2; margin-bottom: 8px; }
+.mnsk-sk-cand { margin-bottom: 10px; }
+.mnsk-sk-cand img { width: 100%; border-radius: 6px; box-shadow: 0 1px 4px rgba(40, 20, 10, 0.25); display: block; margin-bottom: 4px; }

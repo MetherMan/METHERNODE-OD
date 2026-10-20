@@ -74,7 +74,7 @@ const app = {
     cachedRead: async (f) => (notes.get(f.path) || {}).text || '',
     process: async (f, fn) => { const t = fn((notes.get(f.path) || {}).text || ''); await putNote(f.path, t); return t; },
     adapter: {
-      exists: async (p) => files.has(p) || !!written[p],
+      exists: async (p) => files.has(p) || !!written[p] || (await fetch(url(p), { method: 'HEAD' }).then((r) => r.ok, () => false)),
       read: async (p) => (written[p] != null ? written[p] : (await fetch(url(p))).text()),
       write: async (p, data) => { written[p] = data; await fetch('/save?name=' + encodeURIComponent(p), { method: 'POST', body: data }); },
       writeBinary: async (p, buf) => { written[p] = '[binary]'; await fetch('/save?name=' + encodeURIComponent(p), { method: 'POST', body: buf }); window.lastBinary = p; },

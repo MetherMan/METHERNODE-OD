@@ -2,7 +2,7 @@
 /*
  * MN 세계판 v0.5 (땅 칠하기 · 자동 경계 · 지형 그리기 · 판 타고 들어가기)
  * 노트 속성이 곧 데이터예요. 따로 저장하는 파일이 없어요.
- *   지역: 분류: 지역, 지도: 4간구, 좌표: [x, y] (그 지도 그림의 픽셀 위치), 표식: 영역 (넓은 땅 이름표) | 수도 (별 표식)
+ *   지역: 분류: 지역, 지도: 4간구, 좌표: [x, y] (그 지도 그림의 픽셀 위치), 표식: 영역 (넓은 땅 이름표) | 수도 (별 표식) | 건물 (그림: 건물 그림, 크기: 지도 px 폭)
  *   인물: 분류: 인물, 위치: "[[지역]]", 하는 일, 시점, 초상: "[[그림]]"
  * 지도는 여러 장을 둘 수 있어요(설정). 지역의 `지도`가 없으면 첫 번째 지도에 올라가요.
  * 인물을 다른 지역으로 옮기면 위치 속성을 고치고, 기록 폴더의 오늘 노트에 한 줄 남겨요.
@@ -953,7 +953,12 @@ function detailPts(r) {
   return out;
 }
 
-const isLine = (r) => r && r.type === 'trench';
+const isTrench = (r) => r && r.type === 'trench';
+const isRiver = (r) => r && r.type === 'river';
+const isRoad = (r) => r && r.type === 'road';
+const isLine = (r) => isTrench(r) || isRiver(r) || isRoad(r); // 점을 이어 긋는 것 (닫지 않음)
+/** 선 종류별로 저장할 값 */
+const lineFields = (r) => (isTrench(r) ? { type: 'trench', w0: r.w0, w1: r.w1 } : isRiver(r) ? { type: 'river', w0: r.w0, w1: r.w1 } : isRoad(r) ? { type: 'road' } : {});
 const isWreck = (r) => r && r.type === 'wreck';
 const isPlace = (r) => r && !r.type; // 땅을 만드는 보통 영역
 
@@ -968,6 +973,237 @@ function drawWreck(ctx, r, seed, lines) {
   ctx.strokeStyle = `rgba(92,70,52,${0.42 * (1 - 0.4 * heal)})`;
   ctx.lineWidth = 3;
   ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ---------- 배치: 산 · 언덕 · 강 · 길 (4간구 지도 양식) ---------- */
+const MK = {
+  INK: 'rgba(92,62,40,0.95)',
+  HATCH: 'rgba(92,62,40,0.8)',
+  FILL: 'rgb(247,239,219)',
+  GLOW: 'rgba(250,244,229,0.6)',
+  RIVER: 'rgb(69,109,114)',
+  RIVER_EDGE: 'rgba(46,82,86,0.9)',
+  ROAD: 'rgba(98,56,36,0.95)',
+  ROAD_HALO: 'rgba(247,239,219,0.75)',
+};
+
+/** 표식 하나의 씨앗 (자리로 정해져서 다시 그려도 같은 모양) */
+function markRnd(m) {
+  const h0 = hashInt(hashInt(Math.round(m.x * 10), Math.round(m.y * 10)), m.k === 'hill' ? 7 : 3);
+  return (i) => hashInt(h0, i) / 4294967296;
+}
+
+/** 산 하나: 오목한 두 변의 뾰족한 봉우리 + 오른쪽 세로 빗금 + 밑동의 밝은 띠 (x, y = 밑 가운데, s = 높이) */
+function drawMountain(ctx, m) {
+  const rnd = markRnd(m);
+  const h = m.s;
+  const w = h * (0.84 + 0.16 * rnd(1));
+  const x = m.x;
+  const y = m.y;
+  const px = x + (rnd(2) - 0.4) * 0.14 * w;
+  const py = y - h;
+  const lx = x - w / 2;
+  const rx = x + w / 2;
+  const lc = [x - w * 0.16, y - h * 0.34]; // 왼 변 조절점 (안으로 오목)
+  const rc = [x + w * 0.15, y - h * 0.32];
+  const lw = clamp(h * 0.05, 1.1, 4);
+  ctx.save();
+  // 밑동의 밝은 띠
+  ctx.fillStyle = MK.GLOW;
+  ctx.beginPath();
+  ctx.ellipse(x + w * 0.05, y - h * 0.03, w * 0.66, Math.max(1.5, h * 0.075), 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 몸통
+  const body = () => {
+    ctx.beginPath();
+    ctx.moveTo(lx, y);
+    ctx.quadraticCurveTo(lc[0], lc[1], px, py);
+    ctx.quadraticCurveTo(rc[0], rc[1], rx, y);
+  };
+  body();
+  ctx.closePath();
+  ctx.fillStyle = MK.FILL;
+  ctx.fill();
+  // 오른쪽 빗금: 오른 변에 매달린 세로 획, 바깥으로 갈수록 짧게
+  const q = (t) => {
+    const u = 1 - t;
+    return [u * u * px + 2 * u * t * rc[0] + t * t * rx, u * u * py + 2 * u * t * rc[1] + t * t * y];
+  };
+  const n = h < 24 ? 3 : h < 44 ? 4 : 5;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const t = 0.12 + (0.72 * (i + 0.3 * rnd(10 + i))) / n;
+    const [ex, ey] = q(t);
+    const sx = ex - lw * 1.1; // 변 바로 안쪽
+    const len = h * (0.5 - 0.32 * (i / n)) * (0.85 + 0.3 * rnd(20 + i));
+    const ey2 = Math.min(y - lw, ey + len);
+    if (ey2 <= ey + lw) continue;
+    ctx.moveTo(sx, ey + lw * 0.8);
+    ctx.lineTo(sx - len * 0.06, ey2);
+  }
+  ctx.strokeStyle = MK.HATCH;
+  ctx.lineWidth = lw * 0.6;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  // 먹선 + 오른쪽 밑 짧은 가로 획
+  body();
+  ctx.moveTo(rx - w * 0.06, y);
+  ctx.lineTo(rx + w * 0.16, y);
+  ctx.strokeStyle = MK.INK;
+  ctx.lineWidth = lw;
+  ctx.lineJoin = 'miter';
+  ctx.miterLimit = 12;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 언덕 하나: 낮은 활 모양 먹선 (s = 폭) */
+function drawHill(ctx, m) {
+  const rnd = markRnd(m);
+  const w = m.s * (1.0 + 0.25 * rnd(1));
+  const hh = m.s * (0.2 + 0.06 * rnd(2));
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(m.x - w / 2, m.y);
+  ctx.quadraticCurveTo(m.x + (rnd(3) - 0.5) * w * 0.2, m.y - hh * 2, m.x + w / 2, m.y + hh * 0.15);
+  ctx.strokeStyle = MK.INK;
+  ctx.lineWidth = clamp(m.s * 0.07, 1.1, 3.5);
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 스케치 붓: [종류, 이름, 색, 굵기 배율] — Codex 에게 보낼 때 이 색의 뜻을 같이 알려 줌 */
+const SKETCH_INKS = [
+  ['urban', '시가지', '#e2b98f', 1],
+  ['water', '물', '#4f86a6', 1],
+  ['park', '공원 · 숲', '#7fa45a', 1],
+  ['road', '큰길', '#6b4a30', 0.3],
+  ['mark', '중심 · 명소', '#c0443c', 0.7],
+  ['erase', '지우개', null, 1],
+];
+
+/** 산 기호 그림 묶음: 폴더 이름 → 불러온 그림들 (세계판이 The Archive - 자료/기호/산 에서 채움) */
+const STAMPS = {};
+const STAMP_DIR = 'The Archive - 자료/기호/산';
+const BIG = '큰 산';
+const SMALL = '작은 산';
+
+/** 산 하나의 묶음: 놓을 때 정해 둔 것(st), 없으면 자리로 정함 */
+function stampSetOf(m) {
+  const names = Object.keys(STAMPS).filter((k) => STAMPS[k].length);
+  if (!names.length) return null;
+  if (m.st && STAMPS[m.st] && STAMPS[m.st].length) return STAMPS[m.st];
+  const pick = markRnd(m)(41) < 0.3 ? BIG : SMALL;
+  return STAMPS[pick] && STAMPS[pick].length ? STAMPS[pick] : STAMPS[names[0]];
+}
+
+/** 그림 기호로 산 하나: 아래 가운데가 밑동, 폭 = 크기의 1.5배 */
+function drawStamp(ctx, m, set) {
+  const im = set[Math.floor(markRnd(m)(31) * set.length)];
+  const tw = m.s * 1.5;
+  const th = (im.height * tw) / im.width;
+  ctx.drawImage(im, m.x - tw / 2, m.y - th, tw, th);
+}
+
+function drawMark(ctx, m) {
+  if (m.k === 'hill') return drawHill(ctx, m);
+  const set = stampSetOf(m);
+  if (set) drawStamp(ctx, m, set);
+  else drawMountain(ctx, m);
+}
+
+/** 찍은 점들을 지나는 부드러운 선 (캣멀롬). step: 점 사이 간격(지도 px) */
+function smoothLine(pts, step) {
+  if (pts.length < 2) return pts.map((p) => p.slice());
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const n = Math.max(2, Math.ceil(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / step));
+    for (let j = 0; j < n; j++) {
+      const t = j / n;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      out.push([0, 1].map((k) => 0.5 * (2 * p1[k] + (p2[k] - p0[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (3 * p1[k] - p0[k] - 3 * p2[k] + p3[k]) * t3)));
+    }
+  }
+  out.push(pts[pts.length - 1].slice());
+  return out;
+}
+
+/** 강 하나: 발원지(첫 점, w0)에서 하구(끝 점, w1)로 굵어지는 물길. 잔잔한 굽이 */
+function drawRiver(ctx, r, seed) {
+  const base = smoothLine(r.pts, 6);
+  if (base.length < 2) return;
+  const w0 = r.w0 == null ? 3 : r.w0;
+  const w1 = r.w1 == null ? 12 : r.w1;
+  const len = [0];
+  for (let i = 1; i < base.length; i++) len.push(len[i - 1] + Math.hypot(base[i][0] - base[i - 1][0], base[i][1] - base[i - 1][1]));
+  const total = len[len.length - 1] || 1;
+  const ph1 = (hashInt(seed, 1) / 4294967296) * Math.PI * 2;
+  const ph2 = (hashInt(seed, 2) / 4294967296) * Math.PI * 2;
+  const L = [];
+  const R = [];
+  base.forEach((p, i) => {
+    const a = base[Math.max(0, i - 1)];
+    const b = base[Math.min(base.length - 1, i + 1)];
+    let nx = a[1] - b[1];
+    let ny = b[0] - a[0];
+    const nl = Math.hypot(nx, ny) || 1;
+    nx /= nl;
+    ny /= nl;
+    const t = len[i] / total;
+    const wv = w0 + (w1 - w0) * t;
+    const amp = (2 + wv * 1.2) * Math.min(1, t * 8, (1 - t) * 8); // 두 끝은 찍은 자리 그대로
+    const o = amp * (Math.sin(len[i] / 37 + ph1) * 0.6 + Math.sin(len[i] / 13 + ph2) * 0.25);
+    const cx = p[0] + nx * o;
+    const cy = p[1] + ny * o;
+    L.push([cx + (nx * wv) / 2, cy + (ny * wv) / 2]);
+    R.push([cx - (nx * wv) / 2, cy - (ny * wv) / 2]);
+  });
+  ctx.save();
+  ctx.beginPath();
+  L.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  for (let i = R.length - 1; i >= 0; i--) ctx.lineTo(R[i][0], R[i][1]);
+  ctx.closePath();
+  ctx.fillStyle = MK.RIVER;
+  ctx.fill();
+  ctx.strokeStyle = MK.RIVER_EDGE;
+  ctx.lineWidth = 0.9;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(base[0][0], base[0][1], Math.max(0.6, w0 / 2), 0, Math.PI * 2);
+  ctx.fillStyle = MK.RIVER;
+  ctx.fill();
+  ctx.restore();
+}
+
+/** 길 하나: 옅은 테두리 위 끊긴 먹선 */
+function drawRoad(ctx, r) {
+  const pts = smoothLine(r.pts, 8);
+  if (pts.length < 2) return;
+  const path = () => {
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  };
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  path();
+  ctx.strokeStyle = MK.ROAD_HALO;
+  ctx.lineWidth = 7.5;
+  ctx.stroke();
+  path();
+  ctx.setLineDash([16, 9]);
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = MK.ROAD;
+  ctx.lineWidth = 3.2;
   ctx.stroke();
   ctx.restore();
 }
@@ -1092,7 +1328,8 @@ class Terrain {
     this.title = '';
     this.subtitle = '세 계  전 도'; // 제목판 아래 글 (판이면 지역 지도)
     this.output = ''; // 지도 그림으로 구울 경로 (비면 지금 지도 그림)
-    this.inherited = []; // 위 판에서 내려온 자국 (이 판 좌표로 바꾼 것, 그리기만)
+    this.inherited = []; // 위 판에서 내려온 선(자국 · 강 · 길) (이 판 좌표로 바꾼 것, 그리기만)
+    this.marks = []; // 배치한 산 · 언덕 { k: 'mtn' | 'hill', x, y (밑 가운데), s (크기) }
     this.cache = null; // 잡음 장 (씨앗이 같으면 다시 안 만듦)
   }
 
@@ -1113,7 +1350,12 @@ class Terrain {
       ...(Number(r.detail) > 0 ? { detail: Number(r.detail) } : {}),
       ...(r.type === 'trench' ? { type: 'trench', w0: Number(r.w0) || 8, w1: Number.isFinite(Number(r.w1)) ? Number(r.w1) : 1 } : {}),
       ...(r.type === 'wreck' ? { type: 'wreck', heal: clamp(Number(r.heal) || 0, 0, 1) } : {}),
+      ...(r.type === 'river' ? { type: 'river', w0: Number.isFinite(Number(r.w0)) ? Number(r.w0) : 3, w1: Number.isFinite(Number(r.w1)) ? Number(r.w1) : 12 } : {}),
+      ...(r.type === 'road' ? { type: 'road' } : {}),
     }));
+    T.marks = (o.marks || [])
+      .filter((m) => m && (m.k === 'mtn' || m.k === 'hill') && Number.isFinite(Number(m.x)) && Number.isFinite(Number(m.y)))
+      .map((m) => ({ k: m.k, x: Number(m.x), y: Number(m.y), s: Number(m.s) > 0 ? Number(m.s) : 40, ...(typeof m.st === 'string' && m.st ? { st: m.st } : {}) }));
     if (Number.isFinite(o.seed)) T.seed = o.seed;
     if (Number.isFinite(o.coast)) T.coast = o.coast;
     if (typeof o.isles === 'boolean') T.isles = o.isles;
@@ -1149,9 +1391,10 @@ class Terrain {
         name: r.name,
         pts: r.pts.map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10]),
         ...(r.detail ? { detail: r.detail } : {}),
-        ...(isLine(r) ? { type: 'trench', w0: r.w0, w1: r.w1 } : {}),
+        ...lineFields(r),
         ...(isWreck(r) ? { type: 'wreck', heal: r.heal || 0 } : {}),
       })),
+      marks: this.marks.map((m) => ({ k: m.k, x: Math.round(m.x * 10) / 10, y: Math.round(m.y * 10) / 10, s: Math.round(m.s * 10) / 10, ...(m.st ? { st: m.st } : {}) })),
     };
   }
 
@@ -1252,12 +1495,21 @@ class Terrain {
         L.cover[y * w2 + x] = this.cover[p] || this.cover[q] ? 1 : 0;
       }
     }
-    Object.assign(L, { regions: this.regions, inherited: this.inherited, seed: this.seed, coast: this.coast, isles: this.isles, deco: this.deco, title: this.title, subtitle: this.subtitle });
+    Object.assign(L, { regions: this.regions, inherited: this.inherited, marks: this.marks, seed: this.seed, coast: this.coast, isles: this.isles, deco: this.deco, title: this.title, subtitle: this.subtitle });
     return L;
   }
 
   /** 지도 크기(W×H) 캔버스에 완성 지도를 그림 */
-  render(canvas) {
+  /** 산 · 언덕만 따로 (투명한 겹, 지도 크기) */
+  renderMarks(canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const m of [...(this.marks || [])].sort((a, b) => a.y - b.y)) drawMark(ctx, m);
+  }
+
+  /** opts.marks === false 면 산 · 언덕은 빼고 (편집 중에는 따로 된 겹에 그려요) */
+  render(canvas, opts = {}) {
     const { w, h, scale: s } = this;
     const N = w * h;
     const W = canvas.width;
@@ -1620,6 +1872,12 @@ class Terrain {
     }
     // 자국(골)들: 위 판에서 내려온 것도 같이
     const lines = [...this.inherited, ...this.regions.filter(isLine)].filter((r) => r.pts.length >= 2);
+    // 7a-1) 강: 발원지에서 하구로 굵어지는 물길 (땅 위에만, 영역 속 위 · 경계선 아래, 위 판에서 내려온 것도)
+    for (const r of [...this.inherited, ...this.regions].filter(isRiver)) {
+      if (r.pts.length < 2) continue;
+      const seed = [...r.name].reduce((hh, ch) => hashInt(hh, ch.codePointAt(0)), 31);
+      onLand(r.pts, Math.max(r.w0 || 3, r.w1 || 12) * 2 + 30, (c) => drawRiver(c, r, seed));
+    }
     // 7b) 재해 지대: 땅의 생김새는 그대로, 겉이 쓸려 나간 자리 (땅 위에만)
     for (const r of this.regions.filter(isWreck)) {
       if (r.pts.length < 3) continue;
@@ -1647,11 +1905,16 @@ class Terrain {
     ctx.lineJoin = 'round';
 
     // 7-1) 자국(골): 땅 위에만, 영역 위에 (재해 자국이 경계를 가로질러요)
-    for (const r of lines) {
+    for (const r of lines.filter(isTrench)) {
       const pad = Math.max(r.w0 || 8, r.w1 || 1) * 1.6 + 12;
       const seed = [...r.name].reduce((hh, ch) => hashInt(hh, ch.codePointAt(0)), 11);
       onLand(r.pts, pad, (c) => drawTrench(c, r, seed));
     }
+
+    // 7-2) 길
+    for (const r of [...this.inherited, ...this.regions].filter(isRoad)) if (r.pts.length >= 2) drawRoad(ctx, r);
+    // 7-3) 산 · 언덕: 뒤(위)에서 앞(아래)으로
+    if (opts.marks !== false) for (const m of [...(this.marks || [])].sort((a, b) => a.y - b.y)) drawMark(ctx, m);
 
     // 8) 테두리 · 나침반 · 제목판
     if (this.deco) drawDeco(ctx, W, H, this.title, this.subtitle);
@@ -1778,7 +2041,16 @@ class SekaipanPlugin extends Plugin {
       if (!fm) continue;
       const base = { file, name: file.basename, aliases: asArray(fm.aliases).map(String), fm };
       if (fm['분류'] === KIND.place) {
-        places.push({ ...base, kind: 'place', xy: coords(fm['좌표']), map: this.mapOf(fm), area: fm['표식'] === '영역', capital: fm['표식'] === '수도' });
+        const pl = { ...base, kind: 'place', xy: coords(fm['좌표']), map: this.mapOf(fm), area: fm['표식'] === '영역', capital: fm['표식'] === '수도' };
+        // 건물: 그림을 지도 위 제자리에 지도 크기대로 (링크 [[그림]] 또는 보관소 경로)
+        if (fm['표식'] === '건물' && fm['그림']) {
+          const raw = String(fm['그림']);
+          const lp = linkpath(raw);
+          const f = lp ? metadataCache.getFirstLinkpathDest(lp, file.path) : null;
+          pl.icon = f ? vault.getResourcePath(f) : /[\/]/.test(raw) ? vault.adapter.getResourcePath(raw.replace(/^"|"$/g, '')) : null;
+          pl.iconW = Number(fm['크기']) > 0 ? Number(fm['크기']) : 300;
+        }
+        places.push(pl);
       } else if (fm['분류'] === KIND.person) people.push({ ...base, kind: 'person' });
     }
     const placeByPath = new Map(places.map((p) => [p.file.path, p]));
@@ -1893,7 +2165,8 @@ class SekaiView extends ItemView {
     // 지형 그리기
     this.terrain = null; // 지금 지도의 Terrain
     this.terrainPath = null;
-    this.tool = { kind: 'land', radius: 40 }; // land | sea | forest | unforest | region, radius: 지도 px
+    this.tool = { kind: 'land', radius: 40, markSize: {} }; // land | sea | forest | unforest | region | zoom | mtn | hill | pick, radius: 지도 px
+    this.markSel = -1; // 고르기로 고른 산 · 언덕
     this.tundo = [];
     this.regionSel = -1; // 고르고 있는 영역
     this.draft = null; // 새로 그리는 영역 { name, pts }
@@ -1921,6 +2194,9 @@ class SekaiView extends ItemView {
     this.layer = this.stage.createDiv({ cls: 'mnsk-layer' });
     this.mapImg = this.layer.createEl('img', { cls: 'mnsk-map', attr: { draggable: 'false', alt: '' } });
     this.terrainCanvas = this.layer.createEl('canvas', { cls: 'mnsk-terrain is-hidden' });
+    this.markCanvas = this.layer.createEl('canvas', { cls: 'mnsk-terrain mnsk-marks is-hidden' }); // 산 · 언덕 (지형과 따로)
+    this.sketchCanvas = this.layer.createEl('canvas', { cls: 'mnsk-terrain mnsk-sketch is-hidden' }); // 스케치 (지도 크기의 절반)
+    this.sketch = { ink: 'urban', radius: 60, alpha: 0.8, note: '', busy: false, cands: [], undo: [] };
     this.underImg = this.layer.createEl('img', { cls: 'mnsk-under is-hidden', attr: { draggable: 'false', alt: '' } });
     this.landCanvas = this.layer.createEl('canvas', { cls: 'mnsk-lands' });
     this.previewCanvas = this.layer.createEl('canvas', { cls: 'mnsk-lands-preview' });
@@ -1969,22 +2245,28 @@ class SekaiView extends ItemView {
         if (terrain && this.draft) this.cancelDraft();
         else this.cancelModes();
       }
-      if ((this.mode !== 'paint' && !terrain) || e.target instanceof HTMLInputElement) return;
+      if ((this.mode !== 'paint' && this.mode !== 'sketch' && !terrain) || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const sketching = this.mode === 'sketch';
       if (e.key === ' ') {
         this.spaceDown = true;
         this.stage.addClass('is-pan-ready');
         e.preventDefault();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         if (terrain) this.undoTerrain();
+        else if (sketching) this.undoSketch();
         else this.undoPaint();
         e.preventDefault();
       } else if (e.key === '[' || e.key === ']') {
         const k = e.key === ']' ? 1.2 : 1 / 1.2;
         if (terrain) this.tool.radius = clamp(this.tool.radius * k, 4, 400);
+        else if (sketching) this.sketch.radius = clamp(this.sketch.radius * k, 4, 600);
         else this.brush.radius = clamp(this.brush.radius * k, 8, 400);
         this.renderPaintPanel();
       } else if (terrain && this.draft && e.key === 'Enter') {
         this.finishDraft();
+        e.preventDefault();
+      } else if (terrain && !this.draft && this.tool.kind === 'pick' && this.markSel >= 0 && (e.key === 'Delete' || e.key === 'Backspace')) {
+        this.deleteMark(this.markSel);
         e.preventDefault();
       } else if (terrain && this.draft && e.key === 'Backspace') {
         this.draft.pts.pop();
@@ -2054,7 +2336,9 @@ class SekaiView extends ItemView {
 
   /* ---------- 땅 나누기 ---------- */
 
+  /** 땅 나누기 자료: 지도에 따로 적어 둔 곳(lands)이 있으면 거기, 없으면 지도 그림 이름 옆 */
   landsPathOf(map) {
+    if (map.lands) return map.lands;
     return map.path.replace(/\.[^./]+$/, '').replace(/\.지형$/, '') + '.영역.json';
   }
 
@@ -2214,7 +2498,17 @@ class SekaiView extends ItemView {
 
   moveBrushRing(e) {
     const ring = this.brushRing;
-    const tb = this.mode === 'terrain' && this.terrain && this.tool.kind !== 'region' && this.tool.kind !== 'zoom';
+    const tb = this.mode === 'terrain' && this.terrain && this.tool.kind !== 'region' && this.tool.kind !== 'zoom' && this.tool.kind !== 'pick';
+    if (this.mode === 'sketch' && this.W) {
+      const r0 = this.stage.getBoundingClientRect();
+      const d0 = this.sketchWidth() * this.s;
+      ring.removeClass('is-hidden');
+      ring.toggleClass('is-erase', this.sketch.ink === 'erase');
+      ring.style.width = ring.style.height = `${d0}px`;
+      ring.style.left = `${e.clientX - r0.left - d0 / 2}px`;
+      ring.style.top = `${e.clientY - r0.top - d0 / 2}px`;
+      return;
+    }
     if (!tb && (this.mode !== 'paint' || !this.lands)) {
       ring.addClass('is-hidden');
       return;
@@ -2231,6 +2525,10 @@ class SekaiView extends ItemView {
   renderPaintPanel() {
     if (this.mode === 'terrain') {
       this.renderTerrainPanel();
+      return;
+    }
+    if (this.mode === 'sketch') {
+      this.renderSketchPanel();
       return;
     }
     const P = this.paintPanel;
@@ -2360,6 +2658,7 @@ class SekaiView extends ItemView {
   }
 
   switchMap(name, after) {
+    if (this.mode === 'sketch' && name !== this.mapName) this.setMode('view'); // 스케치는 판마다 따로: 판을 바꾸면 스케치에서 나옴
     if (name === this.mapName && this.W) {
       if (after) after();
       return;
@@ -2671,6 +2970,7 @@ class SekaiView extends ItemView {
   /* ---------- 지형 그리기 ---------- */
 
   terrainPathOf(map) {
+    if (map.terrain) return map.terrain;
     return map.path.replace(/\.[^./]+$/, '').replace(/\.지형$/, '') + '.지형.json';
   }
 
@@ -2729,10 +3029,9 @@ class SekaiView extends ItemView {
     const k = childW / ww;
     return [...up, ...P.regions.filter(isLine)].map((r) => ({
       name: r.name,
-      type: 'trench',
+      type: r.type,
       pts: r.pts.map(([x, y]) => [(x - x0) * k, (y - y0) * k]),
-      w0: (r.w0 || 8) * k,
-      w1: (r.w1 == null ? 1 : r.w1) * k,
+      ...(isRoad(r) ? {} : { w0: (r.w0 || (isRiver(r) ? 3 : 8)) * k, w1: (r.w1 == null ? (isRiver(r) ? 12 : 1) : r.w1) * k }),
     }));
   }
 
@@ -2777,7 +3076,10 @@ class SekaiView extends ItemView {
   showTerrainLayer() {
     const on = this.mode === 'terrain' && !!this.terrain;
     this.terrainCanvas.toggleClass('is-hidden', !on);
+    this.markCanvas.toggleClass('is-hidden', !on);
+    if (on) this.loadStamps();
     if (on && !this.terrainShown) this.renderTerrain(false);
+    else if (on) this.renderMarks();
     this.updateUnderlay();
     this.renderRegionSvg();
   }
@@ -2795,9 +3097,14 @@ class SekaiView extends ItemView {
     cv.style.height = `${this.H}px`;
     clearTimeout(this.tRenderTimer);
     this.setBusy(true);
-    this.tRenderTimer = setTimeout(() => {
+    this.tRenderTimer = setTimeout(async () => {
+      if ((await this.terrainWorker()) && !this.twBroken) {
+        this.sendTerrainJob(false); // 화면이 굳지 않으니 대충 그린 그림 없이 바로 제대로 (붓 자국은 미리보기에 남아 있음)
+        return;
+      }
       try {
-        (fast ? T.lowres() : T).render(cv);
+        (fast ? T.lowres() : T).render(cv, { marks: false });
+        this.renderMarks();
         this.terrainShown = true;
         this.terrainFull = !fast;
       } catch (err) {
@@ -2809,6 +3116,203 @@ class SekaiView extends ItemView {
       this.setBusy(false);
       if (fast) this.tRenderTimer = setTimeout(() => this.renderTerrain(false), 1500);
     }, 30);
+  }
+
+  /** 지형 그리기 일꾼: 이 플러그인의 main.js 를 그대로 일꾼 안에서 돌려 OffscreenCanvas 에 그려요. 못 쓰면 null */
+  async terrainWorker() {
+    if (this.twReady) return this.twReady;
+    this.twReady = (async () => {
+      try {
+        if (typeof OffscreenCanvas === 'undefined' || typeof Worker === 'undefined') return null;
+        const dir = (this.plugin.manifest && this.plugin.manifest.dir) || '.obsidian/plugins/mn-sekaipan';
+        const src = await this.app.vault.adapter.read(`${dir}/main.js`);
+        const head = [
+          'const document = { createElement: () => new OffscreenCanvas(1, 1) };',
+          'const module = { exports: {} };',
+          'const require = () => new Proxy({}, { get: () => class {} });',
+          '',
+        ].join('\n');
+        const tail = [
+          '',
+          'const noiseCache = new Map();',
+          'self.onmessage = (ev) => {',
+          '  const q = ev.data;',
+          '  try {',
+          '    const T = new Terrain(q.w, q.h, q.scale);',
+          '    Object.assign(T, q.fields);',
+          '    T.ground = q.ground;',
+          '    T.cover = q.cover;',
+          '    const R = q.fast ? T.lowres() : T;',
+          "    const key = R.w + 'x' + R.h + ':' + R.scale + ':' + R.seed;",
+          '    R.cache = noiseCache.get(key) || null;',
+          '    const cv = new OffscreenCanvas(q.W, q.H);',
+          '    R.render(cv, { marks: false });',
+          '    if (R.cache) {',
+          '      noiseCache.set(key, R.cache);',
+          '      if (noiseCache.size > 6) noiseCache.delete(noiseCache.keys().next().value);',
+          '    }',
+          '    const bmp = cv.transferToImageBitmap();',
+          '    self.postMessage({ id: q.id, bmp }, [bmp]);',
+          '  } catch (err) {',
+          '    self.postMessage({ id: q.id, error: String((err && err.stack) || err) });',
+          '  }',
+          '};',
+        ].join('\n');
+        const url = URL.createObjectURL(new Blob([head, src, tail], { type: 'text/javascript' }));
+        const w = new Worker(url);
+        w.onmessage = (ev) => this.onTerrainJob(ev.data);
+        w.onerror = (ev) => {
+          console.error('[MN 세계판] 지형 일꾼 오류', ev.message);
+          this.twBroken = true;
+          this.twBusy = null;
+          this.renderTerrain(false);
+        };
+        this.register(() => {
+          w.terminate();
+          URL.revokeObjectURL(url);
+        });
+        return w;
+      } catch (err) {
+        console.error('[MN 세계판] 지형 일꾼을 만들지 못했어요', err);
+        return null;
+      }
+    })();
+    return this.twReady;
+  }
+
+  /** 지금 지형을 일꾼에게 보내 그리게 함 (그리는 중이면 끝난 뒤 가장 마지막 것만) */
+  async sendTerrainJob(fast) {
+    const w = await this.terrainWorker();
+    const T = this.terrain;
+    if (!w || !T || !this.W) return;
+    if (this.twBusy) {
+      this.twWant = { fast: this.twWant ? this.twWant.fast && fast : fast };
+      return;
+    }
+    const id = (this.twSeq = (this.twSeq || 0) + 1);
+    this.twBusy = { id, fast, T };
+    const ground = T.ground.slice();
+    const cover = T.cover.slice();
+    const fields = {
+      regions: T.regions,
+      inherited: T.inherited || [],
+      marks: [],
+      seed: T.seed,
+      coast: T.coast,
+      isles: T.isles,
+      deco: T.deco,
+      title: T.title,
+      subtitle: T.subtitle,
+    };
+    w.postMessage({ id, w: T.w, h: T.h, scale: T.scale, W: this.W, H: this.H, fast, ground, cover, fields }, [ground.buffer, cover.buffer]);
+  }
+
+  onTerrainJob(d) {
+    const job = this.twBusy;
+    this.twBusy = null;
+    if (d.error) {
+      console.error('[MN 세계판] 지형 일꾼이 그리다 멈췄어요', d.error);
+      this.twBroken = true; // 이후로는 화면에서 그려요
+      this.renderTerrain(!!(job && job.fast));
+      return;
+    }
+    const current = job && job.T === this.terrain && job.id === d.id;
+    if (current && d.bmp) {
+      const cv = this.terrainCanvas;
+      if (cv.width !== this.W || cv.height !== this.H) {
+        cv.width = this.W;
+        cv.height = this.H;
+      }
+      const ctx = cv.getContext('2d');
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(d.bmp, 0, 0);
+      this.renderMarks();
+      this.terrainShown = true;
+      this.terrainFull = !job.fast;
+      if (!this.tsnap && !this.markStroking) {
+        const pv = this.previewCanvas;
+        pv.getContext('2d').clearRect(0, 0, pv.width, pv.height);
+      }
+    }
+    if (d.bmp) d.bmp.close();
+    if (this.twWant) {
+      const f = this.twWant.fast;
+      this.twWant = null;
+      this.sendTerrainJob(f);
+      return;
+    }
+    this.setBusy(false);
+    if (current && job.fast) {
+      clearTimeout(this.tRenderTimer);
+      this.tRenderTimer = setTimeout(() => this.renderTerrain(false), 600);
+    }
+  }
+
+  /** 산 기호 그림 불러오기 (폴더마다 한 묶음). Obsidian 은 폴더를 읽고, 없으면 목록.json */
+  loadStamps() {
+    if (this.stampsReady) return this.stampsReady;
+    this.stampsReady = (async () => {
+      const ad = this.app.vault.adapter;
+      let sets = {};
+      try {
+        if (typeof ad.list === 'function') {
+          const top = await ad.list(STAMP_DIR);
+          for (const f of top.folders || []) {
+            const ls = await ad.list(f);
+            sets[f.split('/').pop()] = (ls.files || []).filter((p) => /\.png$/i.test(p)).sort();
+          }
+        } else if (await ad.exists(`${STAMP_DIR}/목록.json`)) {
+          const idx = JSON.parse(await ad.read(`${STAMP_DIR}/목록.json`));
+          for (const k in idx) sets[k] = idx[k].map((n) => `${STAMP_DIR}/${k}/${n}`);
+        }
+      } catch (err) {
+        console.error('[MN 세계판] 산 기호를 읽지 못했어요', err);
+        sets = {};
+      }
+      const load = (p) =>
+        new Promise((res) => {
+          const im = new Image();
+          im.onload = () => res(im);
+          im.onerror = () => res(null);
+          im.src = ad.getResourcePath(p);
+        });
+      for (const k in sets) {
+        const ims = (await Promise.all(sets[k].map(load))).filter(Boolean);
+        if (ims.length) STAMPS[k] = ims;
+      }
+      this.stampsDone = true;
+      if (this.terrainShown) this.renderMarks();
+      return Object.keys(STAMPS).length;
+    })();
+    return this.stampsReady;
+  }
+
+  /** 산 · 언덕 겹만 다시 (빠름) */
+  renderMarks() {
+    const T = this.terrain;
+    const cv = this.markCanvas;
+    if (!T || !this.W || !cv) return;
+    if (!this.stampsDone && T.marks.some((m) => m.k === 'mtn')) {
+      this.loadStamps().then(() => this.renderMarks());
+      return;
+    }
+    if (cv.width !== this.W || cv.height !== this.H) {
+      cv.width = this.W;
+      cv.height = this.H;
+    }
+    cv.style.width = `${this.W}px`;
+    cv.style.height = `${this.H}px`;
+    T.renderMarks(cv);
+  }
+
+  /** 산 · 언덕만 바뀌었을 때: 지형은 그대로 두고 겹만 다시 그림 */
+  marksChanged() {
+    this.terrainDirty = true;
+    this.renderMarks();
+    this.clearPreview();
+    this.saveTerrainSoon();
+    this.renderPaintPanel();
+    this.renderRegionSvg();
   }
 
   terrainChanged() {
@@ -2864,16 +3368,25 @@ class SekaiView extends ItemView {
     clearTimeout(this.tRenderTimer);
     this.setBusy(true);
     await new Promise((r) => setTimeout(r, 30));
+    if (T.marks && T.marks.length) await this.loadStamps();
     const out = T.output || map.path;
     try {
-      const cv = this.terrainCanvas;
-      if (cv.width !== this.W || cv.height !== this.H) {
-        cv.width = this.W;
-        cv.height = this.H;
-      }
+      const cv = document.createElement('canvas');
+      cv.width = this.W;
+      cv.height = this.H;
       T.render(cv);
-      this.terrainShown = true;
-      this.terrainFull = true;
+      if (!this.terrainFull || !this.terrainShown) {
+        // 화면의 지형 겹도 같은 그림으로 (산 · 언덕은 따로 된 겹에 있으니 빼고 다시)
+        const tc = this.terrainCanvas;
+        if (tc.width !== this.W || tc.height !== this.H) {
+          tc.width = this.W;
+          tc.height = this.H;
+        }
+        T.render(tc, { marks: false });
+        this.renderMarks();
+        this.terrainShown = true;
+        this.terrainFull = true;
+      }
       const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.92));
       await this.app.vault.adapter.writeBinary(out, await blob.arrayBuffer());
       this.terrainDirty = false;
@@ -2899,10 +3412,137 @@ class SekaiView extends ItemView {
   setTerrainTool(kind) {
     if (this.draft && kind !== 'region') this.cancelDraft();
     this.tool.kind = kind;
+    if (kind !== 'pick') this.markSel = -1;
     this.contentEl.toggleClass('is-zoomtool', kind === 'zoom');
     this.renderPaintPanel();
     this.renderRegionSvg();
-    if (kind === 'region' || kind === 'zoom') this.brushRing.addClass('is-hidden');
+    if (kind === 'region' || kind === 'zoom' || kind === 'pick') this.brushRing.addClass('is-hidden');
+  }
+
+  /* ---------- 배치: 산 · 언덕 찍기, 고르기 ---------- */
+
+  markSizeOf(kind) {
+    return this.tool.markSize[kind] || Math.round(this.W * (kind === 'hill' ? 0.007 : 0.009));
+  }
+
+  /** 미리보기 판을 비우고 (붓질과 같은 판) */
+  clearPreview() {
+    const T = this.terrain;
+    const pv = this.previewCanvas;
+    if (pv.width !== T.w || pv.height !== T.h) {
+      pv.width = T.w;
+      pv.height = T.h;
+    }
+    pv.style.width = `${this.W}px`;
+    pv.style.height = `${this.H}px`;
+    const ctx = pv.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, pv.width, pv.height);
+  }
+
+  previewMark(m) {
+    const ctx = this.previewCanvas.getContext('2d');
+    ctx.save();
+    ctx.setTransform(1 / this.terrain.scale, 0, 0, 1 / this.terrain.scale, 0, 0);
+    drawMark(ctx, m);
+    ctx.restore();
+  }
+
+  /** 산 · 언덕 찍기 시작 (Alt 를 누르고 있으면 지우기) */
+  beginMarkStroke(e) {
+    const T = this.terrain;
+    clearTimeout(this.tRenderTimer);
+    this.clearPreview();
+    const st = { kind: this.tool.kind, erase: e.altKey, before: T.marks.map((m) => ({ ...m })), last: null, changed: false };
+    this.markStroking = true;
+    this.markStrokeTo(st, e);
+    return st;
+  }
+
+  markStrokeTo(st, e) {
+    const T = this.terrain;
+    const xy = this.toMap(e.clientX, e.clientY);
+    const size = this.markSizeOf(st.kind);
+    if (st.erase) {
+      const r = Math.max(this.tool.radius, size * 0.6);
+      const n0 = T.marks.length;
+      T.marks = T.marks.filter((m) => Math.hypot(m.x - xy[0], m.y - (m.k === 'hill' ? m.s * 0.1 : m.s * 0.4) - xy[1]) > r);
+      if (T.marks.length !== n0) {
+        st.changed = true;
+        this.renderMarks();
+      }
+      return;
+    }
+    // 크기는 들쭉날쭉 (작은 게 많고 가끔 크게), 산은 크게 뽑히면 주로 큰 산 · 작으면 주로 작은 산
+    const add = (x, y, f) => {
+      const m = { k: st.kind, x, y, s: size * f };
+      if (st.kind === 'mtn') m.st = f > 1.12 ? (Math.random() < 0.85 ? BIG : SMALL) : Math.random() < 0.15 ? BIG : SMALL;
+      T.marks.push(m);
+      this.previewMark(m);
+      st.changed = true;
+    };
+    const jitter = (one) => (st.kind === 'hill' ? 0.75 + 0.5 * Math.random() : one ? 0.8 + 0.5 * Math.random() : 0.6 + 0.95 * Math.random() ** 1.6);
+    if (!st.last) {
+      add(xy[0], xy[1], jitter(true));
+      st.last = xy;
+      return;
+    }
+    // 끌면 그 길을 따라 줄지어 (붓 크기만큼 옆으로 흩어지게)
+    const [lx, ly] = st.last;
+    const d = Math.hypot(xy[0] - lx, xy[1] - ly);
+    const gap = Math.max(4, size * (st.kind === 'hill' ? 1.1 : 0.5));
+    if (d < gap) return;
+    const nx = -(xy[1] - ly) / d;
+    const ny = (xy[0] - lx) / d;
+    const spread = this.tool.radius;
+    const per = 1 + Math.floor(spread / (size * 1.2));
+    const steps = Math.floor(d / gap);
+    for (let i = 1; i <= steps; i++) {
+      const t = (i * gap) / d;
+      const bx = lx + (xy[0] - lx) * t;
+      const by = ly + (xy[1] - ly) * t;
+      for (let j = 0; j < per; j++) {
+        const o = (Math.random() * 2 - 1) * spread;
+        const along = (Math.random() - 0.5) * gap;
+        add(bx + nx * o + ((xy[0] - lx) / d) * along, by + ny * o + ((xy[1] - ly) / d) * along, jitter(false));
+      }
+    }
+    st.last = [lx + ((xy[0] - lx) * steps * gap) / d, ly + ((xy[1] - ly) * steps * gap) / d];
+  }
+
+  endMarkStroke(st) {
+    this.markStroking = false;
+    if (!st.changed) {
+      this.clearPreview();
+      return;
+    }
+    this.pushTundo({ type: 'marks', marks: st.before });
+    this.marksChanged();
+  }
+
+  /** 이 자리에 있는 산 · 언덕 (앞에 있는 것 먼저). 없으면 -1 */
+  markAt(xy) {
+    const T = this.terrain;
+    if (!T) return -1;
+    const pad = 6 / this.s;
+    let best = -1;
+    T.marks.forEach((m, i) => {
+      const hill = m.k === 'hill';
+      const hw = (hill ? m.s * 0.65 : stampSetOf(m) ? m.s * 0.7 : m.s * 0.45) + pad;
+      const top = m.y - (hill ? m.s * 0.35 : m.s) - pad;
+      const bot = m.y + (hill ? m.s * 0.12 : m.s * 0.08) + pad;
+      if (xy[0] >= m.x - hw && xy[0] <= m.x + hw && xy[1] >= top && xy[1] <= bot && (best < 0 || m.y >= T.marks[best].y)) best = i;
+    });
+    return best;
+  }
+
+  deleteMark(i) {
+    const T = this.terrain;
+    if (!T || !T.marks[i]) return;
+    this.pushTundo({ type: 'marks', marks: T.marks.map((m) => ({ ...m })) });
+    T.marks.splice(i, 1);
+    this.markSel = -1;
+    this.marksChanged();
   }
 
   /** 붓질 시작 (땅 · 바다 · 숲 · 숲 걷기) */
@@ -2991,12 +3631,17 @@ class SekaiView extends ItemView {
     } else if (u.type === 'regions') {
       T.regions = u.regions;
       if (this.regionSel >= T.regions.length) this.regionSel = T.regions.length - 1;
+    } else if (u.type === 'marks') {
+      T.marks = u.marks;
+      this.markSel = -1;
+      this.marksChanged();
+      return;
     } else if (u.type === 'settings') Object.assign(T, u.settings);
     this.terrainChanged();
   }
 
   snapshotRegions() {
-    return this.terrain.regions.map((r) => ({ name: r.name, pts: r.pts.map((p) => p.slice()), ...(r.detail ? { detail: r.detail } : {}), ...(isLine(r) ? { type: 'trench', w0: r.w0, w1: r.w1 } : {}), ...(isWreck(r) ? { type: 'wreck', heal: r.heal || 0 } : {}) }));
+    return this.terrain.regions.map((r) => ({ name: r.name, pts: r.pts.map((p) => p.slice()), ...(r.detail ? { detail: r.detail } : {}), ...lineFields(r), ...(isWreck(r) ? { type: 'wreck', heal: r.heal || 0 } : {}) }));
   }
 
   startRegionDraft() {
@@ -3022,11 +3667,24 @@ class SekaiView extends ItemView {
   }
 
   startTrenchDraft() {
-    new NameModal(this.app, '새 자국 이름 (예: 포격 자국)', '', (name) => {
-      this.draft = { name, pts: [], type: 'trench' };
+    this.startLineDraft('trench');
+  }
+
+  /** 점을 이어 긋는 선 시작: trench(자국) · river(강) · road(길) */
+  startLineDraft(type) {
+    const n = (this.terrain?.regions || []).filter((r) => r.type === type).length + 1;
+    const ask = { trench: ['새 자국 이름 (예: 포격 자국)', ''], river: ['새 강 이름', ''], road: ['새 길 이름', `길 ${n}`] }[type];
+    const how = {
+      trench: '시작점(가장 넓은 쪽)부터 차례로 찍으세요',
+      river: '발원지(가는 쪽)부터 하구 쪽으로 차례로 찍으세요',
+      road: '한쪽 끝부터 차례로 찍으세요',
+    }[type];
+    new NameModal(this.app, ask[0], ask[1], (name) => {
+      this.draft = { name, pts: [], type };
       this.tool.kind = 'region';
       this.regionSel = -1;
-      this.showBanner(`「${name}」 시작점(가장 넓은 쪽)부터 차례로 찍으세요 · Enter 또는 두 번 눌러 끝내기 · Backspace 한 점 빼기 · Esc 그만`);
+      this.markSel = -1;
+      this.showBanner(`「${name}」 ${how} · Enter 또는 두 번 눌러 끝내기 · Backspace 한 점 빼기 · Esc 그만`);
       this.renderPaintPanel();
       this.renderRegionSvg();
     }).open();
@@ -3055,10 +3713,12 @@ class SekaiView extends ItemView {
       return;
     }
     this.pushTundo({ type: 'regions', regions: this.snapshotRegions() });
-    if (isLine(d)) {
+    if (isTrench(d)) {
       const w0 = Math.round(Math.max(4, this.W * 0.004));
       this.terrain.regions.push({ name: d.name, pts: d.pts, type: 'trench', w0, w1: Math.max(1, Math.round(w0 * 0.15)) });
-    } else if (isWreck(d)) this.terrain.regions.push({ name: d.name, pts: d.pts, type: 'wreck', heal: 0, detail: 0.6 });
+    } else if (isRiver(d)) this.terrain.regions.push({ name: d.name, pts: d.pts, type: 'river', w0: 3, w1: Math.round(this.W * 0.002 * 2) / 2 });
+    else if (isRoad(d)) this.terrain.regions.push({ name: d.name, pts: d.pts, type: 'road' });
+    else if (isWreck(d)) this.terrain.regions.push({ name: d.name, pts: d.pts, type: 'wreck', heal: 0, detail: 0.6 });
     else this.terrain.regions.push({ name: d.name, pts: d.pts });
     this.regionSel = this.terrain.regions.length - 1;
     this.draft = null;
@@ -3134,7 +3794,8 @@ class SekaiView extends ItemView {
     const svg = this.regionSvg;
     while (svg.firstChild) svg.removeChild(svg.firstChild);
     const T = this.terrain;
-    const on = this.mode === 'terrain' && !!T && this.tool.kind === 'region' && !!this.W;
+    const pickOn = this.mode === 'terrain' && !!T && this.tool.kind === 'pick' && !!this.W;
+    const on = (this.mode === 'terrain' && !!T && this.tool.kind === 'region' && !!this.W) || pickOn;
     svg.classList.toggle('is-hidden', !on);
     if (!on) return;
     svg.setAttribute('width', String(this.W));
@@ -3151,8 +3812,18 @@ class SekaiView extends ItemView {
       return e;
     };
     const pts = (a) => a.map((p) => `${p[0]},${p[1]}`).join(' ');
+    if (pickOn) {
+      const m = T.marks[this.markSel];
+      if (m) {
+        const hill = m.k === 'hill';
+        const hw = hill ? m.s * 0.65 : stampSetOf(m) ? m.s * 0.75 : m.s * 0.5;
+        const top = m.y - (hill ? m.s * 0.35 : m.s);
+        el('rect', { x: m.x - hw, y: top, width: hw * 2, height: m.y - top + (hill ? m.s * 0.12 : m.s * 0.1) }, 'mnsk-mk-sel');
+      }
+      return;
+    }
     for (const r of T.inherited || []) el('polyline', { points: pts(r.pts) }, 'mnsk-rt-up');
-    T.regions.forEach((r, i) => el(isLine(r) ? 'polyline' : 'polygon', { points: pts(r.pts), 'data-r': i }, 'mnsk-rg' + (isLine(r) ? ' is-line' : isWreck(r) ? ' is-wreck' : '') + (i === this.regionSel ? ' is-sel' : '')));
+    T.regions.forEach((r, i) => el(isLine(r) ? 'polyline' : 'polygon', { points: pts(r.pts), 'data-r': i }, 'mnsk-rg' + (isLine(r) ? ' is-line' + (isRiver(r) ? ' is-river' : isRoad(r) ? ' is-road' : '') : isWreck(r) ? ' is-wreck' : '') + (i === this.regionSel ? ' is-sel' : '')));
     const sel = T.regions[this.regionSel];
     if (sel && !this.draft) sel.pts.forEach((p, j) => el('circle', { cx: p[0], cy: p[1], 'data-v': j }, 'mnsk-rv'));
     if (this.draft) {
@@ -3199,27 +3870,49 @@ class SekaiView extends ItemView {
     // 도구
     const tools = sec('도구');
     const grid = tools.createDiv({ cls: 'mnsk-tools' });
-    for (const [kind, label] of [['land', '땅'], ['sea', '바다'], ['forest', '숲'], ['unforest', '숲 걷기'], ['region', '영역'], ['zoom', '돋보기']]) {
+    for (const [kind, label] of [['land', '땅'], ['sea', '바다'], ['forest', '숲'], ['unforest', '숲 걷기'], ['region', '영역 · 선'], ['zoom', '돋보기'], ['mtn', '산'], ['hill', '언덕'], ['pick', '고르기']]) {
       const b = grid.createEl('button', { text: label, cls: 'mnsk-tool' });
       b.toggleClass('is-active', this.tool.kind === kind);
       b.onclick = () => this.setTerrainTool(kind);
     }
     if (this.tool.kind === 'zoom') {
       tools.createDiv({ cls: 'mnsk-paint-hint', text: '누르면 크게 · Alt(또는 Shift)+누르면 작게 · 끌면 지도 이동' });
+    } else if (this.tool.kind === 'mtn' || this.tool.kind === 'hill') {
+      const kind = this.tool.kind;
+      const nm = kind === 'hill' ? '언덕' : '산';
+      this.slider(tools, `${nm} 크기 (놓을 때마다 들쭉날쭉)`, 8, kind === 'hill' ? 200 : 300, 1, this.markSizeOf(kind), (v) => {
+        this.tool.markSize[kind] = v;
+      }, (v) => `${Math.round(v)}`);
+      this.slider(tools, '퍼짐 · 지우개 크기 ([ ])', 4, 400, 1, this.tool.radius, (v) => {
+        this.tool.radius = v;
+      }, (v) => `${Math.round(v)}`);
+      tools.createDiv({ cls: 'mnsk-paint-hint', text: `누르면 ${nm} 하나 · 끌면 그 길을 따라 줄지어 (퍼짐만큼 옆으로 흩어져요) · Alt+끌면 지우기 · 놓은 걸 옮기려면 「고르기」` });
+    } else if (this.tool.kind === 'pick') {
+      const m = T.marks[this.markSel];
+      if (m) {
+        this.slider(tools, `고른 ${m.k === 'hill' ? '언덕' : '산'} 크기`, 8, m.k === 'hill' ? 200 : 300, 1, m.s, null, (v) => `${Math.round(v)}`, (v) => {
+          this.pushTundo({ type: 'marks', marks: T.marks.map((q) => ({ ...q })) });
+          m.s = v;
+          this.marksChanged();
+        });
+        const rb2 = tools.createDiv({ cls: 'mnsk-row-btns' });
+        rb2.createEl('button', { cls: 'mnsk-btn', text: '고른 것 지우기' }).onclick = () => this.deleteMark(this.markSel);
+      }
+      tools.createDiv({ cls: 'mnsk-paint-hint', text: `산 · 언덕 ${T.marks.length}개 · 눌러서 고르기 · 끌어서 옮기기 · Delete로 지우기 · Alt+누르면 바로 지우기 · 빈 곳을 끌면 지도 이동 · 강 · 길 · 영역은 「영역 · 선」에서 꼭짓점을 끌어요` });
     } else if (this.tool.kind !== 'region') {
       this.slider(tools, '붓 크기 ([ ])', 4, 400, 1, this.tool.radius, (v) => {
         this.tool.radius = v;
       }, (v) => `${Math.round(v)}`);
     }
     // 영역
-    const rs = sec('영역 · 꼭짓점을 찍어 각지게');
+    const rs = sec('영역 · 선 (강 · 길 · 자국) · 점을 찍어서');
     const list = rs.createDiv({ cls: 'mnsk-terr-list' });
     T.regions.forEach((r, i) => {
       const row = list.createDiv({ cls: 'mnsk-terr' });
       row.toggleClass('is-active', i === this.regionSel && this.tool.kind === 'region');
-      row.createDiv({ cls: 'mnsk-terr-sw ' + (isLine(r) ? 'is-trench' : isWreck(r) ? 'is-wreck' : 'is-region') });
+      row.createDiv({ cls: 'mnsk-terr-sw ' + (isRiver(r) ? 'is-river' : isRoad(r) ? 'is-road' : isLine(r) ? 'is-trench' : isWreck(r) ? 'is-wreck' : 'is-region') });
       row.createDiv({ cls: 'mnsk-terr-name', text: r.name });
-      row.createDiv({ cls: 'mnsk-terr-area', text: isLine(r) ? `자국 · 점 ${r.pts.length}` : isWreck(r) ? `재해 지대 · 아묾 ${Math.round((r.heal || 0) * 100)}` : `꼭짓점 ${r.pts.length}` });
+      row.createDiv({ cls: 'mnsk-terr-area', text: isLine(r) ? `${isRiver(r) ? '강' : isRoad(r) ? '길' : '자국'} · 점 ${r.pts.length}` : isWreck(r) ? `재해 지대 · 아묾 ${Math.round((r.heal || 0) * 100)}` : `꼭짓점 ${r.pts.length}` });
       row.onclick = () => {
         this.cancelDraft();
         this.regionSel = i;
@@ -3232,6 +3925,8 @@ class SekaiView extends ItemView {
     const addB = rb.createEl('button', { cls: 'mnsk-btn', text: this.draft ? `「${this.draft.name}」 그리는 중` : '+ 새 영역' });
     addB.disabled = !!this.draft;
     addB.onclick = () => this.startRegionDraft();
+    if (!this.draft) rb.createEl('button', { cls: 'mnsk-btn', text: '+ 새 강' }).onclick = () => this.startLineDraft('river');
+    if (!this.draft) rb.createEl('button', { cls: 'mnsk-btn', text: '+ 새 길' }).onclick = () => this.startLineDraft('road');
     if (!this.draft) rb.createEl('button', { cls: 'mnsk-btn', text: '+ 새 자국' }).onclick = () => this.startTrenchDraft();
     if (!this.draft) rb.createEl('button', { cls: 'mnsk-btn', text: '+ 새 재해 지대' }).onclick = () => this.startWreckDraft();
     if (T.regions[this.regionSel] && !this.draft) {
@@ -3257,7 +3952,15 @@ class SekaiView extends ItemView {
         selR.detail = Math.max(0.001, v);
         this.terrainChanged();
       });
-    } else if (selR && isLine(selR)) {
+    } else if (selR && isRiver(selR)) {
+      const setW = (key) => (v) => {
+        this.pushTundo({ type: 'regions', regions: this.snapshotRegions() });
+        selR[key] = v;
+        this.terrainChanged();
+      };
+      this.slider(rs, `「${selR.name}」 발원지 폭`, 0.5, 60, 0.5, selR.w0 == null ? 3 : selR.w0, null, (v) => `${v}`, setW('w0'));
+      this.slider(rs, `「${selR.name}」 하구 폭`, 1, 200, 0.5, selR.w1 == null ? 12 : selR.w1, null, (v) => `${v}`, setW('w1'));
+    } else if (selR && isTrench(selR)) {
       const setW = (key) => (v) => {
         this.pushTundo({ type: 'regions', regions: this.snapshotRegions() });
         selR[key] = v;
@@ -3274,7 +3977,7 @@ class SekaiView extends ItemView {
       });
     }
     if (T.inherited && T.inherited.length) {
-      rs.createDiv({ cls: 'mnsk-paint-hint', text: `위 판에서 내려온 자국 ${T.inherited.length}개가 같이 그려져요 (점선). 고치려면 위 판에서 고쳐요.` });
+      rs.createDiv({ cls: 'mnsk-paint-hint', text: `위 판에서 내려온 선(자국 · 강 · 길) ${T.inherited.length}개가 같이 그려져요 (점선). 고치려면 위 판에서 고쳐요.` });
     }
     if (this.tool.kind === 'region') {
       rs.createDiv({ cls: 'mnsk-paint-hint', text: '꼭짓점 끌어 옮기기 · Shift+누르기 꼭짓점 넣기 · Alt+누르기 꼭짓점 빼기 · 영역 밑은 늘 땅이 돼요 · 경계 자세히는 꼭짓점 사이를 잘게 꺾어요(큰 모양은 그대로) · 자국은 첫 점이 가장 넓고 끝으로 갈수록 좁아져요(땅 위에만 그려짐)' });
@@ -3319,6 +4022,281 @@ class SekaiView extends ItemView {
     P.createDiv({ cls: 'mnsk-paint-hint', text: '끌어서 칠하기 · 오른쪽 버튼이나 스페이스 누르고 끌면 지도 이동 · 손을 떼면 해안선 · 물결 · 숲 테두리가 다시 그려져요 · 다 그리면 「지도 그림 저장」(나갈 때도 저절로)' });
   }
 
+  /* ---------- 스케치: 대충 잡고 Codex 로 그리기 ---------- */
+
+  sketchPathOf(map) {
+    const dir = map.path.includes('/') ? map.path.replace(/\/[^/]*$/, '/') : '';
+    return map.sketch || `${dir}${map.name}.스케치.png`;
+  }
+
+  sketchWidth() {
+    const ink = SKETCH_INKS.find((k) => k[0] === this.sketch.ink) || SKETCH_INKS[0];
+    return this.sketch.radius * 2 * ink[3];
+  }
+
+  /** 스케치 모드로: 판 크기의 절반 캔버스를 깔고, 저장된 스케치가 있으면 불러옴 */
+  async enterSketch() {
+    const map = this.currentMap();
+    const cv = this.sketchCanvas;
+    if (!map || !this.W) return;
+    const w = Math.round(this.W / 2);
+    const h = Math.round(this.H / 2);
+    if (this.sketchFor !== map.name || cv.width !== w) {
+      cv.width = w;
+      cv.height = h;
+      this.sketch.undo = [];
+      this.sketchFor = map.name;
+      this.sketch.cands = [];
+      const ad = this.app.vault.adapter;
+      const p = this.sketchPathOf(map);
+      try {
+        if (await ad.exists(p)) {
+          const im = await new Promise((res, rej) => {
+            const i = new Image();
+            i.onload = () => res(i);
+            i.onerror = rej;
+            i.src = ad.getResourcePath(p);
+          });
+          cv.getContext('2d').drawImage(im, 0, 0, w, h);
+        }
+      } catch (err) {
+        console.error('[MN 세계판] 스케치를 불러오지 못했어요', err);
+      }
+    }
+    cv.style.width = `${this.W}px`;
+    cv.style.height = `${this.H}px`;
+    cv.style.opacity = String(this.sketch.alpha);
+    cv.removeClass('is-hidden');
+    this.sketchPrev = document.createElement('canvas');
+    this.sketchPrev.width = w;
+    this.sketchPrev.height = h;
+    this.sketchPrev.getContext('2d').drawImage(cv, 0, 0);
+    this.renderPaintPanel();
+  }
+
+  leaveSketch() {
+    this.sketchCanvas.addClass('is-hidden');
+    this.saveSketchNow();
+  }
+
+  beginSketchStroke(e) {
+    const [x, y] = this.toMap(e.clientX, e.clientY);
+    const st = { last: [x / 2, y / 2], bb: [x / 2, y / 2, x / 2, y / 2] };
+    this.sketchSeg(st, x / 2, y / 2);
+    return st;
+  }
+
+  sketchStrokeTo(st, e) {
+    const [x, y] = this.toMap(e.clientX, e.clientY);
+    this.sketchSeg(st, x / 2, y / 2);
+  }
+
+  /** 붓 한 토막 (캔버스 = 지도의 절반 크기) */
+  sketchSeg(st, x, y) {
+    const ctx = this.sketchCanvas.getContext('2d');
+    const ink = SKETCH_INKS.find((k) => k[0] === this.sketch.ink) || SKETCH_INKS[0];
+    const lw = Math.max(1, this.sketchWidth() / 2);
+    ctx.save();
+    ctx.globalCompositeOperation = ink[0] === 'erase' ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = ink[2] || '#000';
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(st.last[0], st.last[1]);
+    ctx.lineTo(x + 0.01, y);
+    ctx.stroke();
+    ctx.restore();
+    st.last = [x, y];
+    const r = lw / 2 + 2;
+    st.bb = [Math.min(st.bb[0], x - r), Math.min(st.bb[1], y - r), Math.max(st.bb[2], x + r), Math.max(st.bb[3], y + r)];
+  }
+
+  endSketchStroke(st) {
+    const cv = this.sketchCanvas;
+    const x0 = Math.max(0, Math.floor(st.bb[0]));
+    const y0 = Math.max(0, Math.floor(st.bb[1]));
+    const x1 = Math.min(cv.width, Math.ceil(st.bb[2]));
+    const y1 = Math.min(cv.height, Math.ceil(st.bb[3]));
+    if (x1 > x0 && y1 > y0 && this.sketchPrev) {
+      const before = this.sketchPrev.getContext('2d').getImageData(x0, y0, x1 - x0, y1 - y0);
+      this.sketch.undo.push({ x: x0, y: y0, data: before });
+      if (this.sketch.undo.length > 40) this.sketch.undo.shift();
+      this.sketchPrev.getContext('2d').clearRect(x0, y0, x1 - x0, y1 - y0);
+      this.sketchPrev.getContext('2d').drawImage(cv, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+    }
+    this.saveSketchSoon();
+    this.renderPaintPanel();
+  }
+
+  undoSketch() {
+    const u = this.sketch.undo.pop();
+    if (!u) {
+      new Notice('되돌릴 게 없어요.');
+      return;
+    }
+    this.sketchCanvas.getContext('2d').putImageData(u.data, u.x, u.y);
+    this.sketchPrev.getContext('2d').putImageData(u.data, u.x, u.y);
+    this.saveSketchSoon();
+    this.renderPaintPanel();
+  }
+
+  clearSketch() {
+    const cv = this.sketchCanvas;
+    const all = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height);
+    this.sketch.undo.push({ x: 0, y: 0, data: all });
+    cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+    this.sketchPrev.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+    this.saveSketchSoon();
+    this.renderPaintPanel();
+  }
+
+  saveSketchSoon() {
+    clearTimeout(this.sketchTimer);
+    this.sketchTimer = setTimeout(() => this.saveSketchNow(), 900);
+  }
+
+  async saveSketchNow() {
+    if (!this.sketchTimer) return;
+    clearTimeout(this.sketchTimer);
+    this.sketchTimer = null;
+    const map = this.plugin.settings.maps.find((m) => m.name === this.sketchFor);
+    if (!map) return;
+    try {
+      const blob = await new Promise((r) => this.sketchCanvas.toBlob(r, 'image/png'));
+      await this.app.vault.adapter.writeBinary(this.sketchPathOf(map), await blob.arrayBuffer());
+    } catch (err) {
+      console.error('[MN 세계판] 스케치를 저장하지 못했어요', err);
+    }
+  }
+
+  /** Codex 에게 보낼 그림: 양피지 위의 스케치 (1536 폭) */
+  async sketchForCodex() {
+    const cv = this.sketchCanvas;
+    const w = 1536;
+    const h = Math.round((1536 * cv.height) / cv.width);
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#e9dec4';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(cv, 0, 0, w, h);
+    return new Promise((r) => out.toBlob(r, 'image/png'));
+  }
+
+  async runCodexSketch() {
+    const map = this.currentMap();
+    if (!map || this.sketch.busy) return;
+    if (!/^https?:/.test(location.protocol)) {
+      new Notice('Codex로 그리기는 아직 세계판 창(브라우저)에서만 돼요.');
+      return;
+    }
+    this.sketch.busy = true;
+    this.sketch.started = Date.now();
+    this.renderPaintPanel();
+    const tick = setInterval(() => this.renderPaintPanel(), 5000);
+    try {
+      await this.saveSketchNow();
+      const blob = await this.sketchForCodex();
+      const q = new URLSearchParams({ map: map.name, w: String(this.W), h: String(this.H), note: this.sketch.note || '' });
+      const res = await fetch(`/codex?${q.toString()}`, { method: 'POST', body: blob });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'Codex 오류');
+      this.sketch.cands.unshift(j.path);
+      new Notice('Codex가 그림을 그렸어요. 아래 후보에서 확인하세요.');
+    } catch (err) {
+      console.error('[MN 세계판] Codex로 그리기 실패', err);
+      new Notice(`Codex로 그리지 못했어요: ${err.message || err}`);
+    }
+    clearInterval(tick);
+    this.sketch.busy = false;
+    this.renderPaintPanel();
+  }
+
+  /** 후보를 이 판의 바탕 그림으로 (지형 · 땅 자료 위치는 그대로 붙잡아 둠) */
+  async useSketchCandidate(path) {
+    const map = this.currentMap();
+    if (!map) return;
+    if (this.terrain) {
+      new Notice('이 판은 지형 그리기 그림이 있어서, 바탕을 바꾸면 지형 그리기를 나갈 때 다시 덮여요. 지형이 없는 판에서 써 주세요.');
+      return;
+    }
+    if (!map.terrain) map.terrain = this.terrainPathOf(map);
+    if (!map.lands) map.lands = this.landsPathOf(map);
+    if (!map.sketch) map.sketch = this.sketchPathOf(map);
+    map.path = path;
+    await this.plugin.saveSettings();
+    new Notice(`「${map.name}」 바탕을 바꿨어요: ${path.split('/').pop()}`);
+    this.afterLoad = () => this.setMode('sketch');
+    this.reload(); // 같은 판이라도 그림을 다시 불러옴
+  }
+
+  renderSketchPanel() {
+    const P = this.paintPanel;
+    P.empty();
+    P.removeClass('is-hidden');
+    const head = P.createDiv({ cls: 'mnsk-paint-head' });
+    head.createDiv({ cls: 'mnsk-card-kind', text: '편집' });
+    head.createDiv({ cls: 'mnsk-paint-title', text: '스케치' });
+    const sec = (label) => {
+      const d = P.createDiv({ cls: 'mnsk-paint-sec' });
+      d.createDiv({ cls: 'mnsk-paint-label', text: label });
+      return d;
+    };
+    const tools = sec('붓 (색마다 뜻이 있어요)');
+    const grid = tools.createDiv({ cls: 'mnsk-tools' });
+    for (const [kind, label, color] of SKETCH_INKS) {
+      const b = grid.createEl('button', { cls: 'mnsk-tool mnsk-sk-ink' });
+      const sw = b.createSpan({ cls: 'mnsk-sk-sw' + (color ? '' : ' is-erase') });
+      if (color) sw.style.background = color;
+      b.createSpan({ text: label });
+      b.toggleClass('is-active', this.sketch.ink === kind);
+      b.onclick = () => {
+        this.sketch.ink = kind;
+        this.renderPaintPanel();
+      };
+    }
+    this.slider(tools, '붓 크기 ([ ])', 4, 600, 1, this.sketch.radius, (v) => {
+      this.sketch.radius = v;
+    }, (v) => `${Math.round(v)}`);
+    this.slider(tools, '스케치 진하기 (밑의 지도가 비치게)', 0.2, 1, 0.05, this.sketch.alpha, (v) => {
+      this.sketch.alpha = v;
+      this.sketchCanvas.style.opacity = String(v);
+    }, (v) => `${Math.round(v * 100)}`);
+    const rb = tools.createDiv({ cls: 'mnsk-row-btns' });
+    const ub = rb.createEl('button', { cls: 'mnsk-btn', text: '되돌리기' });
+    ub.disabled = !this.sketch.undo.length;
+    ub.onclick = () => this.undoSketch();
+    rb.createEl('button', { cls: 'mnsk-btn', text: '모두 지우기' }).onclick = () => this.clearSketch();
+    tools.createDiv({ cls: 'mnsk-paint-hint', text: '끌어서 칠하기 · 오른쪽 버튼이나 스페이스+끌기로 지도 이동 · Ctrl+Z 되돌리기 · 칠한 건 저절로 저장돼요' });
+
+    const cx = sec('Codex로 그리기');
+    const ta = cx.createEl('textarea', { cls: 'mnsk-sk-note', attr: { rows: 3, placeholder: '덧붙일 설명 (없어도 돼요). 예: 가운데 빨간 곳은 큰 광장과 궁전, 북쪽 초록은 숲 공원' } });
+    ta.value = this.sketch.note || '';
+    ta.oninput = () => {
+      this.sketch.note = ta.value;
+    };
+    const go = cx.createEl('button', { cls: 'mnsk-btn is-primary', text: this.sketch.busy ? `그리는 중… ${Math.round((Date.now() - (this.sketch.started || Date.now())) / 1000)}초 (1~2분 걸려요)` : '이 스케치로 그리기' });
+    go.disabled = this.sketch.busy;
+    go.onclick = () => this.runCodexSketch();
+    cx.createDiv({ cls: 'mnsk-paint-hint', text: '스케치 자리 · 크기 · 모양대로, 세계판 양식(바랜 옛 지도 색, 갈색 먹선)으로 자세한 지도를 그려 후보로 남겨요. 판 크기에 맞춰 저장돼요.' });
+
+    if (this.sketch.cands.length) {
+      const cs = sec('후보 (위가 가장 최근)');
+      const ad = this.app.vault.adapter;
+      for (const p of this.sketch.cands) {
+        const row = cs.createDiv({ cls: 'mnsk-sk-cand' });
+        row.createEl('img', { attr: { src: ad.getResourcePath(p), alt: '' } });
+        const r2 = row.createDiv({ cls: 'mnsk-row-btns' });
+        r2.createDiv({ cls: 'mnsk-paint-hint', text: p.split('/').pop() });
+        const use = r2.createEl('button', { cls: 'mnsk-btn', text: this.currentMap()?.path === p ? '지금 바탕' : '바탕으로 쓰기' });
+        use.disabled = this.currentMap()?.path === p;
+        use.onclick = () => this.useSketchCandidate(p);
+      }
+    }
+  }
+
   /* ---------- 지도 움직이기 ---------- */
 
   fit() {
@@ -3337,7 +4315,7 @@ class SekaiView extends ItemView {
   viewForRect([x0, y0, ww, wh]) {
     const r = this.stage.getBoundingClientRect();
     if (!ww || !wh || !r.width || !r.height) return null;
-    const right = (this.mode === 'paint' || this.mode === 'terrain') && r.width > 760 ? 330 : 0;
+    const right = (this.mode === 'paint' || this.mode === 'terrain' || this.mode === 'sketch') && r.width > 760 ? 330 : 0;
     const s = Math.min((r.width - right - 56) / ww, (r.height - 144) / wh);
     return { s, tx: (r.width - right - ww * s) / 2 - x0 * s, ty: (r.height - wh * s) / 2 - y0 * s };
   }
@@ -3351,7 +4329,7 @@ class SekaiView extends ItemView {
   animateView(to, ms = 560) {
     this.stopAnim();
     const r = this.stage.getBoundingClientRect();
-    const right = (this.mode === 'paint' || this.mode === 'terrain') && r.width > 760 ? 330 : 0;
+    const right = (this.mode === 'paint' || this.mode === 'terrain' || this.mode === 'sketch') && r.width > 760 ? 330 : 0;
     const cx = (r.width - right) / 2;
     const cy = r.height / 2;
     const a = { s: this.s, px: (cx - this.tx) / this.s, py: (cy - this.ty) / this.s };
@@ -3401,6 +4379,7 @@ class SekaiView extends ItemView {
       cv.style.width = `${this.W}px`;
       cv.style.height = `${this.H}px`;
       cv.getContext('2d').drawImage(this.terrainCanvas, 0, 0);
+      if (this.markCanvas.width === cv.width) cv.getContext('2d').drawImage(this.markCanvas, 0, 0);
     }
     this.cover = cover;
   }
@@ -3437,7 +4416,7 @@ class SekaiView extends ItemView {
 
   zoomCenter(k) {
     const r = this.stage.getBoundingClientRect();
-    const right = (this.mode === 'paint' || this.mode === 'terrain') && r.width > 760 ? 330 : 0;
+    const right = (this.mode === 'paint' || this.mode === 'terrain' || this.mode === 'sketch') && r.width > 760 ? 330 : 0;
     this.zoomAt((r.width - right) / 2, r.height / 2, k);
   }
 
@@ -3512,14 +4491,52 @@ class SekaiView extends ItemView {
     let stroke = null;
     let tstroke = null; // 지형 붓질
     let vdrag = null; // 영역 꼭짓점 끌기
+    let mstroke = null; // 산 · 언덕 찍기
+    let sstroke = null; // 스케치 붓질
+    let mdrag = null; // 고른 산 · 언덕 옮기기
     this.registerDomEvent(st, 'contextmenu', (e) => {
-      if (this.mode === 'paint' || this.mode === 'terrain') e.preventDefault();
+      if (this.mode === 'paint' || this.mode === 'terrain' || this.mode === 'sketch') e.preventDefault();
     });
     this.registerDomEvent(st, 'pointerleave', () => this.brushRing.addClass('is-hidden'));
     this.registerDomEvent(st, 'pointerdown', (e) => {
       if (e.target.closest('.mnsk-place, .mnsk-token')) return;
+      if (this.mode === 'sketch' && e.button === 0 && !this.spaceDown && this.W) {
+        sstroke = this.beginSketchStroke(e);
+        try {
+          st.setPointerCapture(e.pointerId);
+        } catch (err) {
+          /* 시험용 가짜 누르기 */
+        }
+        return;
+      }
       const terrain = this.mode === 'terrain' && this.terrain;
-      if (terrain && e.button === 0 && !this.spaceDown && this.tool.kind !== 'zoom') {
+      if (terrain && e.button === 0 && !this.spaceDown && (this.tool.kind === 'mtn' || this.tool.kind === 'hill')) {
+        mstroke = this.beginMarkStroke(e);
+        st.setPointerCapture(e.pointerId);
+        return;
+      }
+      if (terrain && e.button === 0 && !this.spaceDown && this.tool.kind === 'pick') {
+        const xy = this.toMap(e.clientX, e.clientY);
+        const i = this.markAt(xy);
+        if (i >= 0) {
+          if (e.altKey) this.deleteMark(i);
+          else {
+            const m = this.terrain.marks[i];
+            this.markSel = i;
+            mdrag = { i, dx: m.x - xy[0], dy: m.y - xy[1], before: this.terrain.marks.map((q) => ({ ...q })), moved: false };
+            st.setPointerCapture(e.pointerId);
+            this.renderPaintPanel();
+            this.renderRegionSvg();
+          }
+          return;
+        }
+        if (this.markSel >= 0) {
+          this.markSel = -1;
+          this.renderPaintPanel();
+          this.renderRegionSvg();
+        }
+      }
+      if (terrain && e.button === 0 && !this.spaceDown && this.tool.kind !== 'zoom' && this.tool.kind !== 'pick') {
         if (this.tool.kind !== 'region') {
           tstroke = this.beginTerrainStroke(e);
           st.setPointerCapture(e.pointerId);
@@ -3551,7 +4568,7 @@ class SekaiView extends ItemView {
           return;
         }
       }
-      const painting = (this.mode === 'paint' && this.lands) || terrain;
+      const painting = (this.mode === 'paint' && this.lands) || terrain || this.mode === 'sketch';
       if (this.mode === 'paint' && this.lands && e.button === 0 && !this.spaceDown) {
         stroke = this.beginStroke(e);
         if (stroke) st.setPointerCapture(e.pointerId);
@@ -3572,6 +4589,33 @@ class SekaiView extends ItemView {
       }
       if (tstroke) {
         this.terrainStrokeTo(tstroke, e);
+        return;
+      }
+      if (mstroke) {
+        this.markStrokeTo(mstroke, e);
+        return;
+      }
+      if (sstroke) {
+        this.sketchStrokeTo(sstroke, e);
+        return;
+      }
+      if (mdrag) {
+        const m = this.terrain.marks[mdrag.i];
+        const xy = this.toMap(e.clientX, e.clientY);
+        if (m) {
+          m.x = xy[0] + mdrag.dx;
+          m.y = xy[1] + mdrag.dy;
+          if (!mdrag.moved) {
+            mdrag.moved = true;
+            const keep = this.terrain.marks;
+            this.terrain.marks = keep.filter((q) => q !== m);
+            this.renderMarks();
+            this.terrain.marks = keep;
+          }
+          this.clearPreview();
+          this.previewMark(m);
+          this.renderRegionSvg();
+        }
         return;
       }
       if (vdrag) {
@@ -3602,6 +4646,27 @@ class SekaiView extends ItemView {
       if (tstroke) {
         tstroke = null;
         this.endTerrainStroke();
+        return;
+      }
+      if (mstroke) {
+        const m = mstroke;
+        mstroke = null;
+        this.endMarkStroke(m);
+        return;
+      }
+      if (sstroke) {
+        const k = sstroke;
+        sstroke = null;
+        this.endSketchStroke(k);
+        return;
+      }
+      if (mdrag) {
+        const d = mdrag;
+        mdrag = null;
+        if (d.moved) {
+          this.pushTundo({ type: 'marks', marks: d.before });
+          this.marksChanged();
+        }
         return;
       }
       if (vdrag) {
@@ -3659,7 +4724,7 @@ class SekaiView extends ItemView {
 
   cancelModes() {
     this.moveTarget = null;
-    if (this.mode === 'stamp' || this.mode === 'paint' || this.mode === 'terrain') this.setMode('view');
+    if (this.mode === 'stamp' || this.mode === 'paint' || this.mode === 'terrain' || this.mode === 'sketch') this.setMode('view');
     else this.hideBanner();
   }
 
@@ -3670,6 +4735,9 @@ class SekaiView extends ItemView {
     this.contentEl.toggleClass('is-stamp', mode === 'stamp');
     this.contentEl.toggleClass('is-paint', mode === 'paint');
     this.contentEl.toggleClass('is-terrain', mode === 'terrain');
+    this.contentEl.toggleClass('is-sketch', mode === 'sketch');
+    if (mode === 'sketch') this.enterSketch();
+    else if (prev === 'sketch') this.leaveSketch();
     this.contentEl.toggleClass('is-zoomtool', mode === 'terrain' && this.tool.kind === 'zoom');
     if (prev === 'terrain' && mode !== 'terrain') {
       this.draft = null;
@@ -3678,8 +4746,8 @@ class SekaiView extends ItemView {
     for (const b of this.modeButtons) b.el.toggleClass('is-active', b.mode === mode);
     if (mode === 'stamp') this.showBanner('지도를 누르면 그 자리에 지역을 만들거나 옮겨요 · 지역 표식은 끌어서 옮겨요 · Esc로 끝');
     else this.hideBanner();
-    if (mode === 'paint' || mode === 'terrain') this.select(null);
-    if (mode !== 'paint' && mode !== 'terrain') this.brushRing.addClass('is-hidden');
+    if (mode === 'paint' || mode === 'terrain' || mode === 'sketch') this.select(null);
+    if (mode !== 'paint' && mode !== 'terrain' && mode !== 'sketch') this.brushRing.addClass('is-hidden');
     this.renderPaintPanel();
     this.showTerrainLayer();
     if (this.W && !this.touched) this.fit(); // 판이 생기거나 없어지면 지도를 다시 맞춤
@@ -3693,7 +4761,15 @@ class SekaiView extends ItemView {
     const { places, people } = this.here;
     for (const pl of places) {
       if (!pl.xy) continue;
-      const el = this.marker(pl.xy).createDiv({ cls: 'mnsk-place' + (pl.area ? ' is-area' : pl.capital ? ' is-capital' : '') + (this.placeMapOf(pl) ? ' has-map' : '') });
+      const inner = this.marker(pl.xy);
+      if (pl.icon) {
+        // 건물 그림: 지도와 같이 커지고 작아지게 (밑동 = 좌표)
+        const im = inner.parentElement.createEl('img', { cls: 'mnsk-bicon', attr: { src: pl.icon, draggable: 'false', alt: '' } });
+        im.style.width = `${pl.iconW}px`;
+        im.dataset.path = pl.file.path;
+        this.bindMarker(im, pl);
+      }
+      const el = inner.createDiv({ cls: 'mnsk-place' + (pl.area ? ' is-area' : pl.capital ? ' is-capital' : pl.icon ? ' is-building' : '') + (this.placeMapOf(pl) ? ' has-map' : '') });
       el.createDiv({ cls: 'mnsk-place-dot' });
       el.createDiv({ cls: 'mnsk-place-name', text: pl.name });
       this.bindMarker(el, pl);
@@ -4013,6 +5089,7 @@ class SekaiView extends ItemView {
       { mode: 'stamp', label: '지역 찍기' },
       { mode: 'paint', label: '땅 칠하기' },
       { mode: 'terrain', label: '지형 그리기' },
+      { mode: 'sketch', label: '스케치' },
     ].map((b) => {
       const el = seg.createEl('button', { text: b.label });
       el.onclick = () => this.setMode(b.mode);

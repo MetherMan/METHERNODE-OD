@@ -2,7 +2,8 @@
   "maps": [
     {
       "name": "4간구",
-      "path": "The Archive - 자료/4간구.jpg"
+      "path": "The Archive - 자료/4간구 (새 산).jpg",
+      "lands": "The Archive - 자료/4간구.영역.json"
     },
     {
       "name": "메러노더 전체",
@@ -22,7 +23,7 @@
     },
     {
       "name": "라하니아 수도",
-      "path": "The Archive - 자료/라하니아 수도.jpg",
+      "path": "The Archive - 자료/라하니아 수도 (그림 예시).jpg",
       "parent": "라하니아",
       "place": "라하니아 수도",
       "window": [
