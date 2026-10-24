@@ -34,10 +34,6 @@
      흐려도 되는 배경이라 작게 그려 늘림 (SUR_Q) */
   .surround { position: absolute; transform-origin: 0 0; background-repeat: no-repeat; pointer-events: none; transition: filter 1.4s; }
   #scene.is-unfolded .surround { filter: brightness(0.62) saturate(0.85); }
-  /* 스테이지 둘레의 지역 판 종이: 바뀐 직후엔 지역 판과 똑같이, 그 뒤 살짝 가라앉아 스테이지가 돋보이게 (나올 땐 먼저 밝아짐) */
-  .parent-page { position: absolute; transform-origin: 0 0; background-size: 100% 100%; background-repeat: no-repeat; pointer-events: none; transition: filter 1.2s;
-    box-shadow: inset 0 0 0 0.75px rgba(50,28,10,0.6), inset 0 0 0 5px #efe3c7, inset 0 0 9px 5px rgba(60,35,15,0.28); }
-  .parent-page.dim { filter: brightness(0.62) saturate(0.8); }
   .pg { position: absolute; top: 0; transform-origin: 0 50%; background-repeat: no-repeat; backface-visibility: hidden; }
   #ovpaper { position: absolute; left: 0; top: 0; width: 1600px; height: 1000px; transform-origin: 0 0; transform-style: preserve-3d; }
   .ov-hit { position: absolute; inset: 0; cursor: pointer; transition: background-color 0.3s; }
@@ -206,7 +202,7 @@
   #scene.is-clear #scene-title, #scene.is-clear #close { opacity: 1; }
   #scene.is-ready #view-hint { opacity: 0.7; }
 
-  /* ---------- 스테이지 오가기: 아래 [⤴ 위로] 지금 판 이름 [→ 안쪽 스테이지들] ---------- */
+  /* ---------- 아래 막대: [마을의 장면들] | [⤴ 위 판] [이 판 안의 장소들] ---------- */
   #stagebar { left: 50%; bottom: 44px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 999px; max-width: 86vw;
     border: 1px solid rgba(226,194,126,0.42); background: rgba(28,18,10,0.66); box-shadow: 0 6px 18px rgba(0,0,0,0.35);
     opacity: 0; pointer-events: none; transition: opacity 0.5s; white-space: nowrap; }
@@ -223,16 +219,10 @@
   #stagebar .sb-sub:empty, #stagebar .sb-sub.none { display: none; }
   #stagebar .sb-kids { display: flex; gap: 4px; overflow: hidden; }
   #stagebar .sb-kids button::before { content: '→ '; color: var(--gold); }
-  /* 판 위 스테이지 자리: 옅은 점선 테 + 세워 둔 종이 깃발 (누르면 그 스테이지로 파고듦) */
-  .stage-zone { position: absolute; box-sizing: border-box; border: 2px dashed rgba(120,60,30,0.38); border-radius: 6px; pointer-events: none; opacity: 0; transition: opacity 0.6s; }
-  #scene.is-ready .stage-zone { opacity: 1; }
-  .flag { position: absolute; transform-origin: 50% 100%; cursor: pointer; transition: transform 0.75s cubic-bezier(.34,1.5,.64,1), opacity 0.4s; display: flex; flex-direction: column; align-items: center; }
-  .flag b { display: block; padding: 0.35em 0.8em 0.4em; border-radius: 4px; background: linear-gradient(180deg, #fbf3df, #ead8b1); color: #5a2f18; font: 400 1em/1.1 var(--hand); letter-spacing: 0.08em; white-space: nowrap;
-    box-shadow: 0 0 0 1.5px #8a5a33, 0 0.15em 0.4em rgba(40,22,8,0.35); }
-  .flag i { display: block; width: 0.18em; flex: 1; background: linear-gradient(90deg, #6a4224, #a2744a, #6a4224); }
-  .flag:hover b { background: linear-gradient(180deg, #fff8e6, #f3dfb2); box-shadow: 0 0 0 1.5px #a8482f, 0 0 0.8em rgba(255,200,120,0.8); }
+  #stagebar .sb-kids button.sib::before { content: ''; }
+  #stagebar .sb-kids button.on { background: rgba(226,194,126,0.2); border-color: rgba(226,194,126,0.8); color: #fff3d6; cursor: default; }
 
-  /* ---------- 양옆 면의 내용: 왼쪽 = 구역 목차 + 작은 지도, 오른쪽 = 작가의 기록 ---------- */
+  /* ---------- 양옆 면의 내용: 왼쪽 = 마을 지도 + 장소 목차, 오른쪽 = 기록 ---------- */
   /* 3D 면은 뒤집혀 누워 있어서 거울처럼 한 번 더 뒤집어 바로 읽히게. 누르면 카메라가 그 면을 내려다보고, 그때 또렷한 쓰기용 판을 겹쳐 띄움 */
   .flap { position: absolute; inset: 0; box-sizing: border-box; padding: 34px 30px 28px; transform: scaleX(-1); display: flex; flex-direction: column;
     color: #4a3020; font-family: var(--serif); pointer-events: auto; cursor: pointer; overflow: hidden; }
@@ -249,6 +239,12 @@
   .flap ol { list-style: none; margin: 6px 0 0; padding: 0; overflow: hidden; }
   .flap li { display: flex; gap: 10px; align-items: baseline; font: 15px/2 var(--serif); padding: 0 6px; border-bottom: 1px dashed rgba(120,85,50,0.3); }
   .flap li .no { min-width: 18px; color: #8a6440; font-size: 12px; }
+  .flap li .pn { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .flap li input { flex: 1; min-width: 0; font: 15px/1.6 var(--serif); padding: 0 4px; border: 1px solid rgba(120,85,50,0.5); border-radius: 3px; background: rgba(255,250,236,0.9); color: var(--ink); }
+  .flap li .pb { flex: none; width: 24px; height: 24px; border: 0; border-radius: 50%; background: transparent; color: #8a6440; font: 14px/1 var(--serif); cursor: pointer; align-self: center; }
+  .flap li .pb:hover { background: rgba(168,72,47,0.15); color: var(--accent); }
+  #flappanel .flap li.place { cursor: pointer; }
+  #flappanel .flap li.place:hover { background: rgba(255,236,190,0.45); }
   .flap li.on { color: var(--accent); }
   .flap li.on::after { content: '◀'; margin-left: auto; font-size: 10px; }
   .flap .tool { margin-top: auto; padding-top: 10px; font: 12px/1 var(--serif); letter-spacing: 0.24em; color: #8a6440; text-align: center; background: none; border: 0; }
@@ -273,26 +269,7 @@
   #flappanel .fp-back { position: absolute; left: 18px; top: 14px; border: 0; background: none; color: #8a6440; font: 12px/1 var(--serif); letter-spacing: 0.12em; cursor: pointer; z-index: 1; }
   #flappanel .fp-back:hover { color: var(--accent); }
 
-  /* ---------- 구역 나누기 (위에서 내려다본 판 위에 네모를 그어 정함) ---------- */
-  #scene.is-editing .stand { visibility: hidden; }
-  #zedit { opacity: 0; pointer-events: none; transition: opacity 0.3s; cursor: crosshair; touch-action: none; }
-  #zedit.on { opacity: 1; pointer-events: auto; }
-  #zedit .zbox { position: absolute; box-sizing: border-box; border: 2px solid rgba(255,226,160,0.9); background: rgba(255,214,140,0.14); cursor: move;
-    box-shadow: 0 0 0 1px rgba(40,22,8,0.6), inset 0 0 0 1px rgba(40,22,8,0.35); }
-  #zedit .zbox.sel { border-color: #ffd98a; background: rgba(255,200,110,0.26); box-shadow: 0 0 0 2px rgba(168,72,47,0.9), 0 0 18px rgba(255,200,110,0.5); }
-  #zedit .zname { position: absolute; left: 6px; top: 6px; padding: 3px 8px; border-radius: 3px; background: rgba(28,18,10,0.78); color: #f4e4c0; font: 14px/1.2 var(--hand); letter-spacing: 0.06em; white-space: nowrap; pointer-events: none; }
-  #zedit .zgrip { position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; border-radius: 3px; background: #ffd98a; box-shadow: 0 0 0 2px rgba(40,22,8,0.8); cursor: nwse-resize; }
-  #zedit-tools { left: 50%; top: 18px; transform: translateX(-50%); display: none; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px;
-    border: 1px solid rgba(226,194,126,0.45); background: rgba(28,18,10,0.86); color: #ecd9b0; font: 13px/1.4 var(--serif); box-shadow: 0 10px 28px rgba(0,0,0,0.45); white-space: nowrap; }
-  #zedit-tools.on { display: flex; }
-  #zedit-tools b { font: 400 17px/1 var(--hand); color: var(--gold); letter-spacing: 0.1em; margin-right: 4px; }
-  #zedit-tools .tip { color: #b89a6c; font-size: 12px; }
-  #zedit-tools input { width: 130px; padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(226,194,126,0.5); background: rgba(255,246,226,0.92); color: var(--ink); font: 14px/1 var(--serif); }
-  #zedit-tools button { padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(226,194,126,0.5); background: rgba(60,38,20,0.8); color: #ecd9b0; font: 13px/1 var(--serif); cursor: pointer; }
-  #zedit-tools button.go { background: #a8482f; border-color: #d98a62; color: #fff3df; }
-  #zedit-tools button:disabled { opacity: 0.4; cursor: default; }
   /* ---------- 배치 고치기 (위에서 내려다본 판 위 그림을 끌어 옮기고, 기호를 더 놓음) ---------- */
-  #scene.is-placing .flag, #scene.is-placing .stage-zone { visibility: hidden; }
   #scene.is-placing .piece { cursor: grab; }
   #scene.is-placing .piece.is-sel { filter: drop-shadow(0 0 calc(2px * var(--k, 1)) #fff6dc) drop-shadow(0 0 calc(9px * var(--k, 1)) rgba(255,180,90,1)); }
   #ptools { left: 50%; top: 18px; transform: translateX(-50%); display: none; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px;
@@ -304,6 +281,9 @@
   #ptools button { padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(226,194,126,0.5); background: rgba(60,38,20,0.8); color: #ecd9b0; font: 13px/1 var(--serif); cursor: pointer; }
   #ptools button.go { background: #a8482f; border-color: #d98a62; color: #fff3df; }
   #ptools button:disabled { opacity: 0.4; cursor: default; }
+  #ptools .pt-board { display: flex; align-items: center; gap: 6px; padding-left: 8px; border-left: 1px solid rgba(226,194,126,0.3); }
+  #ptools .pt-board[hidden] { display: none; }
+  #ptools select { padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(226,194,126,0.5); background: rgba(255,246,226,0.92); color: var(--ink); font: 13px/1 var(--serif); }
   #palette { right: 14px; top: 80px; bottom: 80px; width: 236px; display: none; flex-direction: column; border-radius: 10px; overflow: hidden;
     border: 1px solid rgba(226,194,126,0.45); background: rgba(28,18,10,0.9); box-shadow: 0 10px 28px rgba(0,0,0,0.45); }
   #palette.on { display: flex; }
@@ -403,12 +383,10 @@
     <div id="fx"><div class="fx-tone"></div><div class="fx-bloom"></div><div class="fx-rays"></div><div class="motes"></div><div class="fx-grade"></div></div>
     <div id="scene-title" class="ui heading"></div>
     <button id="close" class="ui">책 덮기</button>
-    <div id="view-hint" class="ui">끌면 보는 각도가 돌아가요 · 휠로 가까이 · 아래 장면 이름 · ← → 로 마을 안 다른 장면 · 깃발 = 스테이지 · Backspace 위 판 · 양옆 면을 누르면 목차·기록 · Esc 덮기</div>
+    <div id="view-hint" class="ui">끌면 보는 각도가 돌아가요 · 휠로 가까이 · 아래 장면 이름 · ← → 로 마을 안 다른 장면 · → 장소(골목길 · 거리)는 새로 꾸민 판 · Backspace 위 판 · 양옆 면을 누르면 목차·기록 · Esc 덮기</div>
     <div id="stagebar" class="ui"><div class="sb-scenes" title="이 마을의 장면 (← →)"></div><div class="sb-sub"><button class="sb-up" title="위 판으로 (Backspace)">⤴ 위로</button><div class="sb-kids"></div></div></div>
     <div id="flappanel" class="ui"><button class="fp-back">‹ 판으로</button><div class="flap"></div></div>
-    <div id="zedit" class="ui"></div>
-    <div id="zedit-tools" class="ui"><b>스테이지 나누기</b><span class="tip">판 위를 끌어 새 스테이지 · 끌어 옮기기 · 모서리로 크기</span><button class="zt-add">＋ 새 스테이지</button><input class="zt-name" placeholder="스테이지 이름" disabled><button class="zt-del" disabled>지우기</button><button class="zt-cancel">그만두기</button><button class="zt-save go">다 했어요</button></div>
-    <div id="ptools" class="ui"><b>배치 고치기</b><span class="tip">그림을 끌어 옮기기 · 오른쪽에서 기호를 골라 더 놓기</span><span class="pt-sel">고른 그림 없음</span><button class="pt-small" disabled>－</button><button class="pt-big" disabled>＋</button><button class="pt-del" disabled>지우기</button><button class="pt-done go">다 했어요</button></div>
+    <div id="ptools" class="ui"><b>배치 고치기</b><span class="tip">그림을 끌어 옮기기 · 오른쪽에서 기호를 골라 더 놓기</span><span class="pt-sel">고른 그림 없음</span><button class="pt-small" disabled>－</button><button class="pt-big" disabled>＋</button><button class="pt-del" disabled>지우기</button><span class="pt-board"><label>바닥 <select class="pt-floor"></select></label><button class="pt-narrow" title="판을 좁게">판 －</button><button class="pt-wide" title="판을 넓게">판 ＋</button></span><button class="pt-done go">다 했어요</button></div>
     <div id="palette" class="ui"><div class="pl-tabs"></div><div class="pl-grid"></div></div>
     <div id="recpanel" class="ui"><div class="rp-head"><span class="rp-kind"></span><input class="rp-title" placeholder="제목"><span class="rp-date"></span></div><textarea class="rp-body" placeholder="여기에 길게 적어요…"></textarea><div class="rp-foot"><span class="rp-path"></span><span class="rp-saved"></span><button class="rp-open">옵시디언에서 열기</button><button class="rp-close go">닫기</button></div></div>
   </div>
@@ -759,14 +737,14 @@ function mapPose(o) {
   return [mr.left + ((x0 + x1) / 2) * MS * OV.s, mr.top + ((y0 + y1) / 2) * MS * OV.s, o.w, o.h, MS * OV.s, 0, 0, 0];
 }
 
-// ---------- 판: 지역 하나 = 판 하나, 그 안의 스테이지 = 그 자리를 떼어 크게 키운 또 하나의 판 ----------
-// 스테이지는 지역(root)의 stages 에 [{id, name, parent, x, y, w, h, items}] 로 저장 (마을 좌표 네모, parent = 위 스테이지 id 또는 null).
-// 그림(items)도 마을 좌표라서, 스테이지는 지역 좌표의 한 창문: 지역의 그림 중 그 네모 안에 있는 것이 그대로 크게 보이고,
-// 그 스테이지에서 더 놓은 그림(stage.items)은 그 스테이지와 그 안쪽 스테이지에서만 보임.
+// ---------- 판: 마을의 장면(지역) 하나 = 판 하나. 그 장면 안의 장소(골목길 · 거리 …) = 따로 새로 꾸미는 판 ----------
+// 장소는 지역(root)의 stages 에 [{id, name, parent, w, h, floor, items}] 로 저장 (parent = 위 장소 id 또는 null).
+// 장소의 그림(items)은 그 장소 판의 좌표(0..w, 0..h)라서 위 판을 잘라 키운 것이 아니라 완전히 새로 구성됨.
+// 판 둘레의 마을 지도와 덮개 그림만 그 지역 자리에 맞춰 깔림 (드나들 때 지도가 이어지게).
 const stagesOf = (root) => (root.stages ||= []);
 const stageById = (root, id) => stagesOf(root).find((s) => s.id === id) || null;
 const childStages = (root, stage) => stagesOf(root).filter((s) => (s.parent || null) === (stage ? stage.id : null));
-/** 지역에서 이 스테이지까지 (위 → 아래) */
+/** 지역에서 이 장소까지 (위 → 아래) */
 function lineage(root, stage) {
   const a = [];
   for (let s = stage; s; s = s.parent ? stageById(root, s.parent) : null) a.unshift(s);
@@ -774,65 +752,48 @@ function lineage(root, stage) {
 }
 const boardKey = (root, stage) => root.id + (stage ? '/' + stage.id : '');
 const boardName = (root, stage) => [root.name, ...lineage(root, stage).map((s) => s.name)].join(' › ');
-const boardRect = (root, stage) => (stage ? [stage.x, stage.y, stage.x + stage.w, stage.y + stage.h] : bbox(root.poly));
-const layerOf = (root, stage) => (stage ? (stage.items ||= []) : root.items); // 이 판에서 새로 놓는 그림이 들어가는 곳
-function boardItems(root, stage) {
-  const [x0, y0, x1, y1] = boardRect(root, stage);
-  return [...root.items, ...lineage(root, stage).flatMap((s) => s.items || [])].filter((it) => it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1);
-}
+const layerOf = (root, stage) => (stage ? (stage.items ||= []) : root.items); // 이 판에 놓는 그림이 들어가는 곳
+const boardItems = (root, stage) => layerOf(root, stage);
+/** 판의 자리: x0..x1 · y0..y1 = 그림 좌표의 범위, ox · oy = 책 속 (0,0) 의 그림 좌표, gx · gy = 그림 좌표 (0,0) 이 마을 지도에서 놓이는 곳 */
 function viewOf(root, stage) {
-  const [x0, y0, x1, y1] = boardRect(root, stage);
-  return { root, stage, x0, y0, x1, y1, ox: x0 - M, oy: y0 - M, w: x1 - x0 + 2 * M, h: y1 - y0 + 2 * M };
+  const [rx0, ry0, rx1, ry1] = bbox(root.poly);
+  if (!stage) return { root, stage, x0: rx0, y0: ry0, x1: rx1, y1: ry1, ox: rx0 - M, oy: ry0 - M, gx: 0, gy: 0, w: rx1 - rx0 + 2 * M, h: ry1 - ry0 + 2 * M };
+  // 장소는 지역 가운데 자리에 놓인 새 판
+  return { root, stage, x0: 0, y0: 0, x1: stage.w, y1: stage.h, ox: -M, oy: -M, gx: (rx0 + rx1 - stage.w) / 2, gy: (ry0 + ry1 - stage.h) / 2, w: stage.w + 2 * M, h: stage.h + 2 * M };
 }
-const inRect = (it, V) => it.x >= V.x0 && it.x <= V.x1 && it.y >= V.y0 && it.y <= V.y1;
-/** 지역 바닥 그림(page_지역.jpg)에서 이 판 자리만 떼어 오는 배경 (스테이지는 그 자리를 크게) */
+/** 장소 바닥: 빈 종이 또는 마을 장면의 바닥 그림 하나 (작가가 배치 고치기에서 고름) */
+const FLOORS = () => [['paper', '빈 종이'], ...town.blocks.map((b) => [b.id, b.name + ' 바닥'])];
+function floorArt(el, V) {
+  if (!V.stage) return pageArt(el, V.root, V.ox, V.oy);
+  const f = V.stage.floor || 'paper';
+  Object.assign(el.style, { backgroundRepeat: 'no-repeat', backgroundColor: '#e9dcc0', backgroundPosition: 'center', backgroundSize: 'cover',
+    backgroundImage: f === 'paper' ? `linear-gradient(rgba(240,228,200,0.35), rgba(240,228,200,0.35)), url("${LOCAL('paper_card.jpg')}")` : `url("${LOCAL(`page_${f}.jpg`)}")` });
+}
+/** 지역 바닥 그림(page_지역.jpg)을 그 판 자리에 */
 function pageArt(el, root, ox, oy) {
   const [rx0, ry0, rx1, ry1] = bbox(root.poly);
   Object.assign(el.style, { backgroundImage: `url("${LOCAL(`page_${root.id}.jpg`)}")`, backgroundRepeat: 'no-repeat', backgroundColor: '#e9dcc0',
     backgroundSize: `${rx1 - rx0 + 2 * M + 2 * PAD}px ${ry1 - ry0 + 2 * M + 2 * PAD}px`, backgroundPosition: `${rx0 - M - ox}px ${ry0 - M - oy}px` });
 }
 
-/** 판 하나를 책 속에 깖: 둘레 지도 · 종이 · 배경 막 · 그림 · 안쪽 스테이지 깃발 · (지역을 처음 펼칠 땐) 구름 · 덮개.
- *  opts.up(it): 처음부터 서 있을 그림 · opts.fogs · opts.doors: 'closed'(지도에서 펼칠 때) | 'open' · opts.flapsFade: 양옆 면을 투명하게 깔아 두기 */
+/** 판 하나를 책 속에 깖: 둘레 지도 · 종이 · 배경 막 · 그림 · (지역을 처음 펼칠 땐) 구름 · 덮개.
+ *  opts.up(it): 처음부터 서 있을 그림 · opts.fogs · opts.doors: 'closed'(닫힌 채로 깔고 열며 보여 줄 때) | 'open' · opts.flapsFade: 양옆 면을 투명하게 */
 function buildBoard(V, opts = {}) {
-  const { root, stage, ox, oy, w, h } = V;
+  const { stage, ox, oy, gx, gy, w, h } = V;
   bookz.innerHTML = '';
   const add = (cls, tag = 'div') => el(cls, bookz, tag);
   const box = (e, ins) => Object.assign(e.style, { left: -ins + 'px', top: -ins + 'px', width: w + 2 * ins + 'px', height: h + 2 * ins + 'px' });
-  // 판 둘레의 지도 · 종이 (종이는 지도와 같은 높이에 박혀 있음 — 지도 그 자리가 열리면 드러남).
-  // 스테이지는 둘레에 지역 판의 종이를 그대로 깔고 그 바깥에 지도를 둠: 지역 판에서 파고들 때 둘레가 그대로 이어져 툭 바뀌지 않게
-  let parentPage = null;
-  if (stage) {
-    const [rx0, ry0, rx1, ry1] = bbox(root.poly);
-    const RX = rx0 - M - PAD - ox, RY = ry0 - M - PAD - oy, RW = rx1 - rx0 + 2 * M + 2 * PAD, RH = ry1 - ry0 + 2 * M + 2 * PAD, q = 2;
-    buildSurround(bookz, RX, RY, RW, RH, ox, oy, 5); // 스테이지는 책 속 배율이 커서 둘레를 더 작게 그림 (메모리)
-    parentPage = add('parent-page'); // 흐려도 되는 둘레라 절반 크기로 그려 두 배로 늘림
-    Object.assign(parentPage.style, { left: RX + 'px', top: RY + 'px', width: RW / q + 'px', height: RH / q + 'px', transform: `translateZ(-0.6px) scale(${q})`,
-      backgroundImage: `url("${LOCAL(`page_${root.id}.jpg`)}")` });
-  } else buildSurround(bookz, -PAD, -PAD, w + 2 * PAD, h + 2 * PAD, ox, oy);
+  const tx = ox + gx, ty = oy + gy; // 책 속 (0,0) 의 마을 지도 좌표
+  // 판 둘레의 마을 지도 · 종이 (종이는 지도와 같은 높이에 박혀 있음 — 지도 그 자리가 열리면 드러남). 장소는 책 속 배율이 커서 둘레를 더 작게 그림 (메모리)
+  buildSurround(bookz, -PAD, -PAD, w + 2 * PAD, h + 2 * PAD, tx, ty, stage ? 4 : 3);
   const page = add('bk-page');
   box(page, PAD);
-  pageArt(page, root, ox, oy);
+  floorArt(page, V);
   el('book-light', page).style.inset = '0';
   const deco = el('deco', page); // 판에 누운 것들은 여기에 (좌표는 bookz 와 같게)
   Object.assign(deco.style, { left: PAD + 'px', top: PAD + 'px' });
   const flat = (cls, tag = 'div') => el(cls, deco, tag);
-  // 안쪽 스테이지: 자리를 옅은 점선으로, 이름을 쓴 종이 깃발을 세워 둠 (누르면 파고듦)
   const flags = [];
-  const fs = clampv(w * 0.024, [10, 22]);
-  for (const s of childStages(root, stage)) {
-    const z = flat('stage-zone');
-    Object.assign(z.style, { left: s.x - ox + 'px', top: s.y - oy + 'px', width: s.w + 'px', height: s.h + 'px' });
-    const f = add('stand flag');
-    f.innerHTML = '<b></b><i></i>';
-    f.firstChild.textContent = s.name || '이름 없는 스테이지';
-    const fw = (Math.max(2, [...(s.name || '')].length) * 1.12 + 1.8) * fs, fh = fs * 4.4;
-    Object.assign(f.style, { fontSize: fs + 'px', width: fw + 'px', height: fh + 'px', left: s.x + s.w / 2 - ox - fw / 2 + 'px', top: s.y + s.h * 0.55 - oy - fh + 'px' });
-    f.dataset.up = opts.flagsUp ? '1' : '0';
-    f.style.transform = standT(f);
-    f.onclick = (e) => { e.stopPropagation(); if (!drag?.moved) enterStage(s); };
-    flags.push(f);
-  }
   add('haze');
   // 뒤쪽 배경 막: 먼 풍경 + 가까운 언덕 한 겹 (각도를 돌리면 서로 어긋나며 깊이가 보임)
   const backs = [];
@@ -853,7 +814,7 @@ function buildBoard(V, opts = {}) {
   }
   // 오림 그림 + 바닥 그림자
   const pieces = [];
-  for (const it of [...boardItems(root, stage)].sort((a, c) => a.y - c.y)) pieces.push(makePiece(it, V, add, flat, opts.up ? opts.up(it) : false));
+  for (const it of [...boardItems(V.root, stage)].sort((a, c) => a.y - c.y)) pieces.push(makePiece(it, V, add, flat, opts.up ? opts.up(it) : false));
   // 구름: 종이로 오린 구름 여러 줄 (처음엔 누워 있다가, 표지가 열리면 툭 일어섬) — 지도에서 처음 펼칠 때만
   const fogs = [];
   if (opts.fogs) {
@@ -890,12 +851,9 @@ function buildBoard(V, opts = {}) {
     const x = s === 'l' ? -PAD : -PAD + CW / 2;
     const cb = add('cover-back ' + s);
     Object.assign(cb.style, { left: x + 'px', top: -PAD + 'px', width: CW / 2 + 'px', height: CH + 'px', opacity: closed || opts.flapsFade ? 0 : 1 });
-    let cv = null;
-    if (!stage) {
-      cv = add('cover ' + s);
-      Object.assign(cv.style, { left: x + 'px', top: -PAD + 'px', width: CW / 2 + 'px', height: CH + 'px', visibility: closed ? '' : 'hidden',
-        backgroundImage: `url("${LOCAL('map_town.jpg')}")`, backgroundSize: `${MAPW / MS}px ${MAPH / MS}px`, backgroundPosition: `${-ox - x}px ${-oy + PAD}px` });
-    }
+    const cv = add('cover ' + s);
+    Object.assign(cv.style, { left: x + 'px', top: -PAD + 'px', width: CW / 2 + 'px', height: CH + 'px', visibility: closed ? '' : 'hidden',
+      backgroundImage: `url("${LOCAL('map_town.jpg')}")`, backgroundSize: `${MAPW / MS}px ${MAPH / MS}px`, backgroundPosition: `${-tx - x}px ${-ty + PAD}px` });
     return { s, cv, cb };
   });
   // 열림: 왼짝은 왼쪽 모서리를 축으로 왼쪽으로, 오른짝은 오른쪽 모서리를 축으로 오른쪽으로 넘어가 지도 위에 누움 (열린 채 남음)
@@ -905,7 +863,7 @@ function buildBoard(V, opts = {}) {
     cb.style.transform = `translateZ(1.6px) rotateY(${deg}deg)`;
   });
   setDoors(!closed);
-  return { pieces, fogs, backs, doors, setDoors, page, flags, parentPage };
+  return { pieces, fogs, backs, doors, setDoors, page, flags };
 }
 /** 그림 하나 (+ 받침 · 그림자 · 등불 번짐). up: 처음부터 서 있게 */
 function makePiece(it, V, add, flat, up) {
@@ -998,9 +956,9 @@ const setFlaps = (o, on) => o.doors.forEach(({ cb }) => { cb.style.transition = 
 function boardState(V, parts) {
   let tall = 0;
   for (const p of parts.pieces) if (p.im.naturalWidth) tall = Math.max(tall, (p.im.naturalHeight * p.it.w) / p.im.naturalWidth);
-  const o = { root: V.root, b: V.root, stage: V.stage, key: boardKey(V.root, V.stage), name: boardName(V.root, V.stage), V, w: V.w, h: V.h, ox: V.ox, oy: V.oy,
+  const o = { root: V.root, b: V.root, stage: V.stage, key: boardKey(V.root, V.stage), name: boardName(V.root, V.stage), V, w: V.w, h: V.h, ox: V.ox, oy: V.oy, gx: V.gx, gy: V.gy,
     ...parts, tall: Math.max(tall, 130), focus: null };
-  // 덮개 안쪽 면 = 양옆 면 (왼쪽 스테이지 목차 · 오른쪽 기록). 누르면 카메라가 그 면을 내려다봄
+  // 덮개 안쪽 면 = 양옆 면 (왼쪽 장소 목차 · 오른쪽 기록). 누르면 카메라가 그 면을 내려다봄
   for (const d of o.doors) {
     const f = el('flap', d.cb);
     f.onclick = () => { if (!drag?.moved) lookFlap(d.s); };
@@ -1099,7 +1057,7 @@ async function openBlock(b) {
 /** 지금 카메라가 보는 모습 (판을 바꿀 때 새 판을 똑같이 보이게 깔려고): 화면 (cx, cy) 에 마을 좌표 (fx, fy) 를 배율 S 로 */
 function poseOf(o) {
   const F = focusOf(o);
-  return { fx: o.ox + o.w / 2 + F.fx, fy: o.oy + o.h / 2 + F.fy, S: o.s * VIEW.zoom * F.k, cy: F.sy ?? o.cy };
+  return { fx: o.gx + o.ox + o.w / 2 + F.fx, fy: o.gy + o.oy + o.h / 2 + F.fy, S: o.s * VIEW.zoom * F.k, cy: F.sy ?? o.cy };
 }
 /** 판 바꾸기: 새 판을 깔고, 카메라를 지금과 똑같이 보이게 맞춰서 툭 바뀌지 않게 (위아래 판은 마을 좌표를 같이 쓰므로 그대로 겹침) */
 async function swapTo(V, pose, opts) {
@@ -1110,7 +1068,7 @@ async function swapTo(V, pose, opts) {
   N.busy = true;
   fillFlaps(N);
   layoutOpen(N);
-  N.focus = { kind: 'swap', cx: pose.fx - N.ox, cy: pose.fy - N.oy, k: pose.S / (N.s * VIEW.zoom), sy: pose.cy };
+  N.focus = { kind: 'swap', cx: pose.fx - N.gx - N.ox, cy: pose.fy - N.gy - N.oy, k: pose.S / (N.s * VIEW.zoom), sy: pose.cy };
   setBZ(wantBZ(N));
   // 판 크기가 바뀌었으니 책 크기도 (배율이 그대로면 setBZ 가 그냥 돌아가서, 옛 판 크기가 남아 돌림 중심이 어긋나 화면이 툭 튀었음)
   book.style.width = N.w * BZ + 'px';
@@ -1123,66 +1081,50 @@ async function swapTo(V, pose, opts) {
   if (old) old.swapped = true;
   return N;
 }
-/** 스테이지로 파고들기: 바깥 그림은 눕고 카메라가 그 자리로 다가가 → 같은 자리에서 그 스테이지 판으로 바뀌고 → 제자리로 맞추며 그 스테이지의 것들이 일어섬 */
-async function enterStage(stage) {
+/** 같은 자리에서 다른 판으로 (지역 ↔ 그 안의 장소): 그림이 눕고 덮개(그 자리 지도 그림)가 닫히며 살짝 떠오름 →
+ *  닫힌 채로 새 판을 깔고 (둘레 지도 · 덮개가 같은 지도라 그대로 이어짐) → 내려앉으며 덮개가 열리고 새로 꾸민 장면이 일어섬 */
+async function switchBoard(V, fast) {
   const o = openState;
   if (!o || o.busy || o.closing || o.look || o.editing || o.placing || !scene.classList.contains('is-ready')) return;
   o.busy = true;
   hideCard();
+  closeRecord();
   scene.classList.add('is-moving');
-  const V = viewOf(o.root, stage);
-  const extra = new Set(stage.items || []);
-  o.pieces.forEach((p, i) => { if (!inRect(p.it, V)) setTimeout(() => foldPiece(p), i * 10); });
-  o.flags.forEach((f) => setFlag(f, false));
+  const T = fast ? 0.7 : 1;
+  o.pieces.forEach((p, i) => setTimeout(() => foldPiece(p), i * 10 * T));
   o.backs.forEach((bk) => setBack(bk, false));
-  setFlaps(o, false);
-  // 스테이지 판을 펼쳤을 때의 배율만큼 다가감 (바뀐 뒤 움직임이 작게)
-  const sS = 1.08 * Math.min((innerWidth - 300) / (V.w + 2 * PAD), (innerHeight * 0.64) / ((V.h + 2 * PAD) * Math.cos((72 * Math.PI) / 180) + o.tall), 3.2);
+  await wait(240 * T);
+  o.doors.forEach(({ cv, cb }) => { cv.style.visibility = ''; cb.style.opacity = 1; });
+  o.setDoors(false);
+  VIEW.yaw = 0;
   VIEW.zoom = 1;
-  o.focus = { kind: 'dive', cx: (V.x0 + V.x1) / 2 - o.ox, cy: (V.y0 + V.y1) / 2 - o.oy, k: Math.max(1, sS / o.s) };
-  moveCamera(o, 1.15);
-  await wait(1200);
-  const N = await swapTo(V, poseOf(o), { up: (it) => !extra.has(it), flapsFade: true });
+  VIEW.tilt = 58; // 살짝 떠올라 내려다봄
+  o.focus = null;
+  moveCamera(o, 1.0 * T);
+  await wait(1080 * T);
+  const N = await swapTo(V, poseOf(o), { doors: 'closed', up: () => false });
   N.focus = null;
-  moveCamera(N, 0.9);
-  N.pieces.forEach((p, i) => { if (p.im.dataset.up !== '1') setTimeout(() => standPiece(p), 300 + i * 40); });
-  N.flags.forEach((f, i) => setTimeout(() => setFlag(f, true), 500 + i * 120));
-  N.backs.forEach((bk, i) => setTimeout(() => setBack(bk, true), 200 + i * 160));
-  setTimeout(() => setFlaps(N, true), 300);
-  setTimeout(() => N.parentPage?.classList.add('dim'), 350);
-  await wait(950);
+  VIEW.tilt = INIT_VIEW.tilt;
+  moveCamera(N, 1.1 * T);
+  await wait(200 * T);
+  N.doors.forEach(({ cb }) => { cb.style.opacity = 1; });
+  N.setDoors(true);
+  await wait(950 * T);
+  N.doors.forEach(({ cv }) => { cv.style.visibility = 'hidden'; });
+  N.backs.forEach((bk, i) => setTimeout(() => setBack(bk, true), i * 160));
+  [...N.pieces].sort((a, c) => c.y - a.y).forEach((p, i) => setTimeout(() => standPiece(p), 100 + (1 - p.y / N.h) * 500 + i * 20));
+  await wait(1100 * T);
   N.busy = false;
   scene.classList.remove('is-moving');
   drawStageUI(N);
 }
-/** 위 판으로 나오기: 이 스테이지에만 있는 것들이 눕고 → 같은 자리에서 위 판으로 바뀌고 → 카메라가 물러나며 바깥 그림이 일어섬 */
-async function leaveStage(fast) {
+/** 이 판 안의 장소로 */
+const enterStage = (s) => openState && switchBoard(viewOf(openState.root, s));
+/** 위 판으로 (장소 → 그 위 장소 또는 지역) */
+function leaveStage(fast) {
   const o = openState;
-  if (!o || !o.stage || o.busy || o.closing) return;
-  if (o.look || o.editing || o.placing) return;
-  o.busy = true;
-  hideCard();
-  scene.classList.add('is-moving');
-  const st = o.stage, parent = st.parent ? stageById(o.root, st.parent) : null;
-  const extra = new Set(st.items || []);
-  o.pieces.forEach((p) => { if (extra.has(p.it)) foldPiece(p); });
-  o.parentPage?.classList.remove('dim'); // 위 판 종이와 같은 밝기로 돌아간 뒤 바꿈
-  o.flags.forEach((f) => setFlag(f, false));
-  o.backs.forEach((bk) => setBack(bk, false));
-  setFlaps(o, false);
-  await wait(fast ? 220 : 480);
-  const SV = viewOf(o.root, st);
-  const N = await swapTo(viewOf(o.root, parent), poseOf(o), { up: (it) => inRect(it, SV) && !extra.has(it), flapsFade: true });
-  N.focus = null;
-  moveCamera(N, fast ? 0.7 : 1.15);
-  N.pieces.forEach((p, i) => { if (p.im.dataset.up !== '1') setTimeout(() => standPiece(p), 250 + i * 18); });
-  N.flags.forEach((f, i) => setTimeout(() => setFlag(f, true), 600 + i * 100));
-  N.backs.forEach((bk, i) => setTimeout(() => setBack(bk, true), 300 + i * 160));
-  setTimeout(() => setFlaps(N, true), 400);
-  await wait(fast ? 750 : 1200);
-  N.busy = false;
-  scene.classList.remove('is-moving');
-  drawStageUI(N);
+  if (!o || !o.stage) return;
+  return switchBoard(viewOf(o.root, o.stage.parent ? stageById(o.root, o.stage.parent) : null), fast);
 }
 
 async function closeBlock() {
@@ -1190,17 +1132,13 @@ async function closeBlock() {
   if (!scene.classList.contains('is-ready')) { openState.closeAsap = true; return; } // 아직 펼치는 중: 예약된 동작과 엉키지 않게 다 펼쳐진 뒤 덮음
   hideCard();
   closeRecord();
-  // 스테이지 나누기 · 배치 고치기 · 양옆 면 보기 중이면 그냥 접고 판 전체로 (덮는 길은 늘 지역 판에서)
-  if (openState.editing) endStageEdit(false, true);
+  // 배치 고치기 · 양옆 면 보기 중이면 그냥 접음 (장소 판도 지역 가운데 자리에 놓여 있어서 그대로 지도 자리로 덮임)
   if (openState.placing) endPlace(true);
   flappanel.classList.remove('on');
   clearTimeout(openState.lookTimer);
   scene.classList.remove('look-l', 'look-r');
   openState.look = null;
-  while (openState.stage) { // 스테이지 안이면 지역 판까지 차례로 나옴
-    if (openState.busy) await wait(200);
-    else await leaveStage(true);
-  }
+  while (openState.busy) await wait(150);
   const o = openState;
   o.focus = null;
   o.closing = true;
@@ -1243,56 +1181,53 @@ async function closeBlock() {
   openState = null;
 }
 
-// ---------- 아래 막대: [⤴ 위로] 지금 판 이름 [→ 안쪽 스테이지] ----------
+// ---------- 아래 막대: [마을의 장면들] | [⤴ 위 판] [이 판의 장소들] ----------
 const stagebar = document.getElementById('stagebar');
 const flappanel = document.getElementById('flappanel');
-const zedit = document.getElementById('zedit');
-const ztools = document.getElementById('zedit-tools');
 function moveCamera(o, sec) {
   book.style.transition = `transform ${sec}s cubic-bezier(.55,0,.25,1)`;
   book.style.transform = bookT(o, card.classList.contains('is-open'));
   skyFollow(sec + 's');
   rezoomSoon(sec * 1000 + 80);
 }
+const placeName = (s) => s.name || '이름 없는 장소';
 function drawStageUI(o) {
-  // 이 마을의 장면들 (지금 장면은 밝게 — 스테이지 안이면 눌러서 그 장면으로 나옴)
+  // 이 마을의 장면들 (지금 장면은 밝게 — 장소 안이면 눌러서 그 장면 판으로 돌아옴)
   const sc = stagebar.querySelector('.sb-scenes');
   sc.innerHTML = '';
   for (const b of town.blocks) {
     const bt = el(b === o.root ? 'on' : '', sc, 'button');
     bt.textContent = b.name;
-    bt.onclick = () => (b === o.root ? o.stage && toRootThen() : travelTo(b));
+    bt.onclick = () => (b === o.root ? o.stage && switchBoard(viewOf(o.root, null)) : travelTo(b));
   }
   const up = stagebar.querySelector('.sb-up');
   up.hidden = !o.stage;
-  up.textContent = o.stage ? '⤴ ' + (o.stage.parent ? stageById(o.root, o.stage.parent)?.name : o.root.name) : '⤴ 위로';
+  up.textContent = o.stage ? '⤴ ' + (o.stage.parent ? placeName(stageById(o.root, o.stage.parent)) : o.root.name) : '⤴ 위로';
+  // 이 판 안의 장소 (장소 안이면 나란한 장소들도 — 지금 장소는 밝게)
   const kids = stagebar.querySelector('.sb-kids');
   kids.innerHTML = '';
+  const sibs = o.stage ? childStages(o.root, o.stage.parent ? stageById(o.root, o.stage.parent) : null) : [];
+  for (const s of sibs) {
+    const bt = el(s === o.stage ? 'on sib' : 'sib', kids, 'button');
+    bt.textContent = placeName(s);
+    if (s !== o.stage) bt.onclick = () => enterStage(s);
+  }
   for (const s of childStages(o.root, o.stage)) {
     const bt = el('', kids, 'button');
-    bt.textContent = s.name || '이름 없는 스테이지';
+    bt.textContent = placeName(s);
     bt.onclick = () => enterStage(s);
   }
   stagebar.querySelector('.sb-sub').classList.toggle('none', !o.stage && !kids.children.length);
   fillFlaps(o);
 }
-/** 스테이지 안이면 지역 판까지 차례로 나온 뒤 할 일 */
-async function toRootThen(then) {
-  while (openState && openState.stage) {
-    if (openState.busy) await wait(150);
-    else await leaveStage(true);
-  }
-  if (then) then();
-}
 
 /** 같은 마을의 다른 장면으로: 그림이 눕고 덮개(그 자리 지도 그림)가 닫히며 카메라가 떠오름 → 지도 위를 날아가 →
  *  그 장면 위에서 내려앉으며 덮개가 열리고 그림이 일어섬. 책을 덮지 않음 (둘레 지도가 마을 전체라 지나가는 길이 이어짐) */
 async function travelTo(b) {
-  let o = openState;
+  const o = openState;
   if (!o || o.busy || o.closing || o.editing || o.placing || !scene.classList.contains('is-ready') || b === o.root) return;
   if (o.look) { leaveFlap(); await wait(600); }
-  if (o.stage) { await toRootThen(); o = openState; }
-  if (!o || o.busy) return;
+  if (o.busy) return;
   o.busy = true;
   hideCard();
   closeRecord();
@@ -1339,17 +1274,17 @@ function fillFlaps(o) {
   if (o.flapR) fillFlap(o.flapR, 'r', o, false);
 }
 
-/** 양옆 면의 내용: 왼쪽 = 이 판의 스테이지 목차 + 작은 지도, 오른쪽 = 이 판의 기록 (노트). 3D 면(보기용)과 내려다볼 때 겹치는 판(live, 쓰기용)이 같은 모양 */
+/** 양옆 면의 내용: 왼쪽 = 마을 지도 + 이 판 안의 장소 목차, 오른쪽 = 이 판의 기록 (노트). 3D 면(보기용)과 내려다볼 때 겹치는 판(live, 쓰기용)이 같은 모양 */
 function fillFlap(box, side, o, live) {
   box.innerHTML = '';
   const CW = o.w + 2 * PAD, CH = o.h + 2 * PAD;
-  el('lab', box).textContent = side === 'l' ? '스 테 이 지' : '기 록';
-  el('nm', box).textContent = o.stage ? o.stage.name : o.root.name;
+  el('lab', box).textContent = side === 'l' ? '장 소' : '기 록';
+  el('nm', box).textContent = o.stage ? placeName(o.stage) : o.root.name;
   el('', el('orn', box), 'i');
   if (side === 'l') {
     const kids = childStages(o.root, o.stage);
-    // 마을 지도: 이 마을의 장면들 (지금 장면은 붉게, 누르면 그 장면으로 날아감) + 지금 판 안의 스테이지 자리. 목차가 다 들어가고 남는 높이만큼만
-    const room = CH - 62 - 82 - (kids.length + (o.stage ? 1 : 0)) * 30 - 2 * 30 - 18;
+    // 마을 지도: 이 마을의 장면들 (지금 장면은 붉게, 누르면 그 장면으로 날아감). 목차가 다 들어가고 남는 높이만큼만
+    const room = CH - 62 - 82 - (kids.length + (o.stage ? 1 : 0)) * 30 - (live ? 2 : 1) * 34 - 18;
     const mw0 = CW / 2 - 64, mh = Math.min(room, (mw0 * MAPH) / MAPW);
     const mini = el('mini', box);
     Object.assign(mini.style, { width: (mh * MAPW) / MAPH + 'px', height: mh + 'px', display: mh < 46 ? 'none' : '' });
@@ -1372,34 +1307,71 @@ function fillFlap(box, side, o, live) {
       if (live && !on) pg.addEventListener('click', () => leaveFlap(() => travelTo(b)));
       svg.appendChild(pg);
     }
-    for (const s of kids) {
-      const r = document.createElementNS(NS, 'rect');
-      for (const [k, v] of Object.entries({ x: s.x, y: s.y, width: s.w, height: s.h })) r.setAttribute(k, v);
-      r.setAttribute('style', 'fill:none;stroke:#fff3d6;stroke-width:4;stroke-dasharray:10 6');
-      svg.appendChild(r);
-    }
+    // 이 판 안의 장소: 누르면 그 장소의 새 판으로. 쓰기용 판에서는 이름 고치기 · 지우기 · 새 장소 만들기
     const ol = el('', box, 'ol');
     if (o.stage) {
       const li = el('', ol, 'li');
       el('no', li, 'span').textContent = '⤴';
-      el('', li, 'span').textContent = (o.stage.parent ? stageById(o.root, o.stage.parent)?.name : o.root.name) + ' (위 판)';
+      el('', li, 'span').textContent = (o.stage.parent ? placeName(stageById(o.root, o.stage.parent)) : o.root.name) + ' (위 판)';
       if (live) li.onclick = () => leaveFlap(() => leaveStage());
     }
     kids.forEach((s, i) => {
-      const li = el('', ol, 'li');
+      const li = el('place', ol, 'li');
       el('no', li, 'span').textContent = i + 1;
-      el('', li, 'span').textContent = s.name || '이름 없는 스테이지';
-      if (live) li.onclick = () => leaveFlap(() => enterStage(s));
+      const nm = el('pn', li, 'span');
+      nm.textContent = placeName(s);
+      if (!live) return;
+      li.onclick = (e) => { if (!e.target.closest('button, input')) leaveFlap(() => enterStage(s)); };
+      const ren = el('pb', li, 'button');
+      ren.textContent = '✎';
+      ren.title = '이름 고치기';
+      ren.onclick = () => {
+        const inp = document.createElement('input');
+        inp.value = s.name || '';
+        nm.replaceWith(inp);
+        inp.focus();
+        inp.select();
+        const done = () => { const v = inp.value.trim(); if (v && v !== s.name) { s.name = v; saveSoon(); } drawStageUI(o); fillFlap(box, 'l', o, true); };
+        inp.onkeydown = (e) => { if (e.key === 'Enter') done(); if (e.key === 'Escape') { e.stopPropagation(); fillFlap(box, 'l', o, true); } };
+        inp.onblur = done;
+      };
+      const del = el('pb', li, 'button');
+      del.textContent = '×';
+      del.title = '장소 지우기';
+      del.onclick = () => {
+        const all = subtree(o.root, s);
+        const n = all.reduce((k, x) => k + (x.items || []).length, 0);
+        if (!confirm(`「${placeName(s)}」${all.length > 1 ? `과 그 안의 장소 ${all.length - 1}곳` : ''}을 지울까요? 놓아 둔 그림 ${n}개도 같이 지워져요.\n(이 장소에 단 기록 노트는 지우지 않아요)`)) return;
+        const st = stagesOf(o.root);
+        for (const x of all) st.splice(st.indexOf(x), 1);
+        saveSoon();
+        drawStageUI(o);
+        fillFlap(box, 'l', o, true);
+      };
     });
-    if (!kids.length) el('empty', box).textContent = '아직 스테이지가 없어요. 아래 「스테이지 나누기」로 이 판의 한 자리를 떼어 따로 들어가는 판을 만들어요.';
-    const tools = el('tools', box);
-    tools.style.cssText = 'margin-top:auto;display:flex;justify-content:center;gap:16px';
-    for (const [t, fn] of [['✎ 스테이지 나누기', () => startStageEdit()], ['✎ 배치 고치기', () => startPlace()]]) {
-      const tool = el('tool', tools, live ? 'button' : 'div');
-      tool.style.marginTop = '0';
-      tool.textContent = t;
-      if (live) tool.onclick = fn;
+    if (!kids.length) el('empty', box).textContent = live ? '아직 이 판 안의 장소가 없어요. 아래에 이름을 써서 만들어요 (예: 골목길 1, 배지야의 거리).' : '이 판 안의 장소 (골목길 · 거리 …) — 눌러서 만들어요.';
+    if (live) {
+      // 새 장소: 이름만 쓰면 빈 판이 생기고, 들어가서 「배치 고치기」로 바닥과 건물 · 사람을 꾸밈
+      const nr = el('newrec', box);
+      const title = el('', nr, 'input');
+      title.placeholder = '새 장소 이름';
+      const go = el('addrec', nr, 'button');
+      go.textContent = '＋ 새 장소';
+      go.onclick = () => {
+        const name = title.value.trim();
+        if (!name) { title.focus(); return; }
+        const [rx0, ry0, rx1, ry1] = bbox(o.root.poly); // 처음 크기는 이 지역 판만큼 (그림 크기가 같은 비율로 보이게)
+        stagesOf(o.root).push({ id: 's' + Date.now().toString(36), parent: o.stage ? o.stage.id : null, name, w: Math.round(rx1 - rx0), h: Math.round(ry1 - ry0), floor: 'paper', items: [] });
+        saveSoon();
+        title.value = '';
+        drawStageUI(o);
+        fillFlap(box, 'l', o, true);
+      };
+      title.onkeydown = (e) => { if (e.key === 'Enter') go.click(); };
     }
+    const tool = el('tool', box, live ? 'button' : 'div');
+    tool.textContent = o.stage ? '✎ 배치 · 바닥 고치기' : '✎ 배치 고치기';
+    if (live) tool.onclick = () => startPlace();
   } else {
     const list = el('recs', box);
     el('empty', list).textContent = '기록을 찾는 중…';
@@ -1476,7 +1448,7 @@ function showFlapPanel(o, side) {
     transform: `translate(${r.left}px, ${r.top}px) scale(${r.width / (CW / 2)})` });
   flappanel.classList.add('on');
 }
-/** 면에서 판으로 돌아감 (then: 돌아가며 이어서 할 일 — 스테이지로 파고들기 등) */
+/** 면에서 판으로 돌아감 (then: 돌아가며 이어서 할 일 — 다른 장소 · 장면으로 가기 등) */
 function leaveFlap(then) {
   const o = openState;
   if (!o || !o.look) return;
@@ -1492,140 +1464,11 @@ function leaveFlap(then) {
 }
 flappanel.querySelector('.fp-back').onclick = () => leaveFlap();
 
-// ---------- 스테이지 나누기: 위에서 내려다본 판 위에 네모를 긋고, 옮기고, 크기를 바꾸고, 이름을 붙임 (그 네모가 따로 들어가는 판이 됨) ----------
-function startStageEdit() {
-  const o = openState;
-  if (!o || o.closing || o.busy || o.editing || o.placing) return;
-  hideCard();
-  flappanel.classList.remove('on');
-  clearTimeout(o.lookTimer);
-  scene.classList.remove('look-l', 'look-r');
-  o.look = null;
-  const CW = o.w + 2 * PAD, CH = o.h + 2 * PAD;
-  o.editing = { zones: childStages(o.root, o.stage).map((s) => ({ id: s.id, name: s.name, x: s.x, y: s.y, w: s.w, h: s.h })), sel: -1 };
-  o.focus = { kind: 'edit', cx: o.w / 2, cy: o.h / 2, k: Math.min((innerWidth * 0.62) / CW, (innerHeight * 0.74) / CH) / o.s, sy: innerHeight * 0.53 };
-  VIEW.tilt = 0;
-  VIEW.yaw = 0;
-  VIEW.zoom = 1;
-  scene.classList.add('is-editing');
-  moveCamera(o, 1.1);
-  setTimeout(() => {
-    if (openState !== o || !o.editing) return;
-    const r = o.page.getBoundingClientRect();
-    Object.assign(zedit.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
-    zedit.classList.add('on');
-    ztools.classList.add('on');
-    drawZoneEdit(o);
-  }, 1150);
-}
-function drawZoneEdit(o) {
-  const E = o.editing, CW = o.w + 2 * PAD, CH = o.h + 2 * PAD;
-  zedit.innerHTML = '';
-  E.zones.forEach((z, i) => {
-    const d = el('zbox' + (i === E.sel ? ' sel' : ''), zedit);
-    Object.assign(d.style, { left: ((z.x - o.ox + PAD) / CW) * 100 + '%', top: ((z.y - o.oy + PAD) / CH) * 100 + '%', width: (z.w / CW) * 100 + '%', height: (z.h / CH) * 100 + '%' });
-    d.dataset.i = i;
-    el('zname', d).textContent = `${i + 1}. ${z.name || '이름 없음'}`;
-    el('zgrip', d).dataset.i = i;
-  });
-  const nm = ztools.querySelector('.zt-name'), del = ztools.querySelector('.zt-del');
-  nm.disabled = del.disabled = E.sel < 0;
-  nm.value = E.sel < 0 ? '' : E.zones[E.sel].name;
-}
-zedit.addEventListener('pointerdown', (e) => {
-  const o = openState;
-  if (!o || !o.editing) return;
-  e.preventDefault();
-  const E = o.editing, CW = o.w + 2 * PAD;
-  const r = zedit.getBoundingClientRect();
-  const per = CW / r.width; // 화면 1px = 마을 좌표 몇
-  const at = (ev) => ({ x: (ev.clientX - r.left) * per + o.ox - PAD, y: (ev.clientY - r.top) * per + o.oy - PAD });
-  const p0 = at(e);
-  let mode, i;
-  if (e.target.classList.contains('zgrip')) { mode = 'size'; i = Number(e.target.dataset.i); }
-  else if (e.target.classList.contains('zbox')) { mode = 'move'; i = Number(e.target.dataset.i); }
-  else { mode = 'new'; E.zones.push({ id: 's' + Date.now().toString(36), name: `스테이지 ${E.zones.length + 1}`, x: p0.x, y: p0.y, w: 0, h: 0 }); i = E.zones.length - 1; }
-  E.sel = i;
-  const z = E.zones[i], z0 = { ...z };
-  zedit.setPointerCapture(e.pointerId);
-  const move = (ev) => {
-    const p = at(ev), dx = p.x - p0.x, dy = p.y - p0.y;
-    if (mode === 'move') { z.x = z0.x + dx; z.y = z0.y + dy; }
-    else if (mode === 'size') { z.w = Math.max(24, z0.w + dx); z.h = Math.max(24, z0.h + dy); }
-    else { z.x = Math.min(p0.x, p.x); z.y = Math.min(p0.y, p.y); z.w = Math.abs(dx); z.h = Math.abs(dy); }
-    drawZoneEdit(o);
-  };
-  const up = () => {
-    zedit.removeEventListener('pointermove', move);
-    zedit.removeEventListener('pointerup', up);
-    if (mode === 'new' && (z.w < 24 || z.h < 24)) { E.zones.splice(i, 1); E.sel = -1; } // 그냥 누른 것: 선택만 풂
-    drawZoneEdit(o);
-    if (mode === 'new' && E.sel >= 0) ztools.querySelector('.zt-name').select();
-  };
-  zedit.addEventListener('pointermove', move);
-  zedit.addEventListener('pointerup', up);
-  drawZoneEdit(o);
-});
-ztools.querySelector('.zt-name').oninput = (e) => {
-  const o = openState;
-  if (!o?.editing || o.editing.sel < 0) return;
-  o.editing.zones[o.editing.sel].name = e.target.value;
-  drawZoneEdit(o);
-  e.target.focus();
-};
-// 판이 꽉 차서 그을 빈자리가 없을 때: 판 가운데에 하나 놓고 옮기거나 늘려 씀
-ztools.querySelector('.zt-add').onclick = () => {
-  const o = openState;
-  if (!o?.editing) return;
-  const E = o.editing, w = (o.V.x1 - o.V.x0) * 0.4, h = (o.V.y1 - o.V.y0) * 0.4;
-  E.zones.push({ id: 's' + Date.now().toString(36), name: `스테이지 ${E.zones.length + 1}`, x: (o.V.x0 + o.V.x1 - w) / 2, y: (o.V.y0 + o.V.y1 - h) / 2, w, h });
-  E.sel = E.zones.length - 1;
-  drawZoneEdit(o);
-  ztools.querySelector('.zt-name').select();
-};
-ztools.querySelector('.zt-del').onclick = () => {
-  const o = openState;
-  if (!o?.editing || o.editing.sel < 0) return;
-  o.editing.zones.splice(o.editing.sel, 1);
-  o.editing.sel = -1;
-  drawZoneEdit(o);
-};
-ztools.querySelector('.zt-cancel').onclick = () => endStageEdit(false);
-ztools.querySelector('.zt-save').onclick = () => endStageEdit(true);
-/** 스테이지와 그 안쪽 스테이지 모두 (지울 때) */
+/** 장소와 그 안의 장소 모두 (지울 때) */
 const subtree = (root, s) => [s, ...childStages(root, s).flatMap((c) => subtree(root, c))];
-async function endStageEdit(save, quiet) {
-  const o = openState;
-  if (!o || !o.editing) return;
-  if (save) {
-    const all = stagesOf(o.root);
-    const kept = new Set(o.editing.zones.map((z) => z.id));
-    const gone = childStages(o.root, o.stage).filter((s) => !kept.has(s.id)).flatMap((s) => subtree(o.root, s));
-    const lost = gone.reduce((n, s) => n + (s.items || []).length, 0);
-    if (gone.length && (lost || gone.length > 1) && !confirm(`지우는 스테이지 ${gone.length}곳과 그 안에 더 놓은 그림 ${lost}개도 같이 지워져요. 지울까요?\n(그 스테이지에 단 기록 노트는 지우지 않아요)`)) return;
-    for (const g of gone) all.splice(all.indexOf(g), 1);
-    const { x0, y0, x1, y1 } = o.V;
-    for (const z of o.editing.zones) {
-      // 이 판 안으로 맞춤
-      const x = clampv(z.x, [x0, x1 - 24]), y = clampv(z.y, [y0, y1 - 24]);
-      const rect = { name: z.name.trim() || '이름 없는 스테이지', x: Math.round(x), y: Math.round(y), w: Math.round(Math.min(z.w, x1 - x)), h: Math.round(Math.min(z.h, y1 - y)) };
-      const s = stageById(o.root, z.id);
-      if (s) Object.assign(s, rect);
-      else all.push({ id: z.id, parent: o.stage ? o.stage.id : null, ...rect, items: [] });
-    }
-    saveSoon();
-  }
-  o.editing = null;
-  zedit.classList.remove('on');
-  ztools.classList.remove('on');
-  scene.classList.remove('is-editing');
-  if (quiet) return;
-  await refreshBoard(o);
-}
-/** 같은 판을 다시 깔아 바뀐 것(스테이지 · 배치)을 보여 주고, 눈높이 제자리로 */
+/** 같은 판을 다시 깔아 바뀐 것(장소 · 배치 · 바닥)을 보여 주고, 눈높이 제자리로 */
 async function refreshBoard(o, lying) {
-  const N = await swapTo(o.V.stage ? viewOf(o.root, o.stage) : viewOf(o.root, null), poseOf(o), { up: () => !lying, flagsUp: !lying, backsUp: !lying });
-  N.parentPage?.classList.add('dim');
+  const N = await swapTo(viewOf(o.root, o.stage), poseOf(o), { up: () => !lying, backsUp: !lying });
   if (lying) return N;
   N.focus = null;
   VIEW.tilt = Math.max(VIEW.tilt, LIM.tilt[0]);
@@ -1660,6 +1503,15 @@ async function startPlace() {
   moveCamera(o, 1.0);
   ptools.classList.add('on');
   palette.classList.add('on');
+  // 장소 판은 바닥 그림과 판 크기도 고름 (지역 판은 마을 지도 그대로라 바꾸지 않음)
+  const pb = ptools.querySelector('.pt-board');
+  pb.hidden = !o.stage;
+  if (o.stage) {
+    const sel = ptools.querySelector('.pt-floor');
+    sel.innerHTML = '';
+    for (const [v, t] of FLOORS()) { const op = el('', sel, 'option'); op.value = v; op.textContent = t; }
+    sel.value = o.stage.floor || 'paper';
+  }
   drawPlaceTools(o);
   if (!CATALOG) {
     try { CATALOG = JSON.parse(await readVault('The Archive - 자료/기호/배치 목록.json')); } catch (e) { CATALOG = {}; }
@@ -1726,6 +1578,33 @@ ptools.querySelector('.pt-del').onclick = async () => {
   drawPlaceTools(N);
 };
 ptools.querySelector('.pt-done').onclick = () => endPlace();
+ptools.querySelector('.pt-floor').onchange = (e) => {
+  const o = openState;
+  if (!o?.placing || !o.stage) return;
+  o.stage.floor = e.target.value;
+  floorArt(o.page, o.V);
+  fillFlaps(o);
+  saveSoon();
+};
+/** 장소 판 크기 바꾸기 (가운데를 기준으로 넓히거나 좁힘 — 그림은 판 안에 남게) */
+async function resizeBoard(f) {
+  const o = openState, st = o?.stage;
+  if (!o?.placing || !st || o.busy) return;
+  const w = Math.round(clampv(st.w * f, [200, 2400])), h = Math.round(clampv(st.h * f, [160, 1600]));
+  const dx = (w - st.w) / 2, dy = (h - st.h) / 2;
+  for (const it of st.items || []) { it.x = Math.round(clampv(it.x + dx, [0, w])); it.y = Math.round(clampv(it.y + dy, [0, h])); }
+  Object.assign(st, { w, h });
+  saveSoon();
+  const N = await refreshBoard(o, true);
+  N.placing = { sel: null };
+  const CW = N.w + 2 * PAD, CH = N.h + 2 * PAD;
+  N.focus = { kind: 'edit', cx: N.w / 2, cy: N.h / 2, k: Math.min((innerWidth - 300) * 0.86 / CW, (innerHeight * 0.76) / CH) / N.s, sy: innerHeight * 0.53 };
+  moveCamera(N, 0.5);
+  N.busy = false;
+  drawPlaceTools(N);
+}
+ptools.querySelector('.pt-narrow').onclick = () => resizeBoard(1 / 1.15);
+ptools.querySelector('.pt-wide').onclick = () => resizeBoard(1.15);
 async function endPlace(quiet) {
   const o = openState;
   if (!o || !o.placing) return;
@@ -1826,7 +1705,7 @@ async function uniquePath(dir, base) {
   for (let i = 1; ; i++) { const p = `${dir}${base}${i > 1 ? ` (${i})` : ''}.md`; if (!have.has(p)) return p; }
 }
 
-// ---------- 기록: 판(지역 · 스테이지)마다 종류별 노트 (세션 · 사건 · 메모) ----------
+// ---------- 기록: 판(지역 · 장소)마다 종류별 노트 (세션 · 사건 · 메모) ----------
 async function listRecords(o) {
   const all = await listNotes(Object.values(REC_DIR));
   return all.filter((n) => n.fm['분류'] === '기록' && n.fm['자리'] === o.key).sort((a, b) => String(b.fm['날짜'] || '').localeCompare(String(a.fm['날짜'] || '')));
@@ -1895,7 +1774,6 @@ addEventListener('keydown', (e) => {
   }
   if (e.key !== 'Escape') return;
   if (recpanel.classList.contains('on')) closeRecord();
-  else if (o?.editing) endStageEdit(false);
   else if (o?.placing) endPlace();
   else if (o?.look) leaveFlap();
   else if (card.classList.contains('is-open')) hideCard();
