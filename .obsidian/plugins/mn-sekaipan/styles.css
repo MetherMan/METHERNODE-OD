@@ -913,3 +913,7 @@
 .mnsk-sk-note { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: 12.5px; padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(92, 62, 40, 0.3); background: #fffaf2; margin-bottom: 8px; }
 .mnsk-sk-cand { margin-bottom: 10px; }
 .mnsk-sk-cand img { width: 100%; border-radius: 6px; box-shadow: 0 1px 4px rgba(40, 20, 10, 0.25); display: block; margin-bottom: 4px; }
+
+/* 펼쳐지는 마을: 그림책 페이지를 칸 가득 액자로 */
+.mnsk-story { padding: 0 !important; overflow: hidden !important; background: #140c07; }
+.mnsk-story-frame { display: block; width: 100%; height: 100%; border: 0; }

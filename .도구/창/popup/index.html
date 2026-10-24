@@ -12,7 +12,7 @@
   html, body { margin: 0; height: 100%; background: #140c07; font-family: var(--serif); color: var(--ink); overflow: hidden; }
   html.snap *, html.snap *::before, html.snap *::after { transition: none !important; animation: none !important; }
   /* 책상: 등불 하나가 비추는 어두운 나무 책상 */
-  #app { position: absolute; inset: 0; background:
+  #app { position: absolute; inset: 0; overflow: hidden; background:
       radial-gradient(ellipse 52% 48% at 47% 50%, rgba(255,200,130,0.30), rgba(255,190,120,0.12) 50%, transparent 78%),
       radial-gradient(ellipse 120% 95% at 50% 52%, #4a321e 0%, #2a1b10 50%, #0e0805 100%); }
   #app::after { content: ''; position: absolute; inset: 0; pointer-events: none; background:
@@ -30,20 +30,10 @@
   #ovhits polygon:hover { fill: rgba(255,236,180,0.14); stroke: rgba(255,226,150,0.35); }
   #ovhits circle { fill: #a8482f; stroke: #f4ead0; stroke-width: 4; pointer-events: none; }
   .f3 { position: absolute; transform-style: preserve-3d; }
-  .ov-shadow, .bk-shadow { position: absolute; pointer-events: none; border-radius: 40px;
-    background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(10,5,2,0.7), rgba(10,5,2,0.4) 55%, transparent 100%); }
-  .board { position: absolute; background-size: 100% 100%; border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(255,220,160,0.12), inset 0 0 22px rgba(0,0,0,0.45); }
-  .board-edge { position: absolute; transform-origin: 50% 0; background: linear-gradient(180deg, #5a3520, #2a160b); border-radius: 0 0 6px 6px; }
-  .block-edge { position: absolute; transform-origin: 50% 0; pointer-events: none;
-    background:
-      linear-gradient(180deg, rgba(255,246,220,0.35), transparent 30%, rgba(60,35,15,0.35)),
-      repeating-linear-gradient(180deg, #f1e4c6 0 1.2px, #d8c39b 1.2px 2px, #ead9b6 2px 3.1px, #cdb48a 3.1px 3.6px);
-    box-shadow: inset 0 -3px 6px rgba(60,35,15,0.35); }
-  .block-side { position: absolute; transform-origin: 0 50%; pointer-events: none;
-    background: linear-gradient(90deg, rgba(255,246,220,0.25), rgba(60,35,15,0.4)),
-      repeating-linear-gradient(90deg, #efe1c2 0 1.2px, #d4bd94 1.2px 2px, #e8d6b2 2px 3.1px, #c9b085 3.1px 3.6px); }
-  /* 덮인 책일 때는 옆 단면을 숨김: 표지와 같은 모서리를 공유하면 크롬 3D 정렬이 표지 왼쪽을 종이 아래로 그려 버림 */
-  #scene:not(.is-unfolded) .block-side { visibility: hidden; }
+  /* 판 둘레의 지도: 화면의 지도와 똑같이 깔려 있다가 카메라가 다가가면 함께 기울고, 가장자리는 어둠에 녹음.
+     흐려도 되는 배경이라 작게 그려 늘림 (SUR_Q) */
+  .surround { position: absolute; transform-origin: 0 0; background-repeat: no-repeat; pointer-events: none; transition: filter 1.4s; }
+  #scene.is-unfolded .surround { filter: brightness(0.62) saturate(0.85); }
   .pg { position: absolute; top: 0; transform-origin: 0 50%; background-repeat: no-repeat; backface-visibility: hidden; }
   #ovpaper { position: absolute; left: 0; top: 0; width: 1600px; height: 1000px; transform-origin: 0 0; transform-style: preserve-3d; }
   .ov-hit { position: absolute; inset: 0; cursor: pointer; transition: background-color 0.3s; }
@@ -64,17 +54,24 @@
   #veil { position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity 0.8s;
     background: radial-gradient(ellipse 70% 62% at 50% 58%, rgba(22,14,8,0.5), rgba(10,6,3,0.92) 100%); }
   #app.is-open #veil { opacity: 1; }
-  #ovmap { transition: opacity 0.8s; }
-  #app.is-open #ovmap { opacity: 0; }
+  #ovmap, #ovfx { transition: opacity 0.8s; }
+  #app.is-open #ovmap, #app.is-open #ovfx { opacity: 0; }
   #app.is-open #title, #app.is-open #hint { opacity: 0; }
 
   /* ---------- 펼친 책 (정면 · 눈높이) ---------- */
-  #scene { position: absolute; inset: 0; z-index: 4; perspective: 1500px; perspective-origin: 50% 38%; pointer-events: none; }
+  #scene { position: absolute; inset: 0; z-index: 4; perspective: 1500px; perspective-origin: 50% 38%; pointer-events: none; user-select: none; -webkit-user-select: none; }
   #scene.is-open { pointer-events: auto; }
+  /* 책은 지도 자리에서 스르르 나타나고, 덮은 뒤엔 제자리에 내려앉는 끝자락에 지도로 녹아듦 (툭 튀거나 사라지지 않게)
+     — 흐림은 #book 이 아니라 #scene 에: 입체 묶음(preserve-3d)에 opacity 를 주면 크롬이 입체를 납작하게 눌러 버림 */
+  #scene { opacity: 0; transition: opacity 0.35s 0.5s; }
+  #scene.is-open { opacity: 1; transition: opacity 0.3s; }
   #book { position: absolute; left: 0; top: 0; transform-style: preserve-3d; transform-origin: 50% 50%; }
   /* 책 속은 화면에 보일 크기 그대로 깔아서 그림 (작게 그려 놓고 3D로 키우면 흐려짐) */
   #bookz { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
-  .bk-page { position: absolute; background-size: 100% 100%; box-shadow: inset 0 0 0 10px #efe3c7, inset 0 0 0 11px rgba(120,88,52,0.6); }
+  .bk-page { position: absolute; background-size: 100% 100%; box-shadow: inset 0 0 0 1.5px rgba(50,28,10,0.6), inset 0 0 0 10px #efe3c7, inset 0 0 0 11px rgba(120,88,52,0.6), inset 0 0 18px 10px rgba(60,35,15,0.28); }
+  /* 판에 붙어 누운 것들(받침·그림자·등불빛·배경 막 발치)은 종이 면 안에 같이 그림: 따로 띄우면 하나하나가 입체 층이 되어
+     메모리를 먹고, 종이와 같은 높이라 크롬 3D 정렬이 꼬임 */
+  .deco { position: absolute; }
   .book-light { position: absolute; pointer-events: none; background:
       radial-gradient(ellipse 62% 58% at 26% 20%, rgba(255,226,170,0.24), transparent 64%),
       radial-gradient(ellipse 95% 95% at 25% 20%, transparent 40%, rgba(70,35,10,0.28) 100%),
@@ -84,44 +81,49 @@
     background: radial-gradient(ellipse closest-side at 50% 56%, rgba(247,242,232,0.94), rgba(241,234,220,0.82) 50%, rgba(236,228,214,0.4) 80%, rgba(236,228,214,0) 100%); }
   #scene.is-unfolded .haze { opacity: 1; transition: opacity 0.5s; }
   #scene.is-unfolded.is-clear .haze { opacity: 0; transition: opacity 1.8s ease-out; }
-  .cover {
-    position: absolute; transform-origin: 0 50%; transition: transform 1.05s cubic-bezier(.45,.05,.3,1);
-    backface-visibility: hidden; border-radius: 6px 9px 9px 6px; background-size: 100% 100%;
-    box-shadow: 0 1px 0 rgba(255,220,160,0.25) inset, 0 -2px 6px rgba(0,0,0,0.45) inset, 0 16px 30px rgba(0,0,0,0.55);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .cover span { font: 400 40px/1.1 var(--hand); letter-spacing: 0.3em; text-indent: 0.3em; white-space: nowrap; color: #ecca7c;
-    background: linear-gradient(180deg, #fff1c0 0%, #e7c071 45%, #a97a2c 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 -1px 0 rgba(60,30,8,0.9)) drop-shadow(0 1px 0 rgba(255,230,170,0.35)); }
-  .cover-back { position: absolute; transform-origin: 0 50%; border-radius: 6px 9px 9px 6px; pointer-events: none;
-    background: linear-gradient(90deg, rgba(60,35,15,0.3), transparent 14%, transparent 86%, rgba(60,35,15,0.3)), url('/popup/assets/paper_card.jpg') center / cover;
+  /* 덮개: 판 자리의 지도 그림 그대로인 두 짝. 가운데가 갈라져 바깥 모서리를 축으로 양옆으로 열리고, 열린 채 지도 위에 누움 */
+  .cover { position: absolute; transition: transform 1.05s cubic-bezier(.45,.05,.3,1); backface-visibility: hidden; background-repeat: no-repeat; }
+  .cover.l { transform-origin: 0 50%; box-shadow: -1px 0 0 rgba(40,22,8,0.55) inset; }
+  .cover.r { transform-origin: 100% 50%; box-shadow: 1px 0 0 rgba(40,22,8,0.55) inset; }
+  .cover-back { position: absolute; pointer-events: none; transition: transform 1.05s cubic-bezier(.45,.05,.3,1), filter 1.4s;
+    background: linear-gradient(90deg, rgba(60,35,15,0.3), transparent 14%, transparent 86%, rgba(60,35,15,0.3)), url('assets/paper_card.jpg') center / cover;
     box-shadow: inset 0 0 0 12px #5a321b, inset 0 0 0 13px rgba(226,194,126,0.55), inset 0 0 30px 14px rgba(60,35,15,0.35); }
+  .cover-back.l { transform-origin: 0 50%; border-radius: 6px 0 0 6px; }
+  .cover-back.r { transform-origin: 100% 50%; border-radius: 0 6px 6px 0; }
+  /* 양옆에 펼쳐져 누운 안쪽 면은 판보다 튀지 않게 둘레 지도처럼 살짝 가라앉힘 */
+  #scene.is-unfolded .cover-back { filter: brightness(0.7) saturate(0.85); }
   .stand { position: absolute; transform-origin: 50% 100%; -webkit-user-drag: none; user-select: none; }
-  .piece { cursor: pointer; transition: transform 0.75s cubic-bezier(.34,1.5,.64,1), filter 0.2s; filter: drop-shadow(-1px -1px 0 rgba(255,215,140,0.55)) var(--glow, drop-shadow(0 0 0 transparent)); }
-  .piece:hover { --glow: drop-shadow(0 0 6px rgba(255,214,150,0.9)); }
-  .piece.is-sel { --glow: drop-shadow(0 0 1.2px rgba(255,248,225,1)) drop-shadow(0 0 7px rgba(255,186,96,0.95)); }
+  /* 평소엔 거름(filter)을 걸지 않음: 입체 속 그림에 거름을 걸면 크롬이 그 그림을 낮은 해상도로 따로 그려서 인물 둘레가 뿌옇게 번졌음.
+     고를 때만 빛남 (--k: 그림을 k배 크게 깔고 줄여 보이므로 빛 번짐도 k배) */
+  .piece { cursor: pointer; transition: transform 0.75s cubic-bezier(.34,1.5,.64,1), filter 0.2s; }
+  .piece:hover { filter: drop-shadow(0 0 calc(5px * var(--k, 1)) rgba(255,214,150,0.9)); }
+  .piece.is-sel { filter: drop-shadow(0 0 calc(1.2px * var(--k, 1)) rgba(255,248,225,1)) drop-shadow(0 0 calc(7px * var(--k, 1)) rgba(255,186,96,0.95)); }
+  /* 서 있는 그림은 판에 수직으로 서 있으므로, 들썩임은 판의 법선(z) 방향으로 */
   .piece.person.is-up { animation: bob 2.8s ease-in-out infinite; }
   .piece.hop { animation: hop 0.45s ease-out; }
-  @keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -2.5px; } }
-  @keyframes hop { 0% { translate: 0 0; } 40% { translate: 0 -16px; } 100% { translate: 0 0; } }
+  @keyframes bob { 0%, 100% { translate: 0 0 0; } 50% { translate: 0 0 2.5px; } }
+  @keyframes hop { 0% { translate: 0 0 0; } 40% { translate: 0 0 16px; } 100% { translate: 0 0 0; } }
   .cast { display: none; }
   .cast.is-up { opacity: 0.2; }
-  .contact { position: absolute; border-radius: 50%; background: radial-gradient(ellipse, rgba(35,20,8,0.62), rgba(35,20,8,0.25) 45%, transparent 72%); transform: translate(-50%, -50%) scale(0.3); opacity: 0; transition: transform 0.7s, opacity 0.7s; pointer-events: none; }
-  .contact.is-up { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  .shade { position: absolute; pointer-events: none; opacity: 0; transition: opacity 0.9s 0.25s; transform-origin: 50% 100%;
-    transform: skewX(42deg) scaleY(-0.62); filter: brightness(0) blur(3px); }
-  .shade.is-up { opacity: 0.52; }
+  /* 바닥 그림자·받침·번짐: 일어설 때는 천천히 배어나고, 누울 때는 그림과 같이 바로 걷힘 */
+  .contact { position: absolute; border-radius: 50%; background: radial-gradient(ellipse, rgba(35,20,8,0.62), rgba(35,20,8,0.25) 45%, transparent 72%); transform: translate(-50%, -50%) scale(0.3); opacity: 0; transition: transform 0.35s, opacity 0.3s; pointer-events: none; }
+  .contact.is-up { transform: translate(-50%, -50%) scale(1); opacity: 1; transition: transform 0.7s, opacity 0.7s; }
+  .shade { position: absolute; pointer-events: none; opacity: 0; transition: opacity 0.3s; transform-origin: 50% 100%;
+    transform: skewX(30deg) scaleY(-0.55); filter: brightness(0) blur(2.5px); }
+  .shade.is-up { opacity: 0.5; transition: opacity 0.9s 0.25s; }
   /* 등불 번짐 (서 있는 판) */
-  .glow { pointer-events: none; opacity: 0; transition: transform 0.75s cubic-bezier(.34,1.5,.64,1), opacity 0.8s; }
-  .glow.is-up { opacity: 1; animation: flick 3.2s ease-in-out infinite; }
+  .glow { pointer-events: none; opacity: 0; transition: transform 0.4s ease-in, opacity 0.3s; }
+  .glow.is-up { opacity: 1; animation: flick 3.2s ease-in-out infinite; transition: transform 0.75s cubic-bezier(.34,1.5,.64,1), opacity 0.8s; }
   @keyframes flick { 0%, 100% { opacity: 0.85; } 45% { opacity: 1; } 70% { opacity: 0.78; } }
-  .bd-foot { position: absolute; pointer-events: none; opacity: 0; transition: opacity 0.8s; border-top: 1px solid rgba(120,88,52,0.7);
+  .bd-foot { position: absolute; pointer-events: none; opacity: 0; transition: opacity 0.3s; border-top: 1px solid rgba(120,88,52,0.7);
     background: linear-gradient(180deg, #d6c49c, #efe3c7 40%, rgba(246,238,219,0.6)); }
-  .bd-foot.is-up { opacity: 1; }
-  .backdrop { pointer-events: none; opacity: 0; transition: transform 1s cubic-bezier(.34,1.3,.64,1), opacity 0.8s; filter: blur(1.2px); }
+  .bd-foot.is-up { opacity: 1; transition: opacity 0.8s; }
+  /* 배경 막: 종이에 그린 무대 막이므로 또렷하게 두고, 맨 뒤 풍경만 아주 살짝 멀어 보이게 */
+  .backdrop { pointer-events: none; opacity: 0; transition: transform 1s cubic-bezier(.34,1.3,.64,1), opacity 0.8s; }
+  .backdrop.far { filter: blur(0.4px); }
   /* 종이 구름: 표지가 열리면 툭 일어섰다가, 무대 소품처럼 양옆으로 빠짐 */
   .fog { pointer-events: none; transition: transform 0.55s cubic-bezier(.34,1.5,.64,1), opacity 0.3s; }
-  .fog.is-off { transition: transform 1.5s cubic-bezier(.55,0,.25,1), opacity 0.35s 1.15s; }
+  .fog.is-off { transition: transform 1.5s cubic-bezier(.55,0,.25,1), opacity 1s 0.2s; }
   /* 종이 받침: 오림 그림을 판에 붙인 접힌 종이 띠 */
   .tab { position: absolute; pointer-events: none; opacity: 0; transition: opacity 0.4s;
     background: linear-gradient(180deg, #8a6e48 0 1px, #cfbd98 1px 3px, #e6d6b5 3px, #e9dbbd 60%, #dccaa4 100%);
@@ -131,18 +133,35 @@
   .tab.is-up { opacity: 1; }
   .fog.ambient { animation: drift 10s ease-in-out infinite alternate; }
   @keyframes drift { from { translate: -14px 0; } to { translate: 14px 0; } }
-  /* ---------- 빛 (HD-2D 풍): 앞뒤 심도 · 빛줄기 · 먼지 · 색보정 — 3D 바깥의 평면 층이라 입체를 안 깨뜨림 ---------- */
+  /* ---------- 하늘: 눈높이로 내려오면 판 너머(지도가 어둠에 녹는 곳) 위로 저녁 하늘이 밝아 오고 종이 구름이 흘러감.
+     3D 바깥의 평면이라 메모리를 거의 안 먹음. 보는 각도에 따라 살짝 따라 움직임 (applyView) ---------- */
+  /* 아래쪽은 색 자체를 투명하게 녹임 (가리개 mask 를 쓰면 그래픽 메모리를 두 배로 먹어 큰 판에서 종이가 빠졌음) */
+  #sky { position: absolute; left: -6%; right: -6%; top: -8%; height: 66%; pointer-events: none; opacity: 0; transition: opacity 1.8s; }
+  #scene.is-unfolded #sky { opacity: 1; }
+  #app.no-fx #sky { display: none; }
+  .sky-grad { position: absolute; inset: 0; opacity: 0.92;
+    background: linear-gradient(180deg, #171a33 0%, #2c2c4d 22%, #5e4c62 42%, #a7735f 58%, rgba(217,160,108,0.75) 72%, rgba(233,182,126,0.3) 86%, rgba(233,182,126,0) 100%); }
+  .sky-sun { position: absolute; left: 14%; bottom: -12%; width: 46%; height: 70%; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(255,226,160,0.55), rgba(255,196,120,0.22) 45%, transparent 100%); }
+  .sky-stars { position: absolute; inset: 0 0 45% 0; opacity: 0.55;
+    background-image: radial-gradient(1px 1px at 12% 18%, #fff6dc, transparent), radial-gradient(1px 1px at 27% 8%, #fff6dc, transparent), radial-gradient(1.4px 1.4px at 44% 22%, #fff3d0, transparent),
+      radial-gradient(1px 1px at 61% 11%, #fff6dc, transparent), radial-gradient(1.2px 1.2px at 78% 26%, #fff3d0, transparent), radial-gradient(1px 1px at 90% 9%, #fff6dc, transparent),
+      radial-gradient(1px 1px at 6% 34%, #fff6dc, transparent), radial-gradient(1px 1px at 53% 36%, #fff6dc, transparent), radial-gradient(1px 1px at 70% 40%, #fff3d0, transparent);
+    animation: twinkle 5s ease-in-out infinite alternate; }
+  @keyframes twinkle { from { opacity: 0.35; } to { opacity: 0.7; } }
+  /* 종이 구름: 판 위의 오림 구름과 같은 종이를 하늘에 띄움. 저녁빛에 물들고, 먼 것일수록 작고 옅고 느림 */
+  .sky-cloud { position: absolute; left: 0; opacity: var(--o); filter: sepia(0.35) saturate(1.2) brightness(var(--b)) hue-rotate(-8deg);
+    animation: skydrift var(--d) linear var(--dl) infinite; }
+  @keyframes skydrift { from { transform: translateX(-30vw); } to { transform: translateX(115vw); } }
+  /* ---------- 빛 (HD-2D 풍): 빛줄기 · 먼지 · 색보정 — 3D 바깥의 평면 층이라 입체를 안 깨뜨림 ---------- */
   #fx, #ovfx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-  .fx-dof { position: absolute; left: 0; right: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); transition: backdrop-filter 1.6s, -webkit-backdrop-filter 1.6s; }
-  .fx-dof.top { top: 0; height: 44%; -webkit-mask-image: linear-gradient(#000 0%, #000 28%, transparent 100%); mask-image: linear-gradient(#000 0%, #000 28%, transparent 100%); }
-  .fx-dof.bot { bottom: 0; height: 14%; -webkit-mask-image: linear-gradient(transparent 0%, #000 100%); mask-image: linear-gradient(transparent 0%, #000 100%); }
-  #scene.is-clear .fx-dof.bot { backdrop-filter: blur(1.4px); -webkit-backdrop-filter: blur(1.4px); }
-  /* 블룸: 흐리게 한 화면을 밝게 해서 살짝 겹침 (밝은 곳이 빛으로 번짐) */
+  /* 블룸: 아주 밝은 곳(등불·분수)만 골라 살짝 번지게. 종이 전체가 뿌옇게 되지 않도록 문턱을 높이고 약하게 */
   .fx-bloom { position: absolute; inset: 0; opacity: 0; transition: opacity 1.6s; mix-blend-mode: screen;
-    backdrop-filter: brightness(0.55) contrast(4) saturate(1.3) blur(10px); -webkit-backdrop-filter: brightness(0.55) contrast(4) saturate(1.3) blur(10px); }
-  #scene.is-clear .fx-bloom { opacity: 0.2; }
+    backdrop-filter: brightness(0.42) contrast(6) saturate(1.3) blur(8px); -webkit-backdrop-filter: brightness(0.42) contrast(6) saturate(1.3) blur(8px); }
+  /* 색보정·블룸·그늘은 책이 뜨는 순간부터 켬: 구름이 걷힐 때까지 기다리면 펼치는 동안 종이가 허옇게 바래 보였음 */
+  #scene.is-open .fx-bloom { opacity: 0.1; }
   .fx-tone { position: absolute; inset: 0; backdrop-filter: none; transition: backdrop-filter 1.6s; }
-  #scene.is-clear .fx-tone { backdrop-filter: contrast(1.08) brightness(0.96) saturate(1.1); -webkit-backdrop-filter: contrast(1.08) brightness(0.96) saturate(1.1); }
+  #scene.is-open .fx-tone { backdrop-filter: contrast(1.08) brightness(0.96) saturate(1.1); -webkit-backdrop-filter: contrast(1.08) brightness(0.96) saturate(1.1); }
   .fx-rays { position: absolute; inset: -10% -10% 0 -10%; opacity: 0; transition: opacity 2s; mix-blend-mode: screen;
     background: repeating-linear-gradient(116deg, rgba(255,226,170,0) 0px, rgba(255,226,170,0.1) 60px, rgba(255,226,170,0) 120px, rgba(255,226,170,0) 210px, rgba(255,236,190,0.07) 250px, rgba(255,226,170,0) 300px);
     -webkit-mask-image: radial-gradient(ellipse 72% 85% at 18% 0%, #000 0%, rgba(0,0,0,0.5) 45%, transparent 78%); mask-image: radial-gradient(ellipse 72% 85% at 18% 0%, #000 0%, rgba(0,0,0,0.5) 45%, transparent 78%); }
@@ -151,11 +170,12 @@
   .fx-grade { position: absolute; inset: 0; opacity: 0; transition: opacity 1.6s;
     background: radial-gradient(ellipse 48% 42% at 30% 22%, rgba(255,206,140,0.12), transparent 70%),
       radial-gradient(ellipse 74% 70% at 48% 50%, transparent 48%, rgba(16,12,30,0.58) 100%); }
-  #scene.is-clear .fx-grade { opacity: 1; }
+  #scene.is-open .fx-grade { opacity: 1; }
   .mote { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(255,244,214,0.95), rgba(255,226,170,0.35) 45%, transparent 70%); opacity: 0;
     animation: mote var(--d) linear var(--dl) infinite; }
+  .mote.bokeh { filter: blur(2.5px); background: radial-gradient(circle, rgba(255,236,196,0.9), rgba(255,214,150,0.35) 55%, transparent 72%); }
   #fx .motes { opacity: 0; transition: opacity 2s; }
-  #scene.is-clear #fx .motes { opacity: 1; }
+  #scene.is-unfolded #fx .motes { opacity: 1; }
   @keyframes mote { 0% { opacity: 0; transform: translate(0, 0); } 15% { opacity: var(--o); } 85% { opacity: var(--o); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)); } }
   #ovfx { z-index: 1; }
   #ovfx .fx-rays { opacity: 0.8; }
@@ -167,7 +187,6 @@
   #app.no-fx #fx, #app.no-fx #ovfx { display: none; }
   #scene.is-ready { cursor: grab; }
   #scene.is-dragging { cursor: grabbing; }
-  #scene.is-dragging .stand { transition: opacity 2.2s ease-out, filter 0.2s !important; }
   .ui { position: absolute; z-index: 5; }
   #scene-title { top: 26px; opacity: 0; transition: opacity 0.6s; }
   #close { left: 22px; top: 20px; padding: 9px 18px 9px 14px; border-radius: 999px; border: 1px solid rgba(226,194,126,0.42); background: rgba(28,18,10,0.6);
@@ -175,13 +194,81 @@
     box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
   #close::before { content: '‹'; margin-right: 8px; font-size: 18px; vertical-align: -1px; color: var(--gold); }
   #close:hover { background: rgba(60,38,20,0.85); border-color: rgba(226,194,126,0.8); }
-  #view-hint { left: 50%; bottom: 18px; transform: translateX(-50%); color: #c9b08a; font: 13px/1.4 var(--serif); letter-spacing: 0.04em; opacity: 0; transition: opacity 0.6s; white-space: nowrap; }
+  #view-hint { left: 50%; bottom: 18px; transform: translateX(-50%); color: #c9b08a; font: 13px/1.4 var(--serif); letter-spacing: 0.04em; opacity: 0; transition: opacity 0.6s; white-space: nowrap; pointer-events: none; }
   #scene.is-clear #scene-title, #scene.is-clear #close { opacity: 1; }
   #scene.is-ready #view-hint { opacity: 0.7; }
 
+  /* ---------- 구역 오가기: 아래 ‹ 이름 › (누르면 카메라가 그 구역으로) ---------- */
+  #zonebar { left: 50%; bottom: 44px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 999px;
+    border: 1px solid rgba(226,194,126,0.42); background: rgba(28,18,10,0.62); box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    opacity: 0; pointer-events: none; transition: opacity 0.5s; }
+  #scene.is-ready #zonebar { opacity: 1; pointer-events: auto; }
+  #scene.is-editing #zonebar, #scene.look-l #zonebar, #scene.look-r #zonebar { opacity: 0; pointer-events: none; }
+  #zonebar button { width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent; color: var(--gold); font: 20px/1 var(--serif); cursor: pointer; }
+  #zonebar button:hover { background: rgba(226,194,126,0.18); }
+  #zonebar .zb-txt { min-width: 120px; text-align: center; color: #ecd9b0; font: 15px/1.1 var(--hand); letter-spacing: 0.12em; }
+  #zonebar .zb-no { display: block; font: 10px/1.4 var(--serif); letter-spacing: 0.2em; color: #b89a6c; }
+
+  /* ---------- 양옆 면의 내용: 왼쪽 = 구역 목차 + 작은 지도, 오른쪽 = 작가의 기록 ---------- */
+  /* 3D 면은 뒤집혀 누워 있어서 거울처럼 한 번 더 뒤집어 바로 읽히게. 누르면 카메라가 그 면을 내려다보고, 그때 또렷한 쓰기용 판을 겹쳐 띄움 */
+  .flap { position: absolute; inset: 0; box-sizing: border-box; padding: 34px 30px 28px; transform: scaleX(-1); display: flex; flex-direction: column;
+    color: #4a3020; font-family: var(--serif); pointer-events: auto; cursor: pointer; overflow: hidden; }
+  .flap .lab { font: 11px/1 var(--serif); letter-spacing: 0.5em; text-indent: 0.5em; color: var(--accent); text-align: center; }
+  .flap .nm { font: 400 24px/1.25 var(--hand); color: #3c2616; text-align: center; margin-top: 8px; letter-spacing: 0.08em; }
+  .flap .orn { display: flex; align-items: center; gap: 10px; margin: 10px 0 4px; }
+  .flap .orn i { width: 5px; height: 5px; transform: rotate(45deg); background: #b08650; }
+  .flap .orn::before, .flap .orn::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(140,100,60,0.6), transparent); }
+  .flap .mini { position: relative; margin: 10px auto 6px; flex: none; }
+  .flap .mini img { display: block; width: 100%; height: 100%; border-radius: 2px; box-shadow: 0 0 0 1px rgba(120,85,50,0.55), 0 2px 6px rgba(60,35,15,0.25); }
+  .flap .mini i { position: absolute; box-sizing: border-box; border: 1.5px solid rgba(168,72,47,0.7); background: rgba(255,236,190,0.1); }
+  .flap .mini i.on { border-color: #a8482f; background: rgba(255,206,120,0.32); }
+  .flap .mini i b { position: absolute; left: 2px; top: 2px; font: 700 9px/1 var(--serif); color: #fff6e2; background: rgba(168,72,47,0.85); padding: 2px 4px; border-radius: 2px; }
+  .flap ol { list-style: none; margin: 6px 0 0; padding: 0; overflow: hidden; }
+  .flap li { display: flex; gap: 10px; align-items: baseline; font: 15px/2 var(--serif); padding: 0 6px; border-bottom: 1px dashed rgba(120,85,50,0.3); }
+  .flap li .no { min-width: 18px; color: #8a6440; font-size: 12px; }
+  .flap li.on { color: var(--accent); }
+  .flap li.on::after { content: '◀'; margin-left: auto; font-size: 10px; }
+  .flap .tool { margin-top: auto; padding-top: 10px; font: 12px/1 var(--serif); letter-spacing: 0.24em; color: #8a6440; text-align: center; background: none; border: 0; }
+  .flap .note { flex: 1; margin-top: 10px; white-space: pre-wrap; word-break: keep-all; overflow: hidden; color: #4a3020; font: 15px/28px var(--serif);
+    background: repeating-linear-gradient(180deg, transparent 0 27px, rgba(120,85,50,0.28) 27px 28px); }
+  .flap div.note:empty::before { content: attr(data-ph); color: #a08868; font-style: italic; }
+  .flap .saved { font: italic 11px/1.4 var(--serif); color: #9a8266; margin-top: 8px; text-align: right; min-height: 15px; }
+  #scene.look-l .cover-back.l, #scene.look-r .cover-back.r { filter: none; }
+  /* 가까이 내려다볼 때 겹치는 쓰기용 판 (같은 모양 · 평면이라 글자가 또렷하고 바로 고칠 수 있음) */
+  #flappanel { left: 0; top: 0; transform-origin: 0 0; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    background: linear-gradient(90deg, rgba(60,35,15,0.3), transparent 14%, transparent 86%, rgba(60,35,15,0.3)), url('assets/paper_card.jpg') center / cover;
+    box-shadow: inset 0 0 0 12px #5a321b, inset 0 0 0 13px rgba(226,194,126,0.55), inset 0 0 30px 14px rgba(60,35,15,0.35); }
+  #flappanel.on { opacity: 1; pointer-events: auto; }
+  #flappanel .flap { transform: none; cursor: default; }
+  #flappanel .flap li, #flappanel .flap .mini i, #flappanel .flap .tool { cursor: pointer; }
+  #flappanel .flap li:hover { background: rgba(255,236,190,0.45); }
+  #flappanel .flap .tool:hover { color: var(--accent); }
+  #flappanel textarea.note { border: 0; outline: 0; resize: none; width: 100%; padding: 0 2px; box-sizing: border-box; background-attachment: local; }
+  #flappanel .fp-back { position: absolute; left: 18px; top: 14px; border: 0; background: none; color: #8a6440; font: 12px/1 var(--serif); letter-spacing: 0.12em; cursor: pointer; z-index: 1; }
+  #flappanel .fp-back:hover { color: var(--accent); }
+
+  /* ---------- 구역 나누기 (위에서 내려다본 판 위에 네모를 그어 정함) ---------- */
+  #scene.is-editing .stand { visibility: hidden; }
+  #zedit { opacity: 0; pointer-events: none; transition: opacity 0.3s; cursor: crosshair; touch-action: none; }
+  #zedit.on { opacity: 1; pointer-events: auto; }
+  #zedit .zbox { position: absolute; box-sizing: border-box; border: 2px solid rgba(255,226,160,0.9); background: rgba(255,214,140,0.14); cursor: move;
+    box-shadow: 0 0 0 1px rgba(40,22,8,0.6), inset 0 0 0 1px rgba(40,22,8,0.35); }
+  #zedit .zbox.sel { border-color: #ffd98a; background: rgba(255,200,110,0.26); box-shadow: 0 0 0 2px rgba(168,72,47,0.9), 0 0 18px rgba(255,200,110,0.5); }
+  #zedit .zname { position: absolute; left: 6px; top: 6px; padding: 3px 8px; border-radius: 3px; background: rgba(28,18,10,0.78); color: #f4e4c0; font: 14px/1.2 var(--hand); letter-spacing: 0.06em; white-space: nowrap; pointer-events: none; }
+  #zedit .zgrip { position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; border-radius: 3px; background: #ffd98a; box-shadow: 0 0 0 2px rgba(40,22,8,0.8); cursor: nwse-resize; }
+  #zedit-tools { left: 50%; top: 18px; transform: translateX(-50%); display: none; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px;
+    border: 1px solid rgba(226,194,126,0.45); background: rgba(28,18,10,0.86); color: #ecd9b0; font: 13px/1.4 var(--serif); box-shadow: 0 10px 28px rgba(0,0,0,0.45); white-space: nowrap; }
+  #zedit-tools.on { display: flex; }
+  #zedit-tools b { font: 400 17px/1 var(--hand); color: var(--gold); letter-spacing: 0.1em; margin-right: 4px; }
+  #zedit-tools .tip { color: #b89a6c; font-size: 12px; }
+  #zedit-tools input { width: 130px; padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(226,194,126,0.5); background: rgba(255,246,226,0.92); color: var(--ink); font: 14px/1 var(--serif); }
+  #zedit-tools button { padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(226,194,126,0.5); background: rgba(60,38,20,0.8); color: #ecd9b0; font: 13px/1 var(--serif); cursor: pointer; }
+  #zedit-tools button.go { background: #a8482f; border-color: #d98a62; color: #fff3df; }
+  #zedit-tools button:disabled { opacity: 0.4; cursor: default; }
+
   /* ---------- 카드: 책갈피에 끼운 장서표 ---------- */
   #card { position: absolute; right: 20px; top: 20px; bottom: 20px; width: 340px; z-index: 6; box-sizing: border-box; padding: 26px 26px 22px;
-    background: url('/popup/assets/paper_card.jpg') center / cover, #f2e7cf; border-radius: 4px;
+    background: url('assets/paper_card.jpg') center / cover, #f2e7cf; border-radius: 4px;
     box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 2px 0 rgba(255,255,255,0.4) inset, inset 0 0 0 1px rgba(120,80,45,0.45), inset 0 0 0 7px rgba(255,248,230,0.0), inset 0 0 0 8px rgba(120,80,45,0.35), inset 0 0 40px rgba(120,80,45,0.18);
     transform: translateX(380px) rotate(1.5deg); transition: transform 0.45s cubic-bezier(.2,.8,.2,1); overflow: auto; }
   #card.is-open { transform: translateX(0) rotate(0deg); }
@@ -210,33 +297,66 @@
 </head>
 <body>
 <div id="app">
-  <div id="ov"><div id="ovmap"><img id="ovimg" src="/popup/assets/map_town.jpg" alt=""><svg id="ovhits" viewBox="0 0 2400 1500" preserveAspectRatio="none"></svg></div><div id="ovfx"><div class="fx-bloom"></div><div class="fx-rays"></div><div class="motes"></div><div class="ov-light"></div></div></div>
+  <div id="ov"><div id="ovmap"><img id="ovimg" src="assets/map_town.jpg" alt=""><svg id="ovhits" viewBox="0 0 2400 1500" preserveAspectRatio="none"></svg></div><div id="ovfx"><div class="fx-bloom"></div><div class="fx-rays"></div><div class="motes"></div><div class="ov-light"></div></div></div>
   <div id="title" class="heading">펼쳐지는 마을</div>
   <div id="hint">지도에서 구역을 누르면 그 안이 그림책으로 펼쳐져요 · 펼친 뒤 건물이나 사람을 누르면 이야기와 상태를 적을 수 있어요</div>
   <div id="veil"></div>
   <div id="scene">
+    <div id="sky"><div class="sky-grad"></div><div class="sky-stars"></div><div class="sky-sun"></div></div>
     <div id="book"><div id="bookz"></div></div>
-    <div id="fx"><div class="fx-tone"></div><div class="fx-bloom"></div><div class="fx-dof bot"></div><div class="fx-rays"></div><div class="motes"></div><div class="fx-grade"></div></div>
+    <div id="fx"><div class="fx-tone"></div><div class="fx-bloom"></div><div class="fx-rays"></div><div class="motes"></div><div class="fx-grade"></div></div>
     <div id="scene-title" class="ui heading"></div>
     <button id="close" class="ui">책 덮기</button>
-    <div id="view-hint" class="ui">끌면 보는 각도가 돌아가요 · 휠로 가까이 · 빈 곳을 두 번 누르면 정면으로 · L 빛 효과 · Esc 덮기</div>
+    <div id="view-hint" class="ui">끌면 보는 각도가 돌아가요 · 휠로 가까이 · ← → 구역 옮기기 · 양옆 면을 누르면 목차·기록 · Esc 덮기</div>
+    <div id="zonebar" class="ui"><button class="zb-prev" title="앞 구역 (←)">‹</button><div class="zb-txt"><span class="zb-name"></span><span class="zb-no"></span></div><button class="zb-next" title="다음 구역 (→)">›</button></div>
+    <div id="flappanel" class="ui"><button class="fp-back">‹ 판으로</button><div class="flap"></div></div>
+    <div id="zedit" class="ui"></div>
+    <div id="zedit-tools" class="ui"><b>구역 나누기</b><span class="tip">판 위를 끌어 새 구역 · 끌어 옮기기 · 모서리로 크기</span><button class="zt-add">＋ 새 구역</button><input class="zt-name" placeholder="구역 이름" disabled><button class="zt-del" disabled>지우기</button><button class="zt-cancel">그만두기</button><button class="zt-save go">다 했어요</button></div>
   </div>
   <div id="card"></div>
 </div>
 <script>
 const VERSION = 3;
 const SAVE = 'The Archive - 자료/마을 (시험).마을.json';
-const ASSET = (p) => '/vault/' + ['The Archive - 자료', '기호', ...p.split('/')].map(encodeURIComponent).join('/');
-const LOCAL = (n) => '/popup/assets/' + n;
+const LAYOUT = '.도구/창/popup/layout.json'; // 처음 배치 (저장본이 없을 때)
+const Q = new URLSearchParams(location.search);
+if (Q.get('snap')) document.documentElement.classList.add('snap');
+// 두 곳에서 열림: 세계판 창(serve3.py, http) · 옵시디언 플러그인 「펼쳐지는 마을」(이 파일을 액자로 띄움, ?obs=1).
+// 옵시디언 안에서는 이 페이지가 보관소 파일을 직접 읽고 쓰지 못하므로 플러그인에 부탁함 (postMessage). 그림은 이 페이지 자리에서 상대 주소로
+const OBS = Q.get('obs') === '1';
+const VROOT = OBS ? '../../../' : '/vault/'; // 보관소 맨 위 (이 페이지는 .도구/창/popup/ 에 있음)
+const vurl = (p) => VROOT + p.split('/').map(encodeURIComponent).join('/');
+const ASSET = (p) => vurl(['The Archive - 자료', '기호', p].join('/'));
+const LOCAL = (n) => 'assets/' + n; // 이 페이지 옆 assets/ (창: /popup/assets · 옵시디언: 같은 폴더)
 const FOGS = [1, 2, 3, 4, 5, 6].map((i) => LOCAL(`cloud_${i}.png`)); // 종이 오림 구름
 const M = 40; // 블럭 둘레 여백 (쪽 = bbox + 여백)
 const PAD = 40; // 인쇄된 판 둘레의 종이 여백 (구운 쪽 그림과 같은 값)
-const T_PAGE = 22; // 펼친 책의 책장 묶음 두께
-const CART = { plaza: [0.66, 0.371], north: [0.472, 0.555], west: [0.66, 0.332], east: [0.66, 0.276], south: [0.434, 0.554] };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const clampv = (v, [a, b]) => Math.max(a, Math.min(b, v));
-const Q = new URLSearchParams(location.search);
-if (Q.get('snap')) document.documentElement.classList.add('snap');
+// 옵시디언 플러그인에 보관소 파일 읽기 부탁 (답이 4초 안에 없으면 없는 것으로)
+const asks = new Map();
+let askN = 0;
+addEventListener('message', (e) => {
+  const m = e.data || {};
+  if (m.mn === 'read' && asks.has(m.id)) { asks.get(m.id)(m.text); asks.delete(m.id); }
+});
+/** 보관소 파일 글 읽기 (없으면 null) */
+async function readVault(p) {
+  if (OBS) {
+    return new Promise((res) => {
+      const id = ++askN;
+      asks.set(id, res);
+      parent.postMessage({ mn: 'read', id, path: p }, '*');
+      setTimeout(() => { if (asks.has(id)) { asks.delete(id); res(null); } }, 4000);
+    });
+  }
+  try {
+    const r = await fetch(vurl(p) + '?t=' + Date.now());
+    return r.ok ? await r.text() : null;
+  } catch (e) {
+    return null;
+  }
+}
 
 let town = null;
 let saveTimer = null;
@@ -246,13 +366,13 @@ function bbox(pts) {
 }
 async function loadTown() {
   try {
-    const r = await fetch('/vault/' + SAVE.split('/').map(encodeURIComponent).join('/') + '?t=' + Date.now());
-    if (r.ok) {
-      const t = await r.json();
+    const s = await readVault(SAVE);
+    if (s) {
+      const t = JSON.parse(s);
       if (t.version === VERSION) return t;
     }
   } catch (e) {}
-  const L = await (await fetch('/popup/layout.json?t=' + Date.now())).json();
+  const L = JSON.parse(await readVault(LAYOUT));
   let n = 0;
   return {
     version: VERSION,
@@ -264,12 +384,13 @@ async function loadTown() {
 }
 function saveSoon() {
   clearTimeout(saveTimer);
-  const el = document.querySelector('#card .saved');
-  if (el) el.textContent = '저장 중…';
+  const marks = () => document.querySelectorAll('#card .saved, #flappanel .saved');
+  marks().forEach((e) => { e.textContent = '저장 중…'; });
   saveTimer = setTimeout(async () => {
-    await fetch('/save?name=' + encodeURIComponent(SAVE), { method: 'POST', body: JSON.stringify(town, null, 1) });
-    const e2 = document.querySelector('#card .saved');
-    if (e2) e2.textContent = '저장됨 · ' + new Date().toLocaleTimeString('ko-KR');
+    const text = JSON.stringify(town, null, 1);
+    if (OBS) parent.postMessage({ mn: 'save', path: SAVE, text }, '*'); // 옵시디언: 플러그인이 대신 씀
+    else await fetch('/save?name=' + encodeURIComponent(SAVE), { method: 'POST', body: text });
+    marks().forEach((e) => { e.textContent = '저장됨 · ' + new Date().toLocaleTimeString('ko-KR'); });
     drawBoard(false);
   }, 600);
 }
@@ -280,30 +401,31 @@ function el(cls, parent, tag = 'div') {
   return e;
 }
 function placeBottom(im, it, ox = 0, oy = 0) {
-  const set = () => { im.style.top = it.y - oy - im.naturalHeight * (it.w / im.naturalWidth) + 'px'; };
-  if (im.complete && im.naturalWidth) set(); else im.addEventListener('load', set, { once: true });
-  im.style.width = it.w + 'px';
-  im.style.left = it.x - ox - it.w / 2 + 'px';
+  Object.assign(im.dataset, { w: it.w, cx: it.x - ox, by: it.y - oy });
+  layBottom(im);
+  if (!(im.complete && im.naturalWidth)) im.addEventListener('load', () => layBottom(im), { once: true });
 }
-/** 책 한 권의 몸통: 바닥 그림자 · 표지 판 · 책장 묶음의 앞/옆 단면 (x0,y0,w,h = 종이 면) */
-function buildSlab(parent, x0, y0, w, h, cover, edgeTop, dims = {}) {
-  const T_BLOCK = dims.t || 22, T_BOARD = dims.b || 7, OVERHANG = dims.o || 12;
-  const zb = -T_BLOCK;
-  const sh = el('ov-shadow', parent);
-  Object.assign(sh.style, { left: x0 - 50 + 'px', top: y0 - 20 + 'px', width: w + 130 + 'px', height: h + 110 + 'px', transform: `translateZ(${zb - T_BOARD - 3}px) translate(26px, 34px)` });
-  const bd = el('board', parent);
-  Object.assign(bd.style, { left: x0 - OVERHANG + 'px', top: y0 - OVERHANG + 'px', width: w + 2 * OVERHANG + 'px', height: h + 2 * OVERHANG + 'px',
-    backgroundImage: `url("${cover}")`, transform: `translateZ(${zb}px)` });
-  const be = el('board-edge', parent);
-  Object.assign(be.style, { left: x0 - OVERHANG + 'px', top: y0 + h + OVERHANG + 'px', width: w + 2 * OVERHANG + 'px', height: T_BOARD + 'px', transform: `translateZ(${zb}px) rotateX(-90deg)` });
-  // 앞쪽 책장 단면 (책등 쪽으로 살짝 꺼지는 모양은 clip 으로)
-  const fr = el('block-edge', parent);
-  Object.assign(fr.style, { left: x0 + 'px', top: y0 + h + 0.8 + 'px', width: w + 'px', height: T_BLOCK + 'px', transform: 'rotateX(-90deg)' });
-  if (edgeTop) fr.style.clipPath = edgeTop;
-  for (const side of [0, 1]) {
-    const s = el('block-side', parent);
-    // 종이·표지 면과 딱 겹치면 크롬 3D 정렬이 꼬여서 살짝 밖으로
-    Object.assign(s.style, { left: x0 + side * w + (side ? 0.8 : -0.8) + 'px', top: y0 + 'px', width: T_BLOCK + 'px', height: h + 'px', transform: 'rotateY(90deg)' });
+/** 발치(가운데 아래)에 맞춰 크기·자리를 잡음. data-k 배 크게 깔고 standT 의 scale(1/k)로 줄이면 같은 크기로 보이면서 k배 촘촘하게 그려짐 */
+function layBottom(im) {
+  const w = Number(im.dataset.w), k = Number(im.dataset.k || 1);
+  im.style.width = w * k + 'px';
+  im.style.left = Number(im.dataset.cx) - (w * k) / 2 + 'px';
+  if (im.naturalWidth) im.style.top = Number(im.dataset.by) - (im.naturalHeight * w * k) / im.naturalWidth + 'px';
+}
+/** 판 둘레의 지도: 판 자리(hx,hy,hw,hh)만 비운 네 띠에 지도 그림을 지도와 똑같은 자리로 깖. 처음엔 화면의 지도와 겹쳐 보이다가
+ *  카메라가 다가가며 판과 함께 기울어짐 (지도 그 자리가 열리는 것처럼). 바깥으로 갈수록 어둠에 녹음 */
+const SUR_Q = 3; // 둘레 지도는 1/3 크기로 그려 세 배로 늘림 (흐려도 되는 배경 — 가장자리 녹임까지 그래픽 메모리를 두 배로 먹음)
+function buildSurround(parent, hx, hy, hw, hh, ox, oy) {
+  // 양옆은 펼친 덮개(판 폭의 절반)가 덮으니 그보다 조금만 넓게
+  const L = hx - 0.6 * hw, R = hx + hw + 0.6 * hw, T = hy - 0.9 * hh, B = hy + hh + 0.45 * hh;
+  const MW = MAPW / MS, MH = MAPH / MS, q = SUR_Q; // 마을 좌표로 본 지도 크기
+  for (const [sx, sy, sw, sh] of [[L, T, R - L, hy - T], [L, hy + hh, R - L, B - hy - hh], [L, hy, hx - L, hh], [hx + hw, hy, R - hx - hw, hh]]) {
+    const s = el('surround', parent);
+    // 가장자리는 어둠으로 칠하지 않고 투명하게 녹임: 펼침 시작·덮음 끝에 화면의 지도와 겹쳐 바뀔 때 어두운 네모가 비치지 않게
+    const mask = `radial-gradient(closest-side, #000 50%, rgba(0,0,0,0.4) 78%, transparent 100%) ${(L - sx) / q}px ${(T - sy) / q}px / ${(R - L) / q}px ${(B - T) / q}px no-repeat`;
+    Object.assign(s.style, { left: sx + 'px', top: sy + 'px', width: sw / q + 'px', height: sh / q + 'px', transform: `scale(${q})`,
+      backgroundImage: `url("${LOCAL('map_town.jpg')}")`, backgroundSize: `${MW / q}px ${MH / q}px`,
+      backgroundPosition: `${(-ox - sx) / q}px ${(-oy - sy) / q}px`, webkitMask: mask, mask });
   }
 }
 
@@ -356,13 +478,45 @@ function makeMotes(box, n) {
     m.style.setProperty('--dy', -(40 + Math.random() * 110) + 'px');
   }
 }
-makeMotes(document.querySelector('#fx .motes'), 34);
+/** 눈앞을 지나는 큰 빛망울 (흐릿하고 느리게 떠오름 — 카메라 가까이 떠다니는 빛가루) */
+function makeBokeh(box, n) {
+  for (let i = 0; i < n; i++) {
+    const m = el('mote bokeh', box);
+    const sz = 10 + Math.random() * 16;
+    Object.assign(m.style, { width: sz + 'px', height: sz + 'px', left: Math.random() * 100 + '%', top: 30 + Math.random() * 70 + '%' });
+    m.style.setProperty('--d', 16 + Math.random() * 14 + 's');
+    m.style.setProperty('--dl', -Math.random() * 30 + 's');
+    m.style.setProperty('--o', (0.1 + Math.random() * 0.18).toFixed(2));
+    m.style.setProperty('--dx', (Math.random() - 0.5) * 160 + 'px');
+    m.style.setProperty('--dy', -(120 + Math.random() * 220) + 'px');
+  }
+}
+makeMotes(document.querySelector('#fx .motes'), 48);
+makeBokeh(document.querySelector('#fx .motes'), 12);
 makeMotes(document.querySelector('#ovfx .motes'), 22);
+// 하늘의 종이 구름: 가까운 것(위·크고 짙고 빠름) … 먼 것(지평선 쪽·작고 옅고 느림)
+(() => {
+  const sky = document.getElementById('sky');
+  for (let i = 0; i < 7; i++) {
+    const far = i / 6;
+    const c = el('sky-cloud', sky, 'img');
+    c.src = FOGS[(i * 5) % FOGS.length];
+    c.draggable = false;
+    c.style.width = 380 - far * 230 + 'px';
+    c.style.top = 4 + far * 46 + Math.random() * 6 + '%';
+    const d = 110 + far * 140;
+    c.style.setProperty('--d', d + 's');
+    c.style.setProperty('--dl', -Math.random() * d + 's');
+    c.style.setProperty('--o', (0.78 - far * 0.38).toFixed(2));
+    c.style.setProperty('--b', (0.72 + far * 0.3).toFixed(2));
+  }
+})();
 if (Q.get('fx') === '0') document.getElementById('app').classList.add('no-fx');
 const LAMPS = ['자연/11', '공공/11']; // 빛나는 것: 가로등 · 빛 구슬 탑
 
 // ---------- 책 펼치기 (정면 시점 · 마우스로 각도 돌리기) ----------
 const app = document.getElementById('app');
+const ov = document.getElementById('ov');
 const scene = document.getElementById('scene');
 const book = document.getElementById('book');
 const bookz = document.getElementById('bookz');
@@ -373,7 +527,13 @@ const INIT_VIEW = { tilt: 72, yaw: 0 };
 const LIM = { tilt: [64, 84], yaw: [-32, 32], zoom: [0.6, 2.2] }; // 위에서 내려다보는 각도로는 안 넘어가게
 let openState = null;
 let drag = null;
-const BT = (cx, cy, w, h, s, tilt, yaw, lift = 0) => `translate(${cx - (w * BZ) / 2}px, ${cy - (h * BZ) / 2}px) scale(${s / BZ}) rotateX(${tilt}deg) rotateZ(${yaw}deg) translateZ(${lift * BZ}px)`;
+// 끝의 translate = 카메라가 보는 곳(판 가운데에서 fx, fy 만큼)을 화면 (cx, cy)로 데려옴. 늘 같은 함수 목록이라 구역 사이를 부드럽게 옮겨 감
+const BT = (cx, cy, w, h, s, tilt, yaw, lift = 0, fx = 0, fy = 0) => `translate(${cx - (w * BZ) / 2}px, ${cy - (h * BZ) / 2}px) scale(${s / BZ}) rotateX(${tilt}deg) rotateZ(${yaw}deg) translateZ(${lift * BZ}px) translate(${-fx * BZ}px, ${-fy * BZ}px)`;
+/** 지금 카메라가 보는 곳: 판 전체(null) 또는 한 구역 · 양옆 면. k = 판 전체에 견준 배율, fx·fy = 판 가운데에서 그곳 가운데까지 (책 속 좌표) */
+function focusOf(o) {
+  const f = o && o.focus;
+  return f ? { k: f.k, fx: f.cx - o.w / 2, fy: f.cy - o.h / 2, sy: f.sy } : { k: 1, fx: 0, fy: 0 };
+}
 /** 책 속 배율 바꾸기: 화면 모습은 그대로, 그리는 해상도만 바뀜 */
 function setBZ(n) {
   n = Math.round(n * 100) / 100;
@@ -385,43 +545,88 @@ function setBZ(n) {
   book.style.width = openState.w * n + 'px';
   book.style.height = openState.h * n + 'px';
 }
+/** 책 속 배율의 윗한계: ① 종이 한 장이 기기 픽셀로 4096을 넘으면 (고해상도 화면 × 큰 배율) 크롬이 층을 못 그려 장면이 깨짐
+ *  ② 종이 한 장이 PAGE_PX 화소를 넘으면 그래픽 메모리가 모자라 크롬이 그림·종이를 통째로 버림 (휠로 아주 가까이 볼 때) → 둘 다 그 안으로 */
+const PAGE_PX = 1.5e6;
+function capBZ(n, w, h, floor = 1) {
+  const dpr = devicePixelRatio || 1;
+  const W = w + 2 * PAD, H = h + 2 * PAD;
+  // ②는 휠로 당겨 볼 때만 걸림: 기본 배율(floor)까지는 늘 화면만큼 촘촘하게 (큰 고해상도 화면에서 흐려지지 않게)
+  return Math.max(1, Math.min(5, 4096 / (Math.max(W, H) * dpr), Math.max(floor, Math.sqrt(PAGE_PX / (W * H)) / dpr), n));
+}
+/** 지금 화면에 보이는 배율만큼의 책 속 배율 (원근 안쪽은 크롬이 화면 배율 × 기기 픽셀 비로만 그리므로, 책을 키운 만큼은 우리가 더 깔아야 또렷함) */
+function wantBZ(o) {
+  return capBZ(o.s * VIEW.zoom * focusOf(o).k, o.w, o.h, o.s);
+}
+/** 인물 그림은 화면에 보이는 크기보다 촘촘하게 깖: 아주 작게 서 있어서(화면 40~90px) 2배, 휠·구역 이동으로 당겨 봐서 책 속 배율이
+ *  메모리 한계에 걸리면 그 모자란 만큼 더 (인물은 작아서 메모리를 거의 안 먹음). 건물·나무는 크고 많아서 촘촘하게 깔면 메모리가 모자라
+ *  크롬이 그림을 버리므로 그대로 둠 */
+function setPieceRes() {
+  const o = openState;
+  if (!o) return;
+  const lack = Math.max(1, (o.s * VIEW.zoom * focusOf(o).k) / BZ);
+  for (const p of o.pieces) {
+    if (!p.im.classList.contains('person')) continue;
+    const k = Math.round(Math.min(3.2, lack * 2) * 20) / 20;
+    if (Number(p.im.dataset.k || 1) === k) continue;
+    p.im.dataset.k = k;
+    p.im.dataset.sc = 1 / k;
+    p.im.style.setProperty('--k', k);
+    layBottom(p.im);
+    const t = p.im.style.transition;
+    p.im.style.transition = 'none';
+    p.im.style.transform = standT(p.im);
+    void p.im.offsetWidth;
+    p.im.style.transition = t;
+  }
+}
 let rezoomTimer = null;
-/** 휠로 가까이 본 뒤 멈추면 그만큼 더 촘촘하게 다시 그림 */
-function rezoomSoon() {
+/** 휠로 가까이 보거나 펼침·구역 이동이 끝나 멈추면, 그 배율에 맞춰 다시 촘촘하게 그림 */
+function rezoomSoon(delay = 350) {
   clearTimeout(rezoomTimer);
   rezoomTimer = setTimeout(() => {
     const o = openState;
     if (!o || !o.s || o.closing || drag) return;
-    const want = Math.min(5, Math.max(1, o.s * VIEW.zoom));
-    if (Math.abs(want / BZ - 1) < 0.15) return;
-    const t = book.style.transition;
-    book.style.transition = 'none';
-    setBZ(want);
-    book.style.transform = bookT(o, card.classList.contains('is-open'));
-    void book.offsetWidth;
-    book.style.transition = t;
-  }, 350);
+    const want = wantBZ(o);
+    // 판 전체를 다시 그리는 건 크게 달라질 때만: 다시 그리는 동안 옛 그림과 새 그림이 같이 메모리에 있어 잠깐 종이가 빠지곤 했음
+    // (구역을 옮겨 조금 당겨 보는 정도는 그대로 두고, 인물만 setPieceRes 로 더 촘촘하게)
+    if (want > BZ * 1.25 || want < BZ * 0.75) {
+      const t = book.style.transition;
+      book.style.transition = 'none';
+      setBZ(want);
+      book.style.transform = bookT(o, card.classList.contains('is-open'));
+      void book.offsetWidth;
+      book.style.transition = t;
+    }
+    setPieceRes();
+  }, delay);
 }
-/** 서 있는 것: 판의 기울기 · 돌림을 거꾸로 돌려서 늘 우리를 향함. 누워 있으면 판에 붙음 */
+/** 서 있는 것: 입체 그림책처럼 판에 수직으로 섬 (발치를 축으로 접었다 폄). 책을 돌리면 책과 함께 돌아감. 누워 있으면 판에 붙음 */
 function standT(e) {
   const up = e.dataset.up === '1';
   const dx = Number(e.dataset.dx || 0);
   const sc = Number(e.dataset.sc || 1);
-  return up
-    ? `translateX(${dx}px) rotateZ(${-VIEW.yaw}deg) rotateX(${-VIEW.tilt}deg) scale(${sc})`
-    : `translateX(${dx}px) rotateZ(0deg) rotateX(0deg) scale(${sc})`;
+  // 판에서 털끝만큼 띄움: 발치가 판과 딱 닿아 있으면 크롬 3D 정렬이 각도에 따라 판을 앞에 그려서 그림이 통째로 사라졌다 나타남
+  return `translateX(${dx}px) translateZ(${up ? 0.8 : 0.3}px) rotateX(${up ? -90 : 0}deg) scale(${sc})`;
 }
 function bookT(o, left) {
-  const k = left ? Math.min(1, (innerWidth - 430) / (innerWidth - 40)) : 1; // 카드 자리만큼 작게
-  return BT(left ? (innerWidth - 370) / 2 + 40 : o.cx, left ? o.cy - (1 - k) * 60 : o.cy, o.w, o.h, o.s * VIEW.zoom * k, VIEW.tilt, VIEW.yaw);
+  const kc = left ? Math.min(1, (innerWidth - 430) / (innerWidth - 40)) : 1; // 카드 자리만큼 작게
+  const F = focusOf(o);
+  const cy = F.sy ?? o.cy; // 양옆 면·구역 나누기는 위에서 내려다보므로 화면 한가운데에
+  return BT(left ? (innerWidth - 370) / 2 + 40 : o.cx, left ? cy - (1 - kc) * 60 : cy, o.w, o.h, o.s * VIEW.zoom * kc * F.k, VIEW.tilt, VIEW.yaw, 0, F.fx, F.fy);
 }
 function applyView(animated) {
   const o = openState;
   if (!o) return;
   book.style.transition = animated ? 'transform 0.45s cubic-bezier(.2,.8,.2,1)' : 'none';
   book.style.transform = bookT(o, card.classList.contains('is-open'));
-  for (const e of book.querySelectorAll('.stand')) if (e.dataset.up === '1') e.style.transform = standT(e);
-  for (const t of book.querySelectorAll('.ptab')) t.style.transform = `rotateZ(${-VIEW.yaw}deg)`;
+  // 서 있는 것들은 책에 붙어 있으니 책만 돌리면 됨. 하늘은 아주 먼 곳이라 아주 조금만 따라 움직임 (낮게 볼수록 지평선이 내려옴)
+  skyFollow(animated ? '0.45s' : '0s');
+}
+const sky = document.getElementById('sky');
+function skyFollow(dur) {
+  sky.style.transition = `opacity 1.8s, transform ${dur} cubic-bezier(.2,.8,.2,1)`;
+  sky.style.transform = `translate(${-VIEW.yaw * 5}px, ${(VIEW.tilt - 72) * 9}px)`;
 }
 /** 펼친 책의 크기 · 자리: 책 앞단이 아래 안내문 바로 위에 오도록 (끝 자세를 잠깐 재 봄) */
 function layoutOpen(o) {
@@ -433,7 +638,7 @@ function layoutOpen(o) {
   book.style.transition = 'none';
   book.style.transform = BT(o.cx, o.cy, w, h, o.s, 72, 0);
   const pr = o.page.getBoundingClientRect();
-  const want = innerHeight - 78 - T_PAGE * o.s - innerHeight * 0.04;
+  const want = innerHeight - 78 - innerHeight * 0.06;
   o.cy = clampv(o.cy + (want - pr.bottom), [innerHeight * 0.5, innerHeight * 0.72]);
   book.style.transform = prev;
   void book.offsetWidth;
@@ -445,8 +650,15 @@ function pieceFilter(depth) {
   return `sepia(${0.08 - 0.05 * depth}) saturate(${sat}) brightness(${br}) contrast(${con}) drop-shadow(1.2px 1.6px 0 rgba(150,118,82,0.95)) drop-shadow(0 3px 3px rgba(50,30,15,0.22)) var(--glow, drop-shadow(0 0 0 transparent))`;
 }
 
+/** 화면의 지도에서 이 구역이 놓인 자리 · 크기 그대로의 자세 (위에서 내려다본 지도 한 장): 펼침의 시작이자 덮음의 끝 */
+function mapPose(o) {
+  const mr = ovmap.getBoundingClientRect();
+  const [x0, y0, x1, y1] = bbox(o.b.poly);
+  return [mr.left + ((x0 + x1) / 2) * MS * OV.s, mr.top + ((y0 + y1) / 2) * MS * OV.s, o.w, o.h, MS * OV.s, 0, 0, 0];
+}
+let opening = false; // 그림을 푸는 동안 (아직 openState 전) 두 번 눌러 겹쳐 열리지 않게
 async function openBlock(b) {
-  if (openState) return;
+  if (openState || opening) return;
   const [x0, y0, x1, y1] = bbox(b.poly);
   const ox = x0 - M, oy = y0 - M;
   const w = x1 - x0 + M * 2, h = y1 - y0 + M * 2;
@@ -456,25 +668,28 @@ async function openBlock(b) {
   bookz.innerHTML = '';
   // 펼쳤을 때 화면 배율을 미리 어림해서 그만큼 크게 깔아 둠
   BZ = 0;
-  setBZ(Math.max(1, 1.08 * Math.min((innerWidth - 300) / (w + 2 * PAD), (innerHeight * 0.64) / ((h + 2 * PAD) * Math.cos((72 * Math.PI) / 180) + 130), 3.2)));
+  setBZ(capBZ(1.08 * Math.min((innerWidth - 300) / (w + 2 * PAD), (innerHeight * 0.64) / ((h + 2 * PAD) * Math.cos((72 * Math.PI) / 180) + 130), 3.2), w, h));
   book.style.width = w * BZ + 'px';
   book.style.height = h * BZ + 'px';
   const add = (cls, tag = 'div') => el(cls, bookz, tag);
   const box = (e, ins) => Object.assign(e.style, { left: -ins + 'px', top: -ins + 'px', width: w + 2 * ins + 'px', height: h + 2 * ins + 'px' });
-  // 책 몸통 · 종이
-  buildSlab(bookz, -PAD, -PAD, w + 2 * PAD, h + 2 * PAD, LOCAL(`cover_${b.id}.jpg`));
+  // 판 둘레의 지도 · 종이 (종이는 지도와 같은 높이에 박혀 있음 — 지도 그 자리가 열리면 드러남)
+  buildSurround(bookz, -PAD, -PAD, w + 2 * PAD, h + 2 * PAD, ox, oy);
   const page = add('bk-page');
   box(page, PAD);
   page.style.backgroundImage = `url("${LOCAL(`page_${b.id}.jpg`)}")`;
-  box(add('book-light'), PAD);
+  el('book-light', page).style.inset = '0';
+  const deco = el('deco', page); // 판에 누운 것들은 여기에 (좌표는 bookz 와 같게)
+  Object.assign(deco.style, { left: PAD + 'px', top: PAD + 'px' });
+  const flat = (cls, tag = 'div') => el(cls, deco, tag);
   add('haze');
   // 뒤쪽 배경 막: 먼 풍경 + 가까운 언덕 한 겹 (각도를 돌리면 서로 어긋나며 깊이가 보임)
   const backs = [];
   const wide = w / h > 1.6 ? '_wide' : ''; // 넓은 쪽은 좌우로 늘린 풍경 (배경 막이 너무 높아지지 않게)
-  for (const [src, wf, yb, op] of [[`backdrop_far${wide}.png`, 1.0, 6, 1], [`backdrop_mid${wide}.png`, 0.97, 26, 1]]) {
-    const foot = add('bd-foot');
+  for (const [src, wf, yb, op, kind] of [[`backdrop_far${wide}.png`, 1.0, 6, 1, 'far'], [`backdrop_mid${wide}.png`, 0.97, 26, 1, 'mid']]) {
+    const foot = flat('bd-foot');
     Object.assign(foot.style, { left: (w * (1 - wf)) / 2 + 'px', width: w * wf + 'px', top: yb + 'px', height: '14px' });
-    const bd = add('stand backdrop', 'img');
+    const bd = add('stand backdrop ' + kind, 'img');
     bd.src = LOCAL(src);
     bd.style.width = w * wf + 'px';
     bd.style.left = (w * (1 - wf)) / 2 + 'px';
@@ -490,15 +705,14 @@ async function openBlock(b) {
   let tallest = 0;
   for (const it of [...b.items].sort((a, c) => a.y - c.y)) {
     const depth = clampv(1 - (it.y - oy) / h, [0, 1]);
-    const cast = add('tab ptab'); // 종이 받침 (판에 붙인 접힌 띠) — 그림이 우리 쪽으로 돌면 받침도 같이 돔
+    const cast = flat('tab ptab'); // 종이 받침 (그림 발치에 붙인 접힌 띠) — 판에 붙어 있어 책과 함께 돎
     const tw = Math.max(12, it.w * 0.6);
     Object.assign(cast.style, { left: it.x - ox - tw / 2 + 'px', top: it.y - oy - 0.5 + 'px', width: tw + 'px', height: Math.max(8, Math.min(20, it.w * 0.15)) + 'px' });
-    cast.style.transform = `rotateZ(${-VIEW.yaw}deg)`;
-    const shd = add('shade', 'img');
+    const shd = flat('shade', 'img');
     shd.src = ASSET(it.asset);
     shd.draggable = false;
     placeBottom(shd, it, ox, oy);
-    const ct = add('contact');
+    const ct = flat('contact');
     ct.style.left = it.x - ox + 'px';
     ct.style.top = it.y - oy + 'px';
     ct.style.width = it.w * 0.8 + 'px';
@@ -512,7 +726,7 @@ async function openBlock(b) {
     im.addEventListener('load', () => { tallest = Math.max(tallest, (im.naturalHeight * it.w) / im.naturalWidth); }, { once: true });
     im.onclick = (e) => {
       e.stopPropagation();
-      if (!scene.classList.contains('is-clear') || drag?.moved) return;
+      if (!scene.classList.contains('is-clear') || drag?.moved || openState?.look || openState?.editing) return;
       im.classList.remove('hop');
       void im.offsetWidth;
       im.classList.add('hop');
@@ -565,81 +779,106 @@ async function openBlock(b) {
       f.dataset.op = 1;
       f.style.transform = standT(f);
       // 구름 받침: 판에 붙어 있다가 구름과 함께 옆으로 빠짐
-      const tb = add('tab');
+      const tb = flat('tab');
       const tw = fw * 0.5 * Number(f.dataset.sc || 1);
       Object.assign(tb.style, { left: left + fw / 2 - tw / 2 + 'px', top: fy - 0.5 + 'px', width: tw + 'px', height: Math.max(8, Math.min(20, fw * 0.05)) + 'px' });
       f._tab = tb;
       fogs.push(f);
     }
   }
-  // 표지 (안쪽 면 + 바깥 가죽)
-  const cb = add('cover-back');
-  box(cb, PAD);
-  cb.style.transform = 'translateZ(1px) rotateY(0deg)';
-  cb.style.opacity = 0; // 덮인 동안은 숨김 (표지와 겹쳐 깜빡이지 않게)
-  const cover = add('cover');
-  box(cover, PAD);
-  cover.style.backgroundImage = `url("${LOCAL(`cover_${b.id}.jpg`)}")`;
-  cover.style.transform = 'translateZ(4px) rotateY(0deg)';
-  cover.innerHTML = `<span>${b.name}</span>`;
-  const [cw, ch] = CART[b.id] || [0.5, 0.4]; // 표지 가운데 틀이 차지하는 비율 (covers.json)
-  const fs = Math.min(((w + 2 * PAD) * cw * 0.66) / (b.name.length * 1.3), (h + 2 * PAD) * ch * 0.34);
-  cover.firstChild.style.fontSize = fs + 'px';
+  // 덮개: 판 자리의 지도 그림 그대로인 두 짝 (겉 = 지도, 안 = 종이). 처음엔 지도와 이어 보여서 따로 무언가 튀어나오지 않음
+  const CW = w + 2 * PAD, CH = h + 2 * PAD;
+  const doors = ['l', 'r'].map((s) => {
+    const x = s === 'l' ? -PAD : -PAD + CW / 2;
+    const cb = add('cover-back ' + s);
+    Object.assign(cb.style, { left: x + 'px', top: -PAD + 'px', width: CW / 2 + 'px', height: CH + 'px', opacity: 0 }); // 덮인 동안은 숨김 (겉면과 겹쳐 깜빡이지 않게)
+    const cv = add('cover ' + s);
+    Object.assign(cv.style, { left: x + 'px', top: -PAD + 'px', width: CW / 2 + 'px', height: CH + 'px',
+      backgroundImage: `url("${LOCAL('map_town.jpg')}")`, backgroundSize: `${MAPW / MS}px ${MAPH / MS}px`, backgroundPosition: `${-ox - x}px ${-oy + PAD}px` });
+    return { s, cv, cb };
+  });
+  // 열림: 왼짝은 왼쪽 모서리를 축으로 왼쪽으로, 오른짝은 오른쪽 모서리를 축으로 오른쪽으로 넘어가 지도 위에 누움 (열린 채 남음)
+  const setDoors = (open) => doors.forEach(({ s, cv, cb }) => {
+    const deg = open ? (s === 'l' ? -180 : 180) : 0;
+    cv.style.transform = `translateZ(2.2px) rotateY(${deg}deg)`;
+    cb.style.transform = `translateZ(1.6px) rotateY(${deg}deg)`;
+  });
+  setDoors(false);
 
-  // 시작: 지도 위 그 구역 자리에 덮인 책으로 (지도 책과 같은 기울기)
-  const mr = ovmap.getBoundingClientRect();
-  const startX = mr.left + ((x0 + x1) / 2) * MS * OV.s, startY = mr.top + ((y0 + y1) / 2) * MS * OV.s;
-  const bs = MS * OV.s * 0.92;
-  const startArgs = [startX, startY, w, h, bs, 0, 0, 2];
-  const startT = BT(...startArgs);
+  // 그림을 다 풀어 둔 뒤에 띄움: 덜 풀린 그림은 크롬이 빈칸·흐린 채로 먼저 그려서 펼치는 첫 순간 책이 유령처럼 비쳤음
+  opening = true;
+  const decodes = [...bookz.querySelectorAll('img')].map((im) => im.decode().catch(() => {}));
+  for (const n of [`page_${b.id}.jpg`, 'map_town.jpg']) {
+    const im = new Image();
+    im.src = LOCAL(n);
+    decodes.push(im.decode().catch(() => {}));
+  }
+  await Promise.race([Promise.all(decodes), wait(1500)]);
+  for (const p of pieces) if (p.im.naturalWidth) tallest = Math.max(tallest, (p.im.naturalHeight * parseFloat(p.im.style.width)) / p.im.naturalWidth);
+
+  openState = { b, pieces, fogs, backs, w, h, ox, oy, doors, setDoors, tall: Math.max(tallest, 130), page, fi: -1, focus: null };
+  opening = false;
+  // 덮개 안쪽 면 = 양옆 면 (왼쪽 구역 목차 · 오른쪽 기록). 누르면 카메라가 그 면을 내려다봄
+  for (const d of doors) {
+    const f = el('flap', d.cb);
+    f.onclick = () => { if (!drag?.moved) lookFlap(d.s); };
+    openState[d.s === 'l' ? 'flapL' : 'flapR'] = f;
+  }
+  fillFlap(openState.flapL, 'l', openState, false);
+  fillFlap(openState.flapR, 'r', openState, false);
+  // 펼친 자세의 크기를 먼저 재고 그 배율로 깔아 둠 (펼친 끝에 다시 그리며 화질이 툭 바뀌지 않게)
+  layoutOpen(openState);
+  setBZ(wantBZ(openState));
+  setPieceRes();
+  // 시작: 화면의 지도와 똑같은 자리 · 크기 · 기울기 (위에서 내려다본 지도 한 장) — 그대로 카메라만 다가감
   book.style.transition = 'none';
-  book.style.transform = startT;
+  book.style.transform = BT(...mapPose(openState));
   scene.classList.add('is-open');
   app.classList.add('is-open');
   document.getElementById('scene-title').textContent = b.name;
-  openState = { b, pieces, fogs, backs, w, h, startT, startArgs, cover, cb };
   void book.offsetWidth;
   await wait(60);
-  // 1) 책이 들려서 화면 한가운데로 나오며 눈높이로 기울어짐
-  openState.tall = Math.max(tallest, 130);
-  openState.page = page;
-  layoutOpen(openState);
-  book.style.transform = startT;
-  void book.offsetWidth;
-  book.style.transition = 'transform 1s cubic-bezier(.2,.8,.2,1)';
+  // 1) 카메라가 그 구역으로 천천히 다가가며 눈높이로 내려옴 (둘레 지도도 같이 기울며 어둠에 잠김)
+  book.style.transition = 'transform 1.9s cubic-bezier(.5,0,.2,1)';
   book.style.transform = bookT(openState);
-  // 2) 표지가 넘어감 → 안개 낀 장면, 뒤 배경 막이 먼저 섬
-  await wait(800);
+  // 2) 다가가는 도중에 지도 그 자리가 가운데서 갈라져 양옆으로 열림 → 안개 낀 장면, 뒤 배경 막이 먼저 섬
+  await wait(850);
+  // 다 가려진 화면의 지도와 그 빛 효과는 아예 뺌: 안 보이는데도 그래픽 메모리를 차지해서 책 그림이 밀려나 사라졌음 (덮을 때 다시 넣음)
+  ov.style.display = 'none';
   scene.classList.add('is-unfolded');
-  cover.style.transform = 'translateZ(4px) rotateY(-179deg)';
-  cb.style.opacity = 1;
-  cb.style.transition = 'transform 1.05s cubic-bezier(.45,.05,.3,1)';
-  cb.style.transform = 'translateZ(1px) rotateY(-179deg)';
-  setTimeout(() => { cb.style.transition = 'transform 1.05s cubic-bezier(.45,.05,.3,1), opacity 0.45s'; cb.style.opacity = 0; }, 620);
+  doors.forEach(({ cb }) => { cb.style.opacity = 1; });
+  setDoors(true);
+  // 덮개가 실제로 움직이기 시작한 때부터 잼: 화면이 바쁘면 덮개가 늦게 출발해서, 시간만 재면 구름이 덮개를 뚫고 먼저 일어났음
+  const doorAnim = doors[0].cv.getAnimations()[0];
+  if (doorAnim) await Promise.race([doorAnim.ready, wait(500)]);
   [...fogs].sort((a, c) => a.dataset.y - c.dataset.y).forEach((f, i) => setTimeout(() => {
     f.dataset.up = '1';
     f.style.opacity = 1;
     f.style.transform = standT(f);
     f._tab.classList.add('is-up');
-  }, 560 + i * 40)); // 표지가 반 넘게 넘어간 뒤에 (표지를 뚫고 보이지 않게)
+  }, 640 + i * 40)); // 표지가 반 넘게 열린 뒤에 (표지를 뚫고 보이지 않게)
   // 3) 구름이 앞에서부터 양옆으로 빠지고, 빠진 자리부터 일어섬 (맨 뒤 풍경 막은 구름이 빠지기 시작할 때 섬)
   await wait(1500);
   scene.classList.add('is-clear');
+  // 다 열린 덮개의 지도 쪽 겉면(뒤집혀 안 보임)은 꺼서 그래픽 메모리를 돌려받음 — 종이 안쪽 면은 양옆에 펼쳐진 채 남김. 덮을 때 다시 켬
+  doors.forEach(({ cv }) => { cv.style.visibility = 'hidden'; });
   backs.forEach(({ bd, foot }, i) => setTimeout(() => {
     bd.dataset.up = '1';
     bd.style.transform = standT(bd);
     bd.style.opacity = 1;
     foot.classList.add('is-up');
   }, 120 + i * 180));
+  // 구름은 종이라 책 밖으로 나갈 수 없으니, 옆으로 밀리기 시작하면서 안개 걷히듯 책 위에서 스러짐 (책 가장자리까지만)
   const order = [...fogs].sort((a, c) => c.dataset.y - a.dataset.y);
   order.forEach((f, i) => setTimeout(() => {
     f.classList.add('is-off');
-    f.dataset.dx = Math.round(f.dataset.dir * w * (1.0 + 0.25 * Math.random()));
+    f.dataset.dx = Math.round(f.dataset.dir * w * (0.3 + 0.1 * Math.random()));
     f.style.transform = standT(f);
     f.style.opacity = 0;
-    f._tab.style.transition = 'transform 1.5s cubic-bezier(.55,0,.25,1), opacity 0.35s 1.15s';
+    f._tab.style.transition = 'transform 1.5s cubic-bezier(.55,0,.25,1), opacity 0.6s 0.2s';
     f._tab.style.transform = `translateX(${f.dataset.dx}px)`;
     f._tab.classList.remove('is-up');
+    setTimeout(() => { f.style.display = 'none'; f._tab.style.display = 'none'; }, 1800); // 빠져나간 구름은 아예 뺌 (메모리)
   }, Math.floor(i / 3) * 200 + Math.random() * 90));
   [...pieces].sort((a, c) => c.y - a.y).forEach((p, i) => setTimeout(() => {
     p.im.dataset.up = '1';
@@ -651,77 +890,359 @@ async function openBlock(b) {
     setTimeout(() => p.im.classList.add('is-up'), 750);
   }, 250 + (1 - p.y / h) * 1100 + i * 25));
   await wait(2200);
-  if (!openState) return;
+  if (!openState || openState.closing) return;
   scene.classList.add('is-ready');
+  drawZoneUI(openState);
+  if (openState.closeAsap) { closeBlock(); return; } // 펼치는 동안 덮기를 눌렀으면 다 펼쳐진 지금 덮음
+  rezoomSoon(100); // 펼침이 끝났으니 실제 화면 배율에 맞춰 한 번 다시 그림
 }
 
 async function closeBlock() {
   if (!openState || openState.closing) return;
+  if (!scene.classList.contains('is-ready')) { openState.closeAsap = true; return; } // 아직 펼치는 중: 예약된 동작과 엉키지 않게 다 펼쳐진 뒤 덮음
   hideCard();
+  // 구역 나누기 · 양옆 면 보기 중이면 그냥 접고 판 전체로 (덮는 길은 늘 판 전체에서)
+  if (openState.editing) endZoneEdit(false, true);
+  flappanel.classList.remove('on');
+  clearTimeout(openState.lookTimer);
+  scene.classList.remove('look-l', 'look-r');
+  openState.look = null;
+  openState.focus = null;
+  openState.fi = -1;
   openState.closing = true;
   scene.classList.remove('is-ready');
-  const { pieces, fogs, backs, w, h, startT, cover, cb } = openState;
+  const { pieces, fogs, backs, w, h, doors, setDoors } = openState;
   VIEW.yaw = 0;
   VIEW.tilt = 72;
   VIEW.zoom = 1;
-  book.style.transition = 'transform 0.5s ease';
+  // 펼침의 거꾸로 (약 2초): 보던 각도를 정면으로 되돌리면서, 뒤에서부터 차례로 눕고 → 표지가 덮이고 → 지도 자리로 돌아가 녹아듦
+  // (구름은 이미 걷혔으니 다시 불러오지 않음 — 책 밖에서 날아드는 것이 없게)
+  book.style.transition = 'transform 0.6s cubic-bezier(.2,.8,.2,1)';
   book.style.transform = BT(openState.cx, openState.cy, w, h, openState.s, VIEW.tilt, 0);
-  fogs.forEach((f, i) => setTimeout(() => {
-    f.classList.remove('is-off');
-    f.style.transition = 'transform 0.9s cubic-bezier(.3,.1,.3,1), opacity 0.25s';
-    f.dataset.dx = 0;
-    f.style.transform = standT(f);
-    f.style.opacity = 1;
-    f._tab.style.transition = 'transform 0.9s cubic-bezier(.3,.1,.3,1), opacity 0.25s';
-    f._tab.style.transform = 'translateX(0px)';
-    f._tab.classList.add('is-up');
-  }, (i % 6) * 60));
   scene.classList.remove('is-clear');
-  await wait(550);
+  // 1) 뒤쪽부터 접혀 눕는다 (종이가 툭 넘어가듯 가속). 받침·그림자·번짐은 그림과 함께 걷힘
   [...pieces].sort((a, c) => a.y - c.y).forEach((p, i) => setTimeout(() => {
     p.im.classList.remove('is-up');
-    p.im.style.transition = 'transform 0.35s ease-in';
+    p.im.style.transition = 'transform 0.5s cubic-bezier(.45,.05,.55,.95)'; // 눈높이에서는 뒤로 기우는 초반이 잘 안 보이므로 고르게
     p.im.dataset.up = '0';
     p.im.style.transform = standT(p.im);
     p.ct.classList.remove('is-up');
     p.cast.classList.remove('is-up');
     p.shd.classList.remove('is-up');
     if (p.glow) { p.glow.classList.remove('is-up'); p.glow.dataset.up = '0'; p.glow.style.transform = standT(p.glow); }
-  }, i * 25));
-  for (const { bd, foot } of backs) {
+  }, 80 + (1 - p.y / h) * 220 + i * 10));
+  backs.forEach(({ bd, foot }, i) => setTimeout(() => {
+    bd.style.transition = 'transform 0.5s cubic-bezier(.5,0,.85,.45), opacity 0.35s 0.1s';
     bd.dataset.up = '0';
     bd.style.transform = standT(bd);
     bd.style.opacity = 0;
     foot.classList.remove('is-up');
-  }
-  await wait(pieces.length * 25 + 500);
-  fogs.forEach((f) => { f.style.transition = 'transform 0.35s ease-in, opacity 0.3s 0.1s'; f.dataset.up = '0'; f.style.transform = standT(f); f.style.opacity = 0; f._tab.classList.remove('is-up'); });
-  await wait(300);
-  scene.classList.remove('is-unfolded');
-  cover.style.transform = 'translateZ(4px) rotateY(0deg)';
-  cb.style.opacity = 1;
-  cb.style.transform = 'translateZ(1px) rotateY(0deg)';
-  await wait(1000);
-  cb.style.opacity = 0;
-  book.style.transition = 'transform 0.9s cubic-bezier(.2,.8,.2,1)';
-  book.style.transform = BT(...openState.startArgs);
-  app.classList.remove('is-open');
+  }, i * 120));
+  fogs.forEach((f) => { f.style.transition = 'none'; f.style.opacity = 0; f._tab.classList.remove('is-up'); });
+  // 2) 다 눕기 전에 양옆에 펼쳐져 있던 덮개 두 짝이 넘어와 가운데서 만나 판을 덮음 (덮개 날이 지나갈 즈음엔 모두 누워 있음)
+  await wait(320);
+  scene.classList.add('is-closing');
+  doors.forEach(({ cv }) => { cv.style.visibility = ''; });
+  setDoors(false);
+  // 3) 덮개가 거의 닫히면 카메라가 천천히 물러나 위에서 내려다본 지도 자리로 돌아가고, 끝자락에 화면의 지도와 겹쳐 바뀜
   await wait(950);
+  scene.classList.remove('is-unfolded');
+  ov.style.display = ''; // 지도 자리를 재려면 먼저 넣어 둠 (아직 투명)
+  book.style.transition = 'transform 1.3s cubic-bezier(.5,0,.25,1)';
+  book.style.transform = BT(...mapPose(openState));
+  await wait(950);
+  // 카메라가 거의 다 물러난 뒤에야 화면의 지도가 0.8초에 걸쳐 돌아오고, 장면은 0.5초 뒤부터 사라짐 (어긋난 지도 두 장이 겹쳐 보이지 않게)
   scene.classList.remove('is-open');
+  app.classList.remove('is-open');
+  await wait(1000);
+  book.style.transition = 'none';
   bookz.innerHTML = '';
+  scene.classList.remove('is-closing');
   openState = null;
 }
+// ---------- 구역: 넓은 판 안을 카메라로 오가기 ----------
+const zonebar = document.getElementById('zonebar');
+const flappanel = document.getElementById('flappanel');
+const zedit = document.getElementById('zedit');
+const ztools = document.getElementById('zedit-tools');
+/** 이 지역의 구역 (마을 좌표 네모). 작가가 아직 안 나눴으면 시험용으로 판을 긴 쪽으로 2~3등분해 방위만 붙여 둠 (저장은 작가가 고칠 때) */
+function zonesOf(b) {
+  if (Array.isArray(b.zones)) return b.zones;
+  const [x0, y0, x1, y1] = bbox(b.poly);
+  const W = x1 - x0, H = y1 - y0, wide = W >= H;
+  const n = Math.max(W, H) / Math.min(W, H) > 1.5 ? 3 : 2;
+  const names = wide ? (n === 3 ? ['서쪽', '가운데', '동쪽'] : ['서쪽', '동쪽']) : n === 3 ? ['북쪽', '가운데', '남쪽'] : ['북쪽', '남쪽'];
+  if (!SEEDS.has(b)) SEEDS.set(b, names.map((name, i) => (wide
+    ? { id: 'z' + (i + 1), name, x: x0 + (W * i) / n, y: y0, w: W / n, h: H }
+    : { id: 'z' + (i + 1), name, x: x0, y: y0 + (H * i) / n, w: W, h: H / n })));
+  return SEEDS.get(b);
+}
+const SEEDS = new WeakMap(); // 시험용 구역 (저장하지 않음)
+/** 구역을 보는 카메라: 그 구역 가운데로 옮기고, 구역이 화면에 꽉 차도록 당김 (판 전체보다 작게는 안 봄) */
+function zoneFocus(o, z) {
+  const k = Math.min((o.w + 2 * PAD) / (z.w + 2 * M), (o.h + 2 * PAD) / (z.h + 2 * M));
+  return { kind: 'zone', id: z.id, cx: z.x - o.ox + z.w / 2, cy: z.y - o.oy + z.h / 2, k: clampv(k, [1, 2.4]) };
+}
+function moveCamera(o, sec) {
+  book.style.transition = `transform ${sec}s cubic-bezier(.55,0,.25,1)`;
+  book.style.transform = bookT(o, card.classList.contains('is-open'));
+  skyFollow(sec + 's');
+  rezoomSoon(sec * 1000 + 80);
+}
+/** i: 구역 번호 (-1 = 판 전체). 끝에서 넘기면 반대쪽 끝으로 돎 */
+function goZone(i) {
+  const o = openState;
+  if (!o || o.closing || o.editing) return;
+  const zs = zonesOf(o.b);
+  if (i >= zs.length) i = -1;
+  if (i < -1) i = zs.length - 1;
+  o.fi = i;
+  o.focus = i < 0 ? null : zoneFocus(o, zs[i]);
+  VIEW.tilt = Math.max(VIEW.tilt, LIM.tilt[0]); // 양옆 면·구역 나누기(위에서 내려다봄)에서 돌아올 때 눈높이로
+  moveCamera(o, 1.25);
+  drawZoneUI(o);
+}
+function drawZoneUI(o) {
+  const zs = zonesOf(o.b);
+  zonebar.querySelector('.zb-name').textContent = o.fi < 0 ? '판 전체' : zs[o.fi].name;
+  zonebar.querySelector('.zb-no').textContent = o.fi < 0 ? `구역 ${zs.length}곳` : `${o.fi + 1} / ${zs.length}`;
+  zonebar.querySelectorAll('button').forEach((x) => { x.disabled = !zs.length; });
+  if (o.flapL) fillFlap(o.flapL, 'l', o, false);
+}
+zonebar.querySelector('.zb-prev').onclick = () => openState && goZone(openState.fi - 1);
+zonebar.querySelector('.zb-next').onclick = () => openState && goZone(openState.fi + 1);
+
+/** 양옆 면의 내용: 왼쪽 = 구역 목차 + 작은 지도, 오른쪽 = 작가의 기록. 3D 면(보기용)과 내려다볼 때 겹치는 판(live, 쓰기용)이 같은 모양 */
+function fillFlap(box, side, o, live) {
+  box.innerHTML = '';
+  const b = o.b, zs = zonesOf(b), CW = o.w + 2 * PAD, CH = o.h + 2 * PAD;
+  el('lab', box).textContent = side === 'l' ? '구 역' : '기 록';
+  el('nm', box).textContent = b.name;
+  el('', el('orn', box), 'i');
+  if (side === 'l') {
+    // 작은 지도는 목차가 다 들어가고 남는 높이만큼만 (납작한 지역은 면이 낮아서 목차가 잘렸음)
+    const room = CH - 62 - 82 - (zs.length + 1) * 30 - 36 - 18;
+    const mh = Math.min(room, CH * 0.34, ((CW / 2 - 64) * CH) / CW);
+    const mini = el('mini', box);
+    Object.assign(mini.style, { width: (mh * CW) / CH + 'px', height: mh + 'px', display: mh < 50 ? 'none' : '' });
+    const im = el('', mini, 'img');
+    im.src = LOCAL(`page_${b.id}.jpg`);
+    im.draggable = false;
+    zs.forEach((z, i) => {
+      const r = el(i === o.fi ? 'on' : '', mini, 'i');
+      Object.assign(r.style, { left: ((z.x - o.ox + PAD) / CW) * 100 + '%', top: ((z.y - o.oy + PAD) / CH) * 100 + '%', width: (z.w / CW) * 100 + '%', height: (z.h / CH) * 100 + '%' });
+      el('', r, 'b').textContent = i + 1;
+      if (live) r.onclick = () => leaveFlap(i);
+    });
+    const ol = el('', box, 'ol');
+    [{ name: '판 전체' }, ...zs].forEach((z, j) => {
+      const li = el(j - 1 === o.fi ? 'on' : '', ol, 'li');
+      el('no', li, 'span').textContent = j ? j : '◇';
+      el('', li, 'span').textContent = z.name;
+      if (live) li.onclick = () => leaveFlap(j - 1);
+    });
+    const tool = el('tool', box, live ? 'button' : 'div');
+    tool.textContent = '✎ 구역 나누기';
+    if (live) tool.onclick = () => startZoneEdit();
+  } else {
+    const ph = '이 지역의 분위기, 사는 사람들, 얽힌 이야기… (작가 메모)';
+    const note = el('note', box, live ? 'textarea' : 'div');
+    if (live) {
+      note.value = b.note || '';
+      note.placeholder = ph;
+      note.oninput = () => { b.note = note.value; fillFlap(o.flapR, 'r', o, false); saveSoon(); };
+    } else {
+      note.dataset.ph = ph;
+      note.textContent = b.note || '';
+    }
+    el('saved', box).textContent = live ? '적으면 저절로 저장돼요' : '';
+  }
+}
+/** 양옆 면을 보는 카메라: 위에서 내려다보며 그 면이 화면에 꽉 차게 (글을 읽고 쓰기 좋게) */
+function flapFocus(o, side) {
+  const CW = o.w + 2 * PAD, CH = o.h + 2 * PAD;
+  const k = Math.min((innerWidth * 0.46) / (CW / 2), (innerHeight * 0.84) / CH) / o.s;
+  return { kind: 'flap', side, cx: side === 'l' ? -PAD - CW / 4 : -PAD + CW + CW / 4, cy: -PAD + CH / 2, k, sy: innerHeight * 0.5 };
+}
+function lookFlap(side) {
+  const o = openState;
+  if (!o || o.closing || o.look || o.editing || !scene.classList.contains('is-ready')) return;
+  hideCard();
+  o.look = { side, back: o.fi };
+  o.focus = flapFocus(o, side);
+  VIEW.tilt = 0;
+  VIEW.yaw = 0;
+  VIEW.zoom = 1;
+  scene.classList.add('look-' + side);
+  moveCamera(o, 1.1);
+  clearTimeout(o.lookTimer);
+  o.lookTimer = setTimeout(() => showFlapPanel(o, side), 1150);
+}
+/** 카메라가 다 내려다본 뒤, 그 면과 똑같은 자리 · 크기로 쓰기용 판을 겹쳐 띄움 (위에서 본 면은 원근이 없어 네모 그대로) */
+function showFlapPanel(o, side) {
+  if (openState !== o || !o.look || o.look.side !== side) return;
+  const cb = o.doors.find((d) => d.s === side).cb;
+  const r = cb.getBoundingClientRect();
+  const CW = o.w + 2 * PAD, CH = o.h + 2 * PAD;
+  fillFlap(flappanel.querySelector('.flap'), side, o, true);
+  Object.assign(flappanel.style, { width: CW / 2 + 'px', height: CH + 'px', borderRadius: side === 'l' ? '6px 0 0 6px' : '0 6px 6px 0',
+    transform: `translate(${r.left}px, ${r.top}px) scale(${r.width / (CW / 2)})` });
+  flappanel.classList.add('on');
+}
+/** 면에서 판으로 돌아감 (i: 갈 구역, 없으면 보던 곳으로) */
+function leaveFlap(i) {
+  const o = openState;
+  if (!o || !o.look) return;
+  flappanel.classList.remove('on');
+  clearTimeout(o.lookTimer);
+  scene.classList.remove('look-l', 'look-r');
+  const back = i === undefined ? o.look.back : i;
+  o.look = null;
+  VIEW.tilt = INIT_VIEW.tilt;
+  goZone(back);
+}
+flappanel.querySelector('.fp-back').onclick = () => leaveFlap();
+
+// ---------- 구역 나누기: 위에서 내려다본 판 위에 네모를 긋고, 옮기고, 크기를 바꾸고, 이름을 붙임 ----------
+function startZoneEdit() {
+  const o = openState;
+  if (!o || o.closing || o.editing) return;
+  hideCard();
+  flappanel.classList.remove('on');
+  clearTimeout(o.lookTimer);
+  scene.classList.remove('look-l', 'look-r');
+  o.look = null;
+  const CW = o.w + 2 * PAD, CH = o.h + 2 * PAD;
+  o.editing = { zones: zonesOf(o.b).map((z) => ({ ...z })), sel: -1 };
+  o.focus = { kind: 'edit', cx: o.w / 2, cy: o.h / 2, k: Math.min((innerWidth * 0.62) / CW, (innerHeight * 0.74) / CH) / o.s, sy: innerHeight * 0.53 };
+  VIEW.tilt = 0;
+  VIEW.yaw = 0;
+  VIEW.zoom = 1;
+  scene.classList.add('is-editing');
+  moveCamera(o, 1.1);
+  setTimeout(() => {
+    if (openState !== o || !o.editing) return;
+    const r = o.page.getBoundingClientRect();
+    Object.assign(zedit.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    zedit.classList.add('on');
+    ztools.classList.add('on');
+    drawZoneEdit(o);
+  }, 1150);
+}
+function drawZoneEdit(o) {
+  const E = o.editing, CW = o.w + 2 * PAD, CH = o.h + 2 * PAD;
+  zedit.innerHTML = '';
+  E.zones.forEach((z, i) => {
+    const d = el('zbox' + (i === E.sel ? ' sel' : ''), zedit);
+    Object.assign(d.style, { left: ((z.x - o.ox + PAD) / CW) * 100 + '%', top: ((z.y - o.oy + PAD) / CH) * 100 + '%', width: (z.w / CW) * 100 + '%', height: (z.h / CH) * 100 + '%' });
+    d.dataset.i = i;
+    el('zname', d).textContent = `${i + 1}. ${z.name || '이름 없음'}`;
+    el('zgrip', d).dataset.i = i;
+  });
+  const nm = ztools.querySelector('.zt-name'), del = ztools.querySelector('.zt-del');
+  nm.disabled = del.disabled = E.sel < 0;
+  nm.value = E.sel < 0 ? '' : E.zones[E.sel].name;
+}
+zedit.addEventListener('pointerdown', (e) => {
+  const o = openState;
+  if (!o || !o.editing) return;
+  e.preventDefault();
+  const E = o.editing, CW = o.w + 2 * PAD;
+  const per = CW / zedit.getBoundingClientRect().width; // 화면 1px = 마을 좌표 몇
+  const r = zedit.getBoundingClientRect();
+  const at = (ev) => ({ x: (ev.clientX - r.left) * per + o.ox - PAD, y: (ev.clientY - r.top) * per + o.oy - PAD });
+  const p0 = at(e);
+  let mode, i;
+  if (e.target.classList.contains('zgrip')) { mode = 'size'; i = Number(e.target.dataset.i); }
+  else if (e.target.classList.contains('zbox')) { mode = 'move'; i = Number(e.target.dataset.i); }
+  else { mode = 'new'; E.zones.push({ id: 'z' + Date.now().toString(36), name: `구역 ${E.zones.length + 1}`, x: p0.x, y: p0.y, w: 0, h: 0 }); i = E.zones.length - 1; }
+  E.sel = i;
+  const z = E.zones[i], z0 = { ...z };
+  zedit.setPointerCapture(e.pointerId);
+  const move = (ev) => {
+    const p = at(ev), dx = p.x - p0.x, dy = p.y - p0.y;
+    if (mode === 'move') { z.x = z0.x + dx; z.y = z0.y + dy; }
+    else if (mode === 'size') { z.w = Math.max(24, z0.w + dx); z.h = Math.max(24, z0.h + dy); }
+    else { z.x = Math.min(p0.x, p.x); z.y = Math.min(p0.y, p.y); z.w = Math.abs(dx); z.h = Math.abs(dy); }
+    drawZoneEdit(o);
+  };
+  const up = () => {
+    zedit.removeEventListener('pointermove', move);
+    zedit.removeEventListener('pointerup', up);
+    if (mode === 'new' && (z.w < 24 || z.h < 24)) { E.zones.splice(i, 1); E.sel = -1; } // 그냥 누른 것: 선택만 풂
+    drawZoneEdit(o);
+    if (mode === 'new' && E.sel >= 0) ztools.querySelector('.zt-name').select();
+  };
+  zedit.addEventListener('pointermove', move);
+  zedit.addEventListener('pointerup', up);
+  drawZoneEdit(o);
+});
+ztools.querySelector('.zt-name').oninput = (e) => {
+  const o = openState;
+  if (!o?.editing || o.editing.sel < 0) return;
+  o.editing.zones[o.editing.sel].name = e.target.value;
+  drawZoneEdit(o);
+  e.target.focus();
+};
+// 판이 구역으로 꽉 차 있어 그을 빈자리가 없을 때: 판 가운데에 하나 놓고 옮기거나 늘려 씀
+ztools.querySelector('.zt-add').onclick = () => {
+  const o = openState;
+  if (!o?.editing) return;
+  const E = o.editing, w = o.w * 0.34, h = o.h * 0.34;
+  E.zones.push({ id: 'z' + Date.now().toString(36), name: `구역 ${E.zones.length + 1}`, x: o.ox + (o.w - w) / 2, y: o.oy + (o.h - h) / 2, w, h });
+  E.sel = E.zones.length - 1;
+  drawZoneEdit(o);
+  ztools.querySelector('.zt-name').select();
+};
+ztools.querySelector('.zt-del').onclick = () => {
+  const o = openState;
+  if (!o?.editing || o.editing.sel < 0) return;
+  o.editing.zones.splice(o.editing.sel, 1);
+  o.editing.sel = -1;
+  drawZoneEdit(o);
+};
+ztools.querySelector('.zt-cancel').onclick = () => endZoneEdit(false);
+ztools.querySelector('.zt-save').onclick = () => endZoneEdit(true);
+function endZoneEdit(save, quiet) {
+  const o = openState;
+  if (!o || !o.editing) return;
+  if (save) {
+    o.b.zones = o.editing.zones.map((z) => ({ id: z.id, name: z.name.trim() || '이름 없는 구역', x: Math.round(z.x), y: Math.round(z.y), w: Math.round(z.w), h: Math.round(z.h) }));
+    saveSoon();
+  }
+  o.editing = null;
+  zedit.classList.remove('on');
+  ztools.classList.remove('on');
+  scene.classList.remove('is-editing');
+  fillFlap(o.flapR, 'r', o, false);
+  if (quiet) return;
+  VIEW.tilt = INIT_VIEW.tilt;
+  goZone(-1);
+}
+
 document.getElementById('close').onclick = closeBlock;
 addEventListener('keydown', (e) => {
-  if ((e.key === 'l' || e.key === 'L') && !e.target.closest?.('input, textarea, select')) { app.classList.toggle('no-fx'); return; }
+  const typing = e.target.closest?.('input, textarea, select');
+  const o = openState;
+  if (e.key === 'Escape' && typing) { e.target.blur(); return; } // 쓰던 칸에서 Esc 는 칸만 빠져나옴 (책을 덮지 않게)
+  if (typing) return;
+  if (e.key === 'l' || e.key === 'L') { app.classList.toggle('no-fx'); return; }
+  // ← → 구역 옮기기 (펼쳐진 판을 보고 있을 때만)
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && o && !o.look && !o.editing && scene.classList.contains('is-ready')) {
+    goZone(o.fi + (e.key === 'ArrowLeft' ? -1 : 1));
+    return;
+  }
   if (e.key !== 'Escape') return;
-  if (card.classList.contains('is-open')) hideCard();
+  if (o?.editing) endZoneEdit(false);
+  else if (o?.look) leaveFlap();
+  else if (card.classList.contains('is-open')) hideCard();
   else closeBlock();
 });
 
-// 마우스로 보는 각도 돌리기 (끌기) · 가까이 보기 (휠) · 두 번 누르면 정면으로
+// 마우스로 보는 각도 돌리기 (끌기) · 가까이 보기 (휠) · 두 번 누르면 정면으로 — 양옆 면을 보거나 구역을 나누는 동안은 멈춤
+const freeView = () => scene.classList.contains('is-ready') && openState && !openState.look && !openState.editing;
 scene.addEventListener('pointerdown', (e) => {
-  if (!scene.classList.contains('is-ready') || e.button !== 0 || e.target.closest('.ui, #card')) return;
+  if (!freeView() || e.button !== 0 || e.target.closest('.ui, #card')) return;
   drag = { x: e.clientX, y: e.clientY, tilt: VIEW.tilt, yaw: VIEW.yaw, moved: false };
 });
 addEventListener('pointermove', (e) => {
@@ -734,20 +1255,26 @@ addEventListener('pointermove', (e) => {
   VIEW.tilt = clampv(drag.tilt - dy * 0.15, LIM.tilt);
   applyView(false);
 });
-addEventListener('pointerup', () => {
+const endDrag = () => {
   if (!drag) return;
   scene.classList.remove('is-dragging');
-  setTimeout(() => (drag = null), 0);
-});
+  const d = drag;
+  setTimeout(() => { if (drag === d) drag = null; }, 0); // 바로 다음 끌기를 지우지 않게
+};
+addEventListener('pointerup', endDrag);
+addEventListener('pointercancel', endDrag);
+// 끌다가 글자·그림이 '끌어다 놓기'로 잡히면 브라우저가 끌기를 끊어 버려서 각도가 멈춤
+scene.addEventListener('dragstart', (e) => e.preventDefault());
 scene.addEventListener('wheel', (e) => {
   if (!scene.classList.contains('is-ready')) return;
   e.preventDefault();
+  if (!freeView()) return;
   VIEW.zoom = clampv(VIEW.zoom * Math.exp(-e.deltaY * 0.0012), LIM.zoom);
   applyView(false);
   rezoomSoon();
 }, { passive: false });
 scene.addEventListener('dblclick', (e) => {
-  if (!scene.classList.contains('is-ready') || e.target.closest('.ui, #card, .piece')) return;
+  if (!freeView() || e.target.closest('.ui, #card, .piece, .flap')) return;
   VIEW.tilt = 72;
   VIEW.yaw = 0;
   VIEW.zoom = 1;
@@ -821,7 +1348,7 @@ function hideCard() {
   drawBoard();
   const refit = () => {
     fitOverview();
-    if (openState && openState.s && !openState.closing) { layoutOpen(openState); applyView(false); }
+    if (openState && openState.s && !openState.closing) { layoutOpen(openState); applyView(false); rezoomSoon(); }
   };
   addEventListener('resize', refit);
   new ResizeObserver(refit).observe(document.getElementById('app'));
@@ -833,6 +1360,8 @@ function hideCard() {
   if (Q.get('open')) {
     setTimeout(() => window.openBlockById(Q.get('open')), 300);
     if (Q.get('pick')) setTimeout(() => document.querySelectorAll('.piece')[Number(Q.get('pick'))]?.click(), 6200);
+    if (Q.get('close')) setTimeout(closeBlock, 300 + Number(Q.get('close'))); // 시험용: 펼치기 시작 n ms 뒤에 덮기 (중간 장면 찍기)
+    if (Q.get('zoom')) setTimeout(() => { VIEW.zoom = Number(Q.get('zoom')); applyView(false); rezoomSoon(); }, 300 + 4600); // 시험용: 펼친 뒤 휠로 가까이 본 상태
   }
 })();
 </script>

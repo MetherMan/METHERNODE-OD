@@ -1,6 +1,6 @@
 'use strict';
 /*
- * MN 세계판 v0.5 (땅 칠하기 · 자동 경계 · 지형 그리기 · 판 타고 들어가기)
+ * MN 세계판 v0.6 (땅 칠하기 · 자동 경계 · 지형 그리기 · 판 타고 들어가기 · 펼쳐지는 마을 그림책)
  * 노트 속성이 곧 데이터예요. 따로 저장하는 파일이 없어요.
  *   지역: 분류: 지역, 지도: 4간구, 좌표: [x, y] (그 지도 그림의 픽셀 위치), 표식: 영역 (넓은 땅 이름표) | 수도 (별 표식) | 건물 (그림: 건물 그림, 크기: 지도 px 폭)
  *   인물: 분류: 인물, 위치: "[[지역]]", 하는 일, 시점, 초상: "[[그림]]"
@@ -10,6 +10,10 @@
 const { Plugin, ItemView, Modal, Notice, SuggestModal, PluginSettingTab, Setting, TFile, setIcon } = require('obsidian');
 
 const VIEW_TYPE = 'mn-sekaipan';
+const STORY_TYPE = 'mn-storybook'; // 펼쳐지는 마을 (입체 그림책)
+const STORY_PAGE = '.도구/창/popup/index.html'; // 세계판 창과 같은 페이지 하나를 씀
+const STORY_READ = /^(The Archive - 자료\/[^/]+\.마을\.json|\.도구\/창\/popup\/layout\.json)$/; // 그림책이 읽을 수 있는 파일
+const STORY_WRITE = /^The Archive - 자료\/[^/]+\.마을\.json$/; // 그림책이 쓸 수 있는 파일 (마을 저장본만)
 const DEFAULTS = {
   maps: [
     { name: '4간구', path: 'The Archive - 자료/4간구.jpg' },
@@ -2004,17 +2008,20 @@ class SekaipanPlugin extends Plugin {
     delete saved.mapPath;
     this.settings = Object.assign({}, DEFAULTS, saved);
     this.registerView(VIEW_TYPE, (leaf) => new SekaiView(leaf, this));
+    this.registerView(STORY_TYPE, (leaf) => new StoryView(leaf, this));
     this.addRibbonIcon('map', '세계판 열기', () => this.openView());
+    this.addRibbonIcon('book-open', '펼쳐지는 마을 열기', () => this.openView(STORY_TYPE));
     this.addCommand({ id: 'open', name: '세계판 열기', callback: () => this.openView() });
+    this.addCommand({ id: 'open-storybook', name: '펼쳐지는 마을 열기', callback: () => this.openView(STORY_TYPE) });
     this.addSettingTab(new SekaiSettings(this.app, this));
   }
 
-  async openView() {
+  async openView(type = VIEW_TYPE) {
     const { workspace } = this.app;
-    let leaf = workspace.getLeavesOfType(VIEW_TYPE)[0];
+    let leaf = workspace.getLeavesOfType(type)[0];
     if (!leaf) {
       leaf = workspace.getLeaf('tab');
-      await leaf.setViewState({ type: VIEW_TYPE, active: true });
+      await leaf.setViewState({ type, active: true });
     }
     workspace.revealLeaf(leaf);
   }
@@ -2133,6 +2140,60 @@ class SekaipanPlugin extends Plugin {
       const sep = /\n- [^\n]*$/.test(body) ? '\n' : '\n\n';
       return `${body}${sep}- ${time} ${line}\n`;
     });
+  }
+}
+
+/** 펼쳐지는 마을: 세계판 창의 그림책 페이지(.도구/창/popup)를 옵시디언 안에 액자로 그대로 띄움.
+ *  액자 속 페이지는 보관소에 직접 못 쓰므로, 읽을 파일은 플러그인이 건네주고 저장도 플러그인이 대신 함 (postMessage, 정해 둔 파일만) */
+class StoryView extends ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.plugin = plugin;
+  }
+
+  getViewType() {
+    return STORY_TYPE;
+  }
+
+  getDisplayText() {
+    return '펼쳐지는 마을';
+  }
+
+  getIcon() {
+    return 'book-open';
+  }
+
+  async onOpen() {
+    const root = this.contentEl;
+    root.empty();
+    root.addClass('mnsk-story');
+    const ad = this.app.vault.adapter;
+    const src = ad.getResourcePath(STORY_PAGE);
+    this.frame = root.createEl('iframe', { cls: 'mnsk-story-frame', attr: { src: src + (src.includes('?') ? '&' : '?') + 'obs=1' } });
+    this.registerDomEvent(window, 'message', async (e) => {
+      if (!this.frame || e.source !== this.frame.contentWindow) return;
+      const m = e.data || {};
+      if (m.mn === 'read') {
+        let text = null;
+        try {
+          if (STORY_READ.test(m.path) && (await ad.exists(m.path))) text = await ad.read(m.path);
+        } catch (err) {
+          console.error('[펼쳐지는 마을] 읽기 실패', m.path, err);
+        }
+        this.frame?.contentWindow?.postMessage({ mn: 'read', id: m.id, text }, '*');
+      } else if (m.mn === 'save') {
+        if (!STORY_WRITE.test(m.path) || typeof m.text !== 'string') return;
+        try {
+          await ad.write(m.path, m.text);
+        } catch (err) {
+          new Notice('펼쳐지는 마을: 저장하지 못했어요 — ' + err.message);
+        }
+      }
+    });
+  }
+
+  async onClose() {
+    this.frame = null;
   }
 }
 

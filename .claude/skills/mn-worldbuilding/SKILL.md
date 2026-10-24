@@ -86,5 +86,6 @@ description: "Rules, sources and conventions for the author's own world METHERNO
 - **지형 그리기** (v0.4, 2026-10-19): 작가가 지도를 직접 그려요. 땅·바다·숲은 붓, 영역(어브릴·라하니아 등)은 꼭짓점 다각형. 해안 굴곡·물결선·숲 테두리·영역 띠는 그림에 맞춰 플러그인이 다시 그림(4간구 양식, Opus 미술 검토 수치). 데이터 `The Archive - 자료/메러노더.지형.json`, 구운 그림 `The Archive - 자료/메러노더.jpg`, 밑그림 `The Archive - 자료/MN2.jpg`. 지도 모양을 내가 지어내지 말고, 고칠 일은 이 도구로 작가가 하게 해요.
 - 보관소 폴더 이름은 숫자 없이 격식 있게: `The Archive - 자료` · `The Main - 지리` · `The Main - 인물` · `The Rule - TRPG` · `The Guide - 시작.md` (작가 지시 2026-10-19). 새 폴더도 이 꼴로 지어요.
 - 판 타고 들어가기(v0.5): 보기에서 영역을 누르면 그 영역의 판으로. 판은 지형 그리기 → 영역 → 「판 만들기」로 생기고, 판 목록은 `.obsidian/plugins/mn-sekaipan/data.json`(maps의 parent·region). 지금 판: 메러노더 전체 › 라하니아.
+- 펼쳐지는 마을(v0.6, 시험 마을 입체 그림책): 페이지는 `.도구/창/popup/index.html` 하나이고, 세계판 창(`/popup/index.html`)과 Obsidian 플러그인 화면 「펼쳐지는 마을」(액자로 띄움, `?obs=1` — 보관소 읽기·쓰기는 postMessage로 플러그인이 대신)이 같이 써요. 저장은 `The Archive - 자료/마을 (시험).마을.json`(구역 `zones` · 지역 메모 `note` · 건물·사람 이야기). 구역 이름·메모는 작가가 정해요. 화면이 그림을 버리는 문제는 GPU 메모리 부족이라, 고치면 `--force-gpu-mem-available-mb=64` 크롬으로 시험해요.
 - 작가는 Obsidian 대신 Claude 앱 브라우저의 세계판 창(http://localhost:8732, `.도구/창/serve3.py`)에서 그리기도 해요. 그 서버를 끄거나 창을 새로 고치기 전에 그리던 게 저장됐는지 꼭 확인해요.
 - 방향: 작가 혼자 쓰는 세계관 완성 도구 + 시뮬레이터예요(플레이어용 아님). 시뮬 결과는 노트에 쓰지 않고 따로 저장해요. 행동지침 시스템은 작가가 다시 꺼낼 때까지 보류예요.

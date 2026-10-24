@@ -112,7 +112,7 @@ const app = {
 };
 class Component { registerEvent() {} registerDomEvent(el, ev, fn, o) { el.addEventListener(ev, fn, o); } register() {} }
 const SETTINGS = '.obsidian/plugins/mn-sekaipan/data.json';
-class Plugin extends Component { constructor(a) { super(); this.app = a; } registerView(t, f) { this.viewFactory = f; } addRibbonIcon() {} addCommand() {} addSettingTab() {}
+class Plugin extends Component { constructor(a) { super(); this.app = a; } registerView(t, f) { if (t === 'mn-sekaipan') this.viewFactory = f; (this.views ||= {})[t] = f; } addRibbonIcon() {} addCommand() {} addSettingTab() {}
   async loadData() { if (!files.has(SETTINGS) && !written[SETTINGS]) return null; try { return JSON.parse(await app.vault.adapter.read(SETTINGS)); } catch (e) { return null; } }
   async saveData(d) { await app.vault.adapter.write(SETTINGS, JSON.stringify(d, null, 2)); } }
 class ItemView extends Component { constructor(leaf) { super(); this.leaf = leaf; this.app = app; this.contentEl = document.getElementById('content'); } }
