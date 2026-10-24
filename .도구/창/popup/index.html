@@ -321,9 +321,9 @@ const SAVE = 'The Archive - 자료/마을 (시험).마을.json';
 const LAYOUT = '.도구/창/popup/layout.json'; // 처음 배치 (저장본이 없을 때)
 const Q = new URLSearchParams(location.search);
 if (Q.get('snap')) document.documentElement.classList.add('snap');
-// 두 곳에서 열림: 세계판 창(serve3.py, http) · 옵시디언 플러그인 「펼쳐지는 마을」(이 파일을 액자로 띄움, ?obs=1).
+// 두 곳에서 열림: 세계판 창(serve3.py, http) · 옵시디언 플러그인 「펼쳐지는 마을」(이 글을 액자 srcdoc 으로 넣고 <base> 와 MN_OBS 를 붙임).
 // 옵시디언 안에서는 이 페이지가 보관소 파일을 직접 읽고 쓰지 못하므로 플러그인에 부탁함 (postMessage). 그림은 이 페이지 자리에서 상대 주소로
-const OBS = Q.get('obs') === '1';
+const OBS = Q.get('obs') === '1' || window.MN_OBS === true;
 const VROOT = OBS ? '../../../' : '/vault/'; // 보관소 맨 위 (이 페이지는 .도구/창/popup/ 에 있음)
 const vurl = (p) => VROOT + p.split('/').map(encodeURIComponent).join('/');
 const ASSET = (p) => vurl(['The Archive - 자료', '기호', p].join('/'));
@@ -1247,6 +1247,8 @@ scene.addEventListener('pointerdown', (e) => {
 });
 addEventListener('pointermove', (e) => {
   if (!drag) return;
+  // 단추가 이미 떼어져 있으면 끌기 끝 (옵시디언 액자 밖에서 마우스를 떼면 놓았다는 신호가 안 와서 끌기가 계속 걸려 있었음)
+  if (e.buttons === 0) { endDrag(); return; }
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!drag.moved && Math.hypot(dx, dy) < 4) return;
   drag.moved = true;

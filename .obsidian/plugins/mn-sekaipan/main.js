@@ -2144,7 +2144,9 @@ class SekaipanPlugin extends Plugin {
 }
 
 /** 펼쳐지는 마을: 세계판 창의 그림책 페이지(.도구/창/popup)를 옵시디언 안에 액자로 그대로 띄움.
- *  액자 속 페이지는 보관소에 직접 못 쓰므로, 읽을 파일은 플러그인이 건네주고 저장도 플러그인이 대신 함 (postMessage, 정해 둔 파일만) */
+ *  액자에 주소(src)를 주면 옵시디언이 그 안에서 부르는 그림을 모두 막아서(ERR_BLOCKED_BY_CLIENT), 페이지 글을 읽어 srcdoc 으로 넣고
+ *  <base> 로 그림 자리를 알려 줌 (srcdoc 은 옵시디언 창과 같은 출처라 그림을 부를 수 있음).
+ *  보관소 읽기·쓰기는 플러그인이 대신 함 (postMessage, 정해 둔 파일만) */
 class StoryView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -2168,8 +2170,17 @@ class StoryView extends ItemView {
     root.empty();
     root.addClass('mnsk-story');
     const ad = this.app.vault.adapter;
-    const src = ad.getResourcePath(STORY_PAGE);
-    this.frame = root.createEl('iframe', { cls: 'mnsk-story-frame', attr: { src: src + (src.includes('?') ? '&' : '?') + 'obs=1' } });
+    let html;
+    try {
+      html = await ad.read(STORY_PAGE);
+    } catch (err) {
+      root.createDiv({ text: '그림책 페이지를 찾지 못했어요: ' + STORY_PAGE });
+      return;
+    }
+    const base = ad.getResourcePath(STORY_PAGE).split('?')[0].replace(/[^/]*$/, ''); // 페이지가 있는 폴더 (그림은 여기서 상대 주소로)
+    const head = `<head><base href="${base}"><script>window.MN_OBS = true;</` + 'script>';
+    this.frame = root.createEl('iframe', { cls: 'mnsk-story-frame' });
+    this.frame.srcdoc = html.replace(/<head>/i, head);
     this.registerDomEvent(window, 'message', async (e) => {
       if (!this.frame || e.source !== this.frame.contentWindow) return;
       const m = e.data || {};
