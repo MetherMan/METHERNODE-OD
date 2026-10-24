@@ -235,10 +235,13 @@
   .flap .saved { font: italic 11px/1.4 var(--serif); color: #9a8266; margin-top: 8px; text-align: right; min-height: 15px; }
   #scene.look-l .cover-back.l, #scene.look-r .cover-back.r { filter: none; }
   /* 가까이 내려다볼 때 겹치는 쓰기용 판 (같은 모양 · 평면이라 글자가 또렷하고 바로 고칠 수 있음) */
-  #flappanel { left: 0; top: 0; transform-origin: 0 0; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  /* 숨길 때는 visibility 까지 감춤: 안의 .flap 이 pointer-events:auto 라서 투명해진 판이 그 자리에 남아 클릭을 가로채 끌기가 안 됐음 */
+  #flappanel { left: 0; top: 0; transform-origin: 0 0; opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 0.3s, visibility 0s 0.3s;
     background: linear-gradient(90deg, rgba(60,35,15,0.3), transparent 14%, transparent 86%, rgba(60,35,15,0.3)), url('assets/paper_card.jpg') center / cover;
     box-shadow: inset 0 0 0 12px #5a321b, inset 0 0 0 13px rgba(226,194,126,0.55), inset 0 0 30px 14px rgba(60,35,15,0.35); }
-  #flappanel.on { opacity: 1; pointer-events: auto; }
+  #flappanel.on { opacity: 1; pointer-events: auto; visibility: visible; transition: opacity 0.3s; }
+  /* 3D 양옆 면도 다 펼쳐진 뒤에만 누를 수 있게 (펼치고 덮는 동안 지도 위 클릭을 가로채지 않게) */
+  #scene:not(.is-ready) .flap { pointer-events: none; }
   #flappanel .flap { transform: none; cursor: default; }
   #flappanel .flap li, #flappanel .flap .mini i, #flappanel .flap .tool { cursor: pointer; }
   #flappanel .flap li:hover { background: rgba(255,236,190,0.45); }
