@@ -12,8 +12,22 @@ const { Plugin, ItemView, Modal, Notice, SuggestModal, PluginSettingTab, Setting
 const VIEW_TYPE = 'mn-sekaipan';
 const STORY_TYPE = 'mn-storybook'; // 펼쳐지는 마을 (입체 그림책)
 const STORY_PAGE = '.도구/창/popup/index.html'; // 세계판 창과 같은 페이지 하나를 씀
-const STORY_READ = /^(The Archive - 자료\/[^/]+\.마을\.json|\.도구\/창\/popup\/layout\.json)$/; // 그림책이 읽을 수 있는 파일
-const STORY_WRITE = /^The Archive - 자료\/[^/]+\.마을\.json$/; // 그림책이 쓸 수 있는 파일 (마을 저장본만)
+const STORY_READ = /^(The Archive - 자료\/[^/]+\.마을\.json|\.도구\/창\/popup\/layout\.json|The Archive - 자료\/기호\/배치 목록\.json)$/; // 그림책이 읽을 수 있는 파일
+const STORY_WRITE = /^The Archive - 자료\/[^/]+\.마을\.json$/; // 그림책이 쓸 수 있는 파일 (마을 저장본)
+const STORY_NOTES = /^(The Main - 지리|The Main - 인물|The Rule - TRPG\/기록)\/.+\.md$/; // 그림책이 읽고 쓰는 노트 (기록 · 인물·장소·기관 노트)
+/** 노트 맨 위 「키: 값」 속성만 빠르게 (방금 만든 노트는 옵시디언 속성 캐시가 아직 비어 있어서) */
+function quickFm(text) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text || '');
+  const fm = {};
+  if (m) for (const line of m[1].split(/\r?\n/)) {
+    const k = /^([^:#\s][^:]*):\s*(.*)$/.exec(line);
+    if (!k) continue;
+    let v = k[2].trim();
+    if (/^".*"$/.test(v)) { try { v = JSON.parse(v); } catch (e) {} } else if (/^-?\d+(\.\d+)?$/.test(v)) v = Number(v);
+    fm[k[1].trim()] = v;
+  }
+  return fm;
+}
 const DEFAULTS = {
   maps: [
     { name: '4간구', path: 'The Archive - 자료/4간구.jpg' },
@@ -2184,14 +2198,48 @@ class StoryView extends ItemView {
     this.registerDomEvent(window, 'message', async (e) => {
       if (!this.frame || e.source !== this.frame.contentWindow) return;
       const m = e.data || {};
+      const reply = (msg) => this.frame?.contentWindow?.postMessage(msg, '*');
+      const vault = this.app.vault;
       if (m.mn === 'read') {
         let text = null;
         try {
-          if (STORY_READ.test(m.path) && (await ad.exists(m.path))) text = await ad.read(m.path);
+          if ((STORY_READ.test(m.path) || STORY_NOTES.test(m.path)) && (await ad.exists(m.path))) text = await ad.read(m.path);
         } catch (err) {
           console.error('[펼쳐지는 마을] 읽기 실패', m.path, err);
         }
-        this.frame?.contentWindow?.postMessage({ mn: 'read', id: m.id, text }, '*');
+        reply({ mn: 'read', id: m.id, text });
+      } else if (m.mn === 'list') {
+        // 기록 · 그림 노트 목록 (속성 포함)
+        const items = [];
+        for (const f of vault.getMarkdownFiles()) {
+          if (!STORY_NOTES.test(f.path) || !(m.prefixes || []).some((px) => f.path.startsWith(px))) continue;
+          let fm = this.app.metadataCache.getFileCache(f)?.frontmatter;
+          if (!fm) { try { fm = quickFm(await vault.cachedRead(f)); } catch (err) { fm = {}; } }
+          items.push({ path: f.path, fm: JSON.parse(JSON.stringify(fm || {})) });
+        }
+        reply({ mn: 'list', id: m.id, items });
+      } else if (m.mn === 'note') {
+        // 노트 만들기 · 고쳐 쓰기 (정해 둔 폴더의 .md 만, 없는 폴더는 만듦)
+        let ok = false;
+        if (STORY_NOTES.test(m.path) && typeof m.text === 'string') {
+          try {
+            const parts = m.path.split('/');
+            for (let i = 1; i < parts.length; i++) {
+              const dir = parts.slice(0, i).join('/');
+              if (!vault.getAbstractFileByPath(dir)) await vault.createFolder(dir).catch(() => {});
+            }
+            const f = vault.getAbstractFileByPath(m.path);
+            if (f && vault.modify) await vault.modify(f, m.text);
+            else if (f) await ad.write(m.path, m.text);
+            else await vault.create(m.path, m.text);
+            ok = true;
+          } catch (err) {
+            new Notice('펼쳐지는 마을: 노트를 쓰지 못했어요 — ' + err.message);
+          }
+        }
+        reply({ mn: 'note', id: m.id, ok });
+      } else if (m.mn === 'open') {
+        if (STORY_NOTES.test(m.path)) this.app.workspace.openLinkText?.(m.path, '', 'tab');
       } else if (m.mn === 'save') {
         if (!STORY_WRITE.test(m.path) || typeof m.text !== 'string') return;
         try {
