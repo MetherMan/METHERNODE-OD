@@ -86,7 +86,9 @@
   #scene.is-unfolded .haze { opacity: 1; transition: opacity 0.5s; }
   #scene.is-unfolded.is-clear .haze { opacity: 0; transition: opacity 1.8s ease-out; }
   /* 덮개: 판 자리의 지도 그림 그대로인 두 짝. 가운데가 갈라져 바깥 모서리를 축으로 양옆으로 열리고, 열린 채 지도 위에 누움 */
-  .cover { position: absolute; transition: transform 1.05s cubic-bezier(.45,.05,.3,1); backface-visibility: hidden; background-repeat: no-repeat; }
+  .cover { position: absolute; transition: transform 1.05s cubic-bezier(.45,.05,.3,1), filter 1.4s; backface-visibility: hidden; background-repeat: no-repeat; }
+  /* 둘레 지도와 같은 밝기로 (장면을 옮겨 갈 때 닫힌 덮개가 둘레 지도에 그대로 섞이게) */
+  #scene.is-unfolded .cover { filter: brightness(0.62) saturate(0.85); }
   .cover.l { transform-origin: 0 50%; box-shadow: -1px 0 0 rgba(40,22,8,0.55) inset; }
   .cover.r { transform-origin: 100% 50%; box-shadow: 1px 0 0 rgba(40,22,8,0.55) inset; }
   .cover-back { position: absolute; pointer-events: none; transition: transform 1.05s cubic-bezier(.45,.05,.3,1), filter 1.4s;
@@ -213,7 +215,12 @@
   #stagebar button { padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(226,194,126,0.35); background: rgba(60,38,20,0.6); color: #ecd9b0; font: 13px/1 var(--serif); letter-spacing: 0.06em; cursor: pointer; }
   #stagebar button:hover { background: rgba(110,70,36,0.85); border-color: rgba(226,194,126,0.8); }
   #stagebar .sb-up[hidden] { display: none; }
-  #stagebar .sb-path { color: #f0dfb8; font: 15px/1 var(--hand); letter-spacing: 0.1em; padding: 0 6px; overflow: hidden; text-overflow: ellipsis; }
+  /* 이 마을의 장면들: 누르면 카메라가 지도 위로 날아가 그 장면으로 */
+  #stagebar .sb-scenes { display: flex; gap: 2px; }
+  #stagebar .sb-scenes button { border-color: transparent; background: transparent; font: 15px/1 var(--hand); letter-spacing: 0.1em; color: #cdb48a; }
+  #stagebar .sb-scenes button.on { background: rgba(226,194,126,0.2); border-color: rgba(226,194,126,0.7); color: #fff3d6; }
+  #stagebar .sb-sub { display: flex; gap: 4px; align-items: center; padding-left: 8px; border-left: 1px solid rgba(226,194,126,0.3); }
+  #stagebar .sb-sub:empty, #stagebar .sb-sub.none { display: none; }
   #stagebar .sb-kids { display: flex; gap: 4px; overflow: hidden; }
   #stagebar .sb-kids button::before { content: '→ '; color: var(--gold); }
   /* 판 위 스테이지 자리: 옅은 점선 테 + 세워 둔 종이 깃발 (누르면 그 스테이지로 파고듦) */
@@ -396,8 +403,8 @@
     <div id="fx"><div class="fx-tone"></div><div class="fx-bloom"></div><div class="fx-rays"></div><div class="motes"></div><div class="fx-grade"></div></div>
     <div id="scene-title" class="ui heading"></div>
     <button id="close" class="ui">책 덮기</button>
-    <div id="view-hint" class="ui">끌면 보는 각도가 돌아가요 · 휠로 가까이 · 깃발을 누르면 그 스테이지로 · Backspace 위 판으로 · 양옆 면을 누르면 목차·기록 · Esc 덮기</div>
-    <div id="stagebar" class="ui"><button class="sb-up" title="위 판으로 (Backspace)">⤴ 위로</button><div class="sb-path"></div><div class="sb-kids"></div></div>
+    <div id="view-hint" class="ui">끌면 보는 각도가 돌아가요 · 휠로 가까이 · 아래 장면 이름 · ← → 로 마을 안 다른 장면 · 깃발 = 스테이지 · Backspace 위 판 · 양옆 면을 누르면 목차·기록 · Esc 덮기</div>
+    <div id="stagebar" class="ui"><div class="sb-scenes" title="이 마을의 장면 (← →)"></div><div class="sb-sub"><button class="sb-up" title="위 판으로 (Backspace)">⤴ 위로</button><div class="sb-kids"></div></div></div>
     <div id="flappanel" class="ui"><button class="fp-back">‹ 판으로</button><div class="flap"></div></div>
     <div id="zedit" class="ui"></div>
     <div id="zedit-tools" class="ui"><b>스테이지 나누기</b><span class="tip">판 위를 끌어 새 스테이지 · 끌어 옮기기 · 모서리로 크기</span><button class="zt-add">＋ 새 스테이지</button><input class="zt-name" placeholder="스테이지 이름" disabled><button class="zt-del" disabled>지우기</button><button class="zt-cancel">그만두기</button><button class="zt-save go">다 했어요</button></div>
@@ -506,21 +513,21 @@ function layBottom(im) {
 }
 /** 판 둘레의 지도: 판 자리(hx,hy,hw,hh)만 비운 네 띠에 지도 그림을 지도와 똑같은 자리로 깖. 처음엔 화면의 지도와 겹쳐 보이다가
  *  카메라가 다가가며 판과 함께 기울어짐 (지도 그 자리가 열리는 것처럼). 바깥으로 갈수록 어둠에 녹음 */
-const SUR_Q = 3; // 둘레 지도는 1/3 크기로 그려 세 배로 늘림 (흐려도 되는 배경 — 가장자리 녹임까지 그래픽 메모리를 두 배로 먹음)
-function buildSurround(parent, hx, hy, hw, hh, ox, oy) {
-  const MW = MAPW / MS, MH = MAPH / MS, q = SUR_Q; // 마을 좌표로 본 지도 크기
-  // 양옆은 펼친 덮개(판 폭의 절반)가 덮으니 그보다 조금만 넓게. 지도 그림의 테두리(가장자리 40)까지는 가지 않음:
-  // 지도 끝이 지평선 쪽에 딱딱한 직선으로 보였음 (그 안에서 녹아 사라지게)
-  const E = 40; // (hx, hy 는 책 속 좌표 = 마을 좌표 - (ox, oy))
-  const L = Math.min(Math.max(hx - 0.6 * hw, -ox + E), hx), R = Math.max(Math.min(hx + hw + 0.6 * hw, MW - ox - E), hx + hw);
-  const T = Math.min(Math.max(hy - 0.9 * hh, -oy + E), hy), B = Math.max(Math.min(hy + hh + 0.45 * hh, MH - oy - E), hy + hh);
+/** 판 둘레의 지도: 판 자리(hx,hy,hw,hh)만 비우고 마을 지도 전체를 깖 (네 띠). 장면 사이를 카메라로 옮겨 갈 때 지나가는 길이 모두 보이게.
+ *  흐려도 되는 배경이라 작게 그려 늘림 (q). 지도 끝은 딱딱한 직선으로 보이지 않게 가장자리에서 투명하게 녹임 */
+function buildSurround(parent, hx, hy, hw, hh, ox, oy, q = 3) {
+  const MW = MAPW / MS, MH = MAPH / MS; // 마을 좌표로 본 지도 크기 (hx, hy 는 책 속 좌표 = 마을 좌표 - (ox, oy))
+  const L = Math.min(-ox, hx), R = Math.max(MW - ox, hx + hw), T = Math.min(-oy, hy), B = Math.max(MH - oy, hy + hh);
   for (const [sx, sy, sw, sh] of [[L, T, R - L, hy - T], [L, hy + hh, R - L, B - hy - hh], [L, hy, hx - L, hh], [hx + hw, hy, R - hx - hw, hh]]) {
+    if (sw <= 0 || sh <= 0) continue;
     const s = el('surround', parent);
-    // 가장자리는 어둠으로 칠하지 않고 투명하게 녹임: 펼침 시작·덮음 끝에 화면의 지도와 겹쳐 바뀔 때 어두운 네모가 비치지 않게
-    const mask = `radial-gradient(closest-side, #000 50%, rgba(0,0,0,0.4) 78%, transparent 100%) ${(L - sx) / q}px ${(T - sy) / q}px / ${(R - L) / q}px ${(B - T) / q}px no-repeat`;
+    const pos = `${(L - sx) / q}px ${(T - sy) / q}px`, size = `${(R - L) / q}px ${(B - T) / q}px`;
+    const fade = ['linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent)', 'linear-gradient(180deg, transparent, #000 9%, #000 93%, transparent)'];
     Object.assign(s.style, { left: sx + 'px', top: sy + 'px', width: sw / q + 'px', height: sh / q + 'px', transform: `scale(${q})`,
-      backgroundImage: `url("${LOCAL('map_town.jpg')}")`, backgroundSize: `${MW / q}px ${MH / q}px`,
-      backgroundPosition: `${(-ox - sx) / q}px ${(-oy - sy) / q}px`, webkitMask: mask, mask });
+      backgroundImage: `url("${LOCAL('map_town.jpg')}")`, backgroundSize: `${MW / q}px ${MH / q}px`, backgroundPosition: `${(-ox - sx) / q}px ${(-oy - sy) / q}px`,
+      webkitMaskImage: fade.join(', '), maskImage: fade.join(', '), webkitMaskPosition: `${pos}, ${pos}`, maskPosition: `${pos}, ${pos}`,
+      webkitMaskSize: `${size}, ${size}`, maskSize: `${size}, ${size}`, webkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+      webkitMaskComposite: 'source-in', maskComposite: 'intersect' });
   }
 }
 
@@ -798,7 +805,7 @@ function buildBoard(V, opts = {}) {
   if (stage) {
     const [rx0, ry0, rx1, ry1] = bbox(root.poly);
     const RX = rx0 - M - PAD - ox, RY = ry0 - M - PAD - oy, RW = rx1 - rx0 + 2 * M + 2 * PAD, RH = ry1 - ry0 + 2 * M + 2 * PAD, q = 2;
-    buildSurround(bookz, RX, RY, RW, RH, ox, oy);
+    buildSurround(bookz, RX, RY, RW, RH, ox, oy, 5); // 스테이지는 책 속 배율이 커서 둘레를 더 작게 그림 (메모리)
     parentPage = add('parent-page'); // 흐려도 되는 둘레라 절반 크기로 그려 두 배로 늘림
     Object.assign(parentPage.style, { left: RX + 'px', top: RY + 'px', width: RW / q + 'px', height: RH / q + 'px', transform: `translateZ(-0.6px) scale(${q})`,
       backgroundImage: `url("${LOCAL(`page_${root.id}.jpg`)}")` });
@@ -1248,10 +1255,17 @@ function moveCamera(o, sec) {
   rezoomSoon(sec * 1000 + 80);
 }
 function drawStageUI(o) {
+  // 이 마을의 장면들 (지금 장면은 밝게 — 스테이지 안이면 눌러서 그 장면으로 나옴)
+  const sc = stagebar.querySelector('.sb-scenes');
+  sc.innerHTML = '';
+  for (const b of town.blocks) {
+    const bt = el(b === o.root ? 'on' : '', sc, 'button');
+    bt.textContent = b.name;
+    bt.onclick = () => (b === o.root ? o.stage && toRootThen() : travelTo(b));
+  }
   const up = stagebar.querySelector('.sb-up');
   up.hidden = !o.stage;
   up.textContent = o.stage ? '⤴ ' + (o.stage.parent ? stageById(o.root, o.stage.parent)?.name : o.root.name) : '⤴ 위로';
-  stagebar.querySelector('.sb-path').textContent = o.name;
   const kids = stagebar.querySelector('.sb-kids');
   kids.innerHTML = '';
   for (const s of childStages(o.root, o.stage)) {
@@ -1259,7 +1273,65 @@ function drawStageUI(o) {
     bt.textContent = s.name || '이름 없는 스테이지';
     bt.onclick = () => enterStage(s);
   }
+  stagebar.querySelector('.sb-sub').classList.toggle('none', !o.stage && !kids.children.length);
   fillFlaps(o);
+}
+/** 스테이지 안이면 지역 판까지 차례로 나온 뒤 할 일 */
+async function toRootThen(then) {
+  while (openState && openState.stage) {
+    if (openState.busy) await wait(150);
+    else await leaveStage(true);
+  }
+  if (then) then();
+}
+
+/** 같은 마을의 다른 장면으로: 그림이 눕고 덮개(그 자리 지도 그림)가 닫히며 카메라가 떠오름 → 지도 위를 날아가 →
+ *  그 장면 위에서 내려앉으며 덮개가 열리고 그림이 일어섬. 책을 덮지 않음 (둘레 지도가 마을 전체라 지나가는 길이 이어짐) */
+async function travelTo(b) {
+  let o = openState;
+  if (!o || o.busy || o.closing || o.editing || o.placing || !scene.classList.contains('is-ready') || b === o.root) return;
+  if (o.look) { leaveFlap(); await wait(600); }
+  if (o.stage) { await toRootThen(); o = openState; }
+  if (!o || o.busy) return;
+  o.busy = true;
+  hideCard();
+  closeRecord();
+  scene.classList.add('is-moving');
+  // 1) 지금 장면을 접고 덮개를 닫으며 떠오름
+  o.pieces.forEach((p, i) => setTimeout(() => foldPiece(p), i * 12));
+  o.flags.forEach((f) => setFlag(f, false));
+  o.backs.forEach((bk) => setBack(bk, false));
+  await wait(260);
+  o.doors.forEach(({ cv, cb }) => { if (cv) cv.style.visibility = ''; cb.style.opacity = 1; });
+  o.setDoors(false);
+  const HIGH = 46; // 날아갈 때의 기울기 (지도를 내려다봄)
+  VIEW.tilt = HIGH;
+  VIEW.yaw = 0;
+  VIEW.zoom = 1;
+  o.focus = { kind: 'rise', cx: o.w / 2, cy: o.h / 2, k: 0.72 };
+  moveCamera(o, 1.1);
+  await wait(1150);
+  // 2) 같은 자리에서 그 장면 판으로 바꿔 깔고 (덮개가 닫혀 있어 지도 그대로), 지도 위를 날아감
+  const N = await swapTo(viewOf(b, null), poseOf(o), { doors: 'closed', up: () => false });
+  N.focus = { kind: 'fly', cx: N.w / 2, cy: N.h / 2, k: N.focus.k, sy: N.focus.sy };
+  moveCamera(N, 1.25);
+  await wait(1150);
+  // 3) 내려앉으며 덮개가 열리고, 다 열리면 배경 막 · 그림 · 깃발이 일어섬
+  N.focus = null;
+  VIEW.tilt = INIT_VIEW.tilt;
+  moveCamera(N, 1.2);
+  await wait(250);
+  N.doors.forEach(({ cb }) => { cb.style.opacity = 1; });
+  N.setDoors(true);
+  await wait(900);
+  N.doors.forEach(({ cv }) => { if (cv) cv.style.visibility = 'hidden'; });
+  N.backs.forEach((bk, i) => setTimeout(() => setBack(bk, true), i * 160));
+  [...N.pieces].sort((a, c) => c.y - a.y).forEach((p, i) => setTimeout(() => standPiece(p), 120 + (1 - p.y / N.h) * 600 + i * 20));
+  N.flags.forEach((f, i) => setTimeout(() => setFlag(f, true), 700 + i * 120));
+  await wait(1300);
+  N.busy = false;
+  scene.classList.remove('is-moving');
+  drawStageUI(N);
 }
 stagebar.querySelector('.sb-up').onclick = () => leaveStage();
 function fillFlaps(o) {
@@ -1276,20 +1348,36 @@ function fillFlap(box, side, o, live) {
   el('', el('orn', box), 'i');
   if (side === 'l') {
     const kids = childStages(o.root, o.stage);
-    // 작은 지도: 이 판의 바닥 그림 + 안쪽 스테이지 자리. 목차가 다 들어가고 남는 높이만큼만
+    // 마을 지도: 이 마을의 장면들 (지금 장면은 붉게, 누르면 그 장면으로 날아감) + 지금 판 안의 스테이지 자리. 목차가 다 들어가고 남는 높이만큼만
     const room = CH - 62 - 82 - (kids.length + (o.stage ? 1 : 0)) * 30 - 2 * 30 - 18;
-    const mh = Math.min(room, CH * 0.34, ((CW / 2 - 64) * CH) / CW);
+    const mw0 = CW / 2 - 64, mh = Math.min(room, (mw0 * MAPH) / MAPW);
     const mini = el('mini', box);
-    Object.assign(mini.style, { width: (mh * CW) / CH + 'px', height: mh + 'px', display: mh < 50 ? 'none' : '' });
-    const art = el('', mini);
-    Object.assign(art.style, { position: 'absolute', left: 0, top: 0, width: CW + 'px', height: CH + 'px', transformOrigin: '0 0', transform: `scale(${mh / CH})`, borderRadius: '2px' });
-    pageArt(art, o.root, o.ox, o.oy);
-    kids.forEach((s, i) => {
-      const r = el('', mini, 'i');
-      Object.assign(r.style, { left: ((s.x - o.ox + PAD) / CW) * 100 + '%', top: ((s.y - o.oy + PAD) / CH) * 100 + '%', width: (s.w / CW) * 100 + '%', height: (s.h / CH) * 100 + '%' });
-      el('', r, 'b').textContent = i + 1;
-      if (live) r.onclick = () => leaveFlap(() => enterStage(s));
-    });
+    Object.assign(mini.style, { width: (mh * MAPW) / MAPH + 'px', height: mh + 'px', display: mh < 46 ? 'none' : '' });
+    const im = el('', mini, 'img');
+    im.src = LOCAL('map_town.jpg');
+    im.draggable = false;
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${MAPW / MS} ${MAPH / MS}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:visible';
+    mini.appendChild(svg);
+    for (const b of town.blocks) {
+      const pg = document.createElementNS(NS, 'polygon');
+      pg.setAttribute('points', b.poly.map(([x, y]) => `${x},${y}`).join(' '));
+      const on = b === o.root;
+      pg.setAttribute('style', `fill:${on ? 'rgba(168,72,47,0.38)' : 'rgba(255,236,190,0.12)'};stroke:${on ? '#a8482f' : 'rgba(90,50,24,0.7)'};stroke-width:${on ? 9 : 5};stroke-linejoin:round;cursor:${live && !on ? 'pointer' : 'default'}`);
+      const t = document.createElementNS(NS, 'title');
+      t.textContent = b.name;
+      pg.appendChild(t);
+      if (live && !on) pg.addEventListener('click', () => leaveFlap(() => travelTo(b)));
+      svg.appendChild(pg);
+    }
+    for (const s of kids) {
+      const r = document.createElementNS(NS, 'rect');
+      for (const [k, v] of Object.entries({ x: s.x, y: s.y, width: s.w, height: s.h })) r.setAttribute(k, v);
+      r.setAttribute('style', 'fill:none;stroke:#fff3d6;stroke-width:4;stroke-dasharray:10 6');
+      svg.appendChild(r);
+    }
     const ol = el('', box, 'ol');
     if (o.stage) {
       const li = el('', ol, 'li');
@@ -1799,6 +1887,12 @@ addEventListener('keydown', (e) => {
   if (typing) return;
   if (e.key === 'l' || e.key === 'L') { app.classList.toggle('no-fx'); return; }
   if (e.key === 'Backspace' && o?.stage && !o.look && !o.editing && !o.placing) { leaveStage(); return; }
+  // ← → 이 마을의 앞 · 다음 장면으로
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && o && !o.look && !o.editing && !o.placing) {
+    const bs = town.blocks, i = bs.indexOf(o.root);
+    travelTo(bs[(i + (e.key === 'ArrowLeft' ? -1 : 1) + bs.length) % bs.length]);
+    return;
+  }
   if (e.key !== 'Escape') return;
   if (recpanel.classList.contains('on')) closeRecord();
   else if (o?.editing) endStageEdit(false);
