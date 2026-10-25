@@ -586,6 +586,41 @@
   #card .autotags { display: flex; flex-wrap: wrap; gap: 4px; }
   #card .spreadbtn { position: absolute; left: 18px; top: 52px; z-index: 3; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(120,85,50,0.4); background: rgba(255,250,236,0.6); color: #6a4a2c; font: 12px/1 var(--serif); cursor: pointer; }
   #card .spreadbtn:hover { background: rgba(255,250,236,0.95); color: var(--accent); }
+  /* ---------- 서로에 대한 우호도 (관계마다 두 방향) ---------- */
+  .fpair { display: flex; flex-direction: column; gap: 2px; margin: 0 0 6px 42px; }
+  .fline { display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 8px; border: 0; border-radius: 4px; background: transparent; cursor: pointer; font: 12px/1.3 var(--serif); color: #6a5238; text-align: left; }
+  .fline:hover { background: rgba(255,236,190,0.5); }
+  .fline .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fline .val { flex: none; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; color: #fff8ec; background: var(--c); }
+  .fline.none .val { color: #8a6a48; background: rgba(140,110,70,0.14); box-shadow: inset 0 0 0 1px rgba(140,110,70,0.3); }
+  .fline.zero .val { color: #4a3020; }
+  .fedit { display: flex; align-items: center; gap: 6px; padding: 4px 8px 6px; }
+  .fedit .gauge { flex: 1; display: flex; gap: 2px; margin: 0; }
+  .fedit .gauge b { flex: 1; height: 14px; border-radius: 2px; cursor: pointer; background: rgba(120,85,50,0.12); box-shadow: inset 0 0 0 1px rgba(120,85,50,0.25); }
+  .fedit .gauge b.zero { box-shadow: inset 0 0 0 1px rgba(120,85,50,0.55); }
+  .fedit .gauge b:hover { transform: scaleY(1.3); }
+  .fedit .fclr { flex: none; padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(120,85,50,0.4); background: rgba(255,250,236,0.6); color: #6a4a2c; font: 11px/1 var(--serif); cursor: pointer; }
+  .fsum { display: flex; flex-direction: column; gap: 5px; margin-bottom: 6px; }
+  .fs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 5px 8px; border-radius: 6px; }
+  .fs-row.pos { background: rgba(93,138,58,0.1); box-shadow: inset 3px 0 0 #5d8a3a; }
+  .fs-row.neg { background: rgba(176,64,42,0.08); box-shadow: inset 3px 0 0 #b0402a; }
+  .fs-t { font: 11.5px/1 var(--serif); letter-spacing: 0.12em; color: #6a5238; min-width: 96px; }
+  .ptable .fup { color: #4f7a30; font-size: 12px; margin-left: 2px; }
+  .ptable .fdn { color: #a8402a; font-size: 12px; margin-left: 4px; }
+  /* 관계도 */
+  .glegend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; font: 11.5px/1 var(--serif); color: #6a5238; }
+  .glegend .lg { display: inline-flex; align-items: center; gap: 5px; }
+  .glegend .lg::before { content: ''; width: 22px; height: 0; border-top: 2.5px solid var(--c); }
+  .glegend .pos { --c: #5d8a3a; } .glegend .neg { --c: #b0402a; } .glegend .zero { --c: #a08a62; } .glegend .none { --c: #b9a88a; }
+  .glegend .men::before { border-top: 2px dotted #8a7a5a; }
+  .glegend .w::before { border-top-width: 5px; --c: #8a7a5a; }
+  .gsvg .ga { opacity: 0.88; }
+  .gsvg .gv { font: 700 11.5px var(--serif); paint-order: stroke; stroke: rgba(246,236,212,0.95); stroke-width: 3px; }
+  .gsvg .gv.pos { fill: #4f7a30; } .gsvg .gv.neg { fill: #a8402a; } .gsvg .gv.zero { fill: #8a7450; }
+  .gsvg .gn.party circle { fill: #3c2616; stroke: #e2c27e; stroke-width: 2.5; }
+  .gsvg .gn.party text { fill: #f4e4c0; stroke: none; font: 400 13px var(--hand); }
+  .gsvg [data-ids], .gsvg .gn { transition: opacity 0.15s; }
+  .gsvg.focus [data-ids]:not(.hi), .gsvg.focus .gn:not(.hi) { opacity: 0.12; }
 </style>
 </head>
 <body>
@@ -2062,7 +2097,7 @@ function itemFm(it, o) {
   const fm = { 분류: '그림책', 종류: catOf(it), 이름: it.name || '', 상태: it.state || '', '하는 일': it.doing || '', 상황: it.situation || '', 현재: it.now || '',
     '좋아하는 것': it.likes || '', '싫어하는 것': it.dislikes || '', 우호도: Number(it.favor || 0), 마을: '펼쳐지는 마을 (시험)', 장소: o ? o.name : '' };
   for (const x of it.extra || []) if (x.k && x.k.trim()) fm[x.k.trim()] = x.v || '';
-  const rels = (it.rels || []).map((r) => { const e = itemById(r.to); return e ? `[[${itemName(e.it)}]] ${r.t}` : ''; }).filter(Boolean);
+  const rels = (it.rels || []).map((r) => { const e = itemById(r.to); return e ? `[[${itemName(e.it)}]] ${r.t}${typeof r.f === 'number' ? ` (${r.f > 0 ? '+' : ''}${r.f})` : ''}` : ''; }).filter(Boolean);
   if (rels.length) fm['관계'] = rels.join(', ');
   return fm;
 }
@@ -2234,7 +2269,7 @@ function showCard(it, im) {
   const drawRel = () => {
     P4.innerHTML = '';
     const me = entryOf(it);
-    label('이은 관계', P4);
+    label('이은 관계 · 서로에 대한 우호도', P4);
     const list = el('', P4);
     for (const r of it.rels || []) {
       const o = itemById(r.to);
@@ -2250,6 +2285,7 @@ function showCard(it, im) {
       del.title = '관계 끊기 (상대 카드에서도)';
       del.onclick = (ev) => { ev.stopPropagation(); removeRel(it, o.it); drawRel(); drawChips(); drawAuto(); };
       row.onclick = () => goToItem(o);
+      favorPairEl(list, it, o.it, drawRel);
     }
     if (!list.children.length) el('hint', list).textContent = '아직 이은 관계가 없어요. 아래에서 상대를 골라 이어요.';
     if (me) {
@@ -2381,16 +2417,60 @@ function touchItem(it) {
   noteTimers.set(it, setTimeout(() => { const e = entryOf(it); patchNote(it.note, itemFm(it, e ? { name: whereOf(e) } : openState)); }, 900));
 }
 // 관계: 한쪽에서 이으면 상대에도 같이 생김
-const REL_TYPES = ['가족', '친구', '동료', '단골', '소속', '거래', '이웃', '스승', '적'];
+const REL_TYPES = ['아는 사이', '가족', '친구', '동료', '단골', '소속', '거래', '이웃', '스승', '적'];
 const NEG_REL = /적|원수|껄끄|경계|감시|빚/;
 function addRel(a, b, t) {
   if (!a || !b || a === b) return;
   for (const [x, y] of [[a, b], [b, a]]) {
     x.rels ||= [];
     const had = x.rels.find((r) => r.to === y.id);
-    if (had) had.t = t; else x.rels.push({ to: y.id, t });
+    if (had) had.t = t; else x.rels.push({ to: y.id, t }); // 우호도(f)는 그대로 둠
     touchItem(x);
   }
+}
+/** a 가 b 에게 가진 우호도 (안 정했으면 null) */
+const relOf = (a, b) => (a.rels || []).find((r) => r.to === b.id) || null;
+const favorOf = (a, b) => { const r = relOf(a, b); return r && typeof r.f === 'number' ? r.f : null; };
+/** a → b 우호도 정하기 (관계가 없으면 「아는 사이」로 양쪽에 만듦, v = null 이면 지움) */
+function setFavorTo(a, b, v) {
+  if (!a || !b || a === b) return;
+  if (!relOf(a, b) || !relOf(b, a)) addRel(a, b, relOf(a, b)?.t || relOf(b, a)?.t || '아는 사이');
+  const r = relOf(a, b);
+  if (v === null) delete r.f; else r.f = v;
+  touchItem(a);
+}
+const favorWord = (v) => (v === null ? '정하지 않음' : favorText(v));
+const favorTone = (v) => (v === null ? 'none' : v > 0 ? 'pos' : v < 0 ? 'neg' : 'zero');
+/** 관계 한 줄 아래에 붙는 두 방향 우호도 (누르면 그 줄에서 바로 고침) */
+function favorPairEl(parent, a, b, redraw) {
+  const box = el('fpair', parent);
+  for (const [x, y] of [[a, b], [b, a]]) {
+    const v = favorOf(x, y);
+    const line = el('fline ' + favorTone(v), box, 'button');
+    el('who', line, 'span').textContent = `${itemName(x)} → ${itemName(y)}`;
+    el('val', line, 'span').textContent = favorWord(v);
+    line.style.setProperty('--c', v === null ? 'rgba(140,110,70,0.3)' : favorColor(v));
+    line.onclick = (ev) => {
+      ev.stopPropagation();
+      const open = box.querySelector('.fedit');
+      if (open && open.dataset.dir === x.id) { open.remove(); return; }
+      open?.remove();
+      const ed = el('fedit', box);
+      ed.dataset.dir = x.id;
+      line.after(ed);
+      const g = el('gauge', ed);
+      for (let i = -5; i <= 5; i++) {
+        const c = el(i === 0 ? 'zero' : '', g, 'b');
+        if (v !== null && ((v > 0 && i > 0 && i <= v) || (v < 0 && i < 0 && i >= v) || (v === 0 && i === 0))) c.style.backgroundColor = favorColor(v);
+        c.title = favorText(i);
+        c.onclick = (e2) => { e2.stopPropagation(); setFavorTo(x, y, i); redraw(); };
+      }
+      const clr = el('fclr', ed, 'button');
+      clr.textContent = '정하지 않음';
+      clr.onclick = (e2) => { e2.stopPropagation(); setFavorTo(x, y, null); redraw(); };
+    };
+  }
+  return box;
 }
 function removeRel(a, b) {
   for (const [x, y] of [[a, b], [b, a]]) { x.rels = (x.rels || []).filter((r) => r.to !== y.id); touchItem(x); }
@@ -2558,7 +2638,16 @@ function drawLedger() {
       });
       cell('where', (td) => { td.textContent = whereOf(e); });
       cell('doing', (td) => { td.textContent = it.doing || ''; td.title = it.doing || ''; }, inline('doing'));
-      cell('rels', (td) => { const n = (it.rels || []).length; td.textContent = n ? n + '명' : ''; });
+      cell('rels', (td) => {
+        const rs = it.rels || [];
+        if (!rs.length) return;
+        const up = rs.filter((r) => r.f > 0).length, dn = rs.filter((r) => r.f < 0).length;
+        td.innerHTML = '';
+        el('', td, 'span').textContent = rs.length + '명 ';
+        if (up) el('fup', td, 'span').textContent = '▲' + up;
+        if (dn) el('fdn', td, 'span').textContent = '▼' + dn;
+        td.title = rs.map((r) => { const o = itemById(r.to); return o ? `→ ${itemName(o.it)} ${r.t} · ${favorWord(typeof r.f === 'number' ? r.f : null)}` : ''; }).join('\n');
+      });
       const go = el('go', el('', tr, 'td'), 'span');
       go.textContent = '그 자리로 →';
       tr.onclick = () => goToItem(e);
@@ -2637,13 +2726,20 @@ function openFinder() {
 }
 
 // ---------- 관계도: 장면별로 묶어 얼굴과 선으로 (관계 = 실선 · 이야기 속 언급 = 점선) ----------
+const GRAPH = { party: false };
 function drawGraph() {
   const P = panels.graph.querySelector('.pp');
   P.innerHTML = '';
   const top = el('ptop', P);
   const tt = el('', top);
   el('h', tt, 'h2').textContent = '관계도';
-  el('sub', tt).textContent = '실선 = 이은 관계 · 점선 = 이야기에 이름이 나옴 · 얼굴을 누르면 펼쳐 보기 · 선 이름을 누르면 관계 고치기';
+  el('sub', tt).textContent = '화살표 = 마음이 향하는 쪽, 꼬리 쪽 숫자 = 그 마음의 우호도 · 얼굴에 마우스를 올리면 그 사람의 관계만 · 얼굴을 누르면 펼쳐 보기 · 관계 이름을 누르면 고치기';
+  const legend = el('glegend', tt);
+  legend.innerHTML = '<span class="lg pos">우호</span><span class="lg zero">중립</span><span class="lg neg">적대</span><span class="lg none">정하지 않음</span><span class="lg men">이야기 속 언급</span><span class="lg w">굵을수록 강함</span>';
+  const pt = el('chip' + (GRAPH.party ? ' on' : ''), top, 'button');
+  pt.textContent = '일행에 대한 우호도도';
+  pt.style.alignSelf = 'center';
+  pt.onclick = () => { GRAPH.party = !GRAPH.party; drawGraph(); };
   el('px', top, 'button').textContent = '×';
   P.querySelector('.px').onclick = closePanels;
   const items = allItems().filter((e) => !isDeco(e.it));
@@ -2678,7 +2774,9 @@ function drawGraph() {
   const pos = new Map();
   const groups = town.blocks.map((b) => ({ b, list: show.filter((e) => e.b === b) })).filter((g) => g.list.length);
   const [mx0, my0, mx1, my1] = bbox(town.blocks.flatMap((b) => b.poly));
-  let defs = '<defs><radialGradient id="gbg" cx="50%" cy="40%"><stop offset="0" stop-color="#fff3d6"/><stop offset=".7" stop-color="#d9bf8e"/><stop offset="1" stop-color="#8a6440"/></radialGradient></defs>';
+  const ARROW = { pos: '#5d8a3a', neg: '#b0402a', zero: '#a08a62', none: '#b9a88a' };
+  let defs = '<defs><radialGradient id="gbg" cx="50%" cy="40%"><stop offset="0" stop-color="#fff3d6"/><stop offset=".7" stop-color="#d9bf8e"/><stop offset="1" stop-color="#8a6440"/></radialGradient>'
+    + Object.entries(ARROW).map(([k, c]) => `<marker id="ga-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse" markerUnits="strokeWidth"><path d="M0,0 L10,5 L0,10 z" fill="${c}"/></marker>`).join('') + '</defs>';
   let back = '', lines = '', nodes = '';
   // 처음 자리: 마을 지도에서 그 장면이 있는 쪽, 장면 안에서는 둥글게
   const home = new Map();
@@ -2687,14 +2785,14 @@ function drawGraph() {
     const [x0, y0, x1, y1] = bbox(g.b.poly);
     g.x = 90 + ((((x0 + x1) / 2) - mx0) / (mx1 - mx0 || 1)) * (W - 180);
     g.y = 80 + ((((y0 + y1) / 2) - my0) / (my1 - my0 || 1)) * (H - 160);
-    g.r = 46 + Math.sqrt(g.list.length) * 40;
+    g.r = 52 + Math.sqrt(g.list.length) * 48;
   }
   for (let step = 0; step < 200; step++) {
     for (let i = 0; i < groups.length; i++) for (let j = i + 1; j < groups.length; j++) {
       const a = groups[i], b = groups[j], dx = a.x - b.x, dy = (a.y - b.y) * 1.3, d = Math.hypot(dx, dy) || 0.1, min = a.r + b.r + 24;
       if (d < min) { const k = ((min - d) / d) * 0.25; a.x += dx * k; a.y += (dy * k) / 1.3; b.x -= dx * k; b.y -= (dy * k) / 1.3; }
     }
-    for (const g of groups) { g.x = clampv(g.x, [g.r * 1.2, W - g.r * 1.2]); g.y = clampv(g.y, [g.r * 0.85 + 10, H - g.r * 0.85]); }
+    for (const g of groups) { g.x = clampv(g.x, [g.r * 1.2, W - g.r * 1.2]); g.y = clampv(g.y, [g.r * 0.85 + (GRAPH.party ? 70 : 10), H - g.r * 0.85]); } // 일행을 켜면 맨 위 띠는 비워 둠
   }
   for (const g of groups) {
     const n = g.list.length, R = g.r - 40;
@@ -2708,17 +2806,17 @@ function drawGraph() {
     for (let i = 0; i < its.length; i++) for (let j = i + 1; j < its.length; j++) {
       const [ax, ay] = pos.get(its[i]), [bx, by] = pos.get(its[j]);
       let dx = ax - bx, dy = (ay - by) * 1.25;
-      const d = Math.hypot(dx, dy) || 0.1, min = 100;
+      const d = Math.hypot(dx, dy) || 0.1, min = 116;
       if (d < min) { const k = ((min - d) / d) * 0.5; f.get(its[i])[0] += dx * k; f.get(its[i])[1] += dy * k; f.get(its[j])[0] -= dx * k; f.get(its[j])[1] -= dy * k; }
     }
     for (const x of near.values()) {
-      const [ax, ay] = pos.get(x.a.it), [bx, by] = pos.get(x.b.it), d = Math.hypot(ax - bx, ay - by) || 0.1, k = ((d - 150) / d) * 0.04;
+      const [ax, ay] = pos.get(x.a.it), [bx, by] = pos.get(x.b.it), d = Math.hypot(ax - bx, ay - by) || 0.1, k = ((d - 170) / d) * 0.04;
       f.get(x.a.it)[0] -= (ax - bx) * k; f.get(x.a.it)[1] -= (ay - by) * k; f.get(x.b.it)[0] += (ax - bx) * k; f.get(x.b.it)[1] += (ay - by) * k;
     }
     for (const it of its) {
       const p = pos.get(it), h = home.get(it), v = f.get(it);
       p[0] = clampv(p[0] + v[0] + (h[0] - p[0]) * 0.012, [40, W - 40]);
-      p[1] = clampv(p[1] + v[1] + (h[1] - p[1]) * 0.012, [50, H - 40]);
+      p[1] = clampv(p[1] + v[1] + (h[1] - p[1]) * 0.012, [GRAPH.party ? 100 : 50, H - 40]);
       // 제 장면 무리 밖으로는 나가지 않게
       const gr = groups.find((g) => g.list.some((e) => e.it === it))?.r || 120, dx = p[0] - h[0], dy = (p[1] - h[1]) / 0.8, d = Math.hypot(dx, dy), lim = gr - 34;
       if (d > lim) { p[0] = h[0] + (dx * lim) / d; p[1] = h[1] + (dy * lim * 0.8) / d; }
@@ -2731,20 +2829,52 @@ function drawGraph() {
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2 + 52, ry = (y1 - y0) / 2 + 50;
     back += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="rgba(168,129,63,0.07)" stroke="rgba(168,129,63,0.45)" stroke-dasharray="6 5"/><text x="${cx}" y="${cy - ry + 18}" text-anchor="middle" class="gt">${g.b.name}</text>`;
   }
+  // 일행: 맨 위 가운데 (켰을 때) — 각자가 일행에게 가진 우호도를 화살표로
+  const PARTY = { id: '__party' };
+  if (GRAPH.party) pos.set(PARTY, [W / 2, 26]);
+  const arrow = (p1, p2, v, side, ids, mark) => {
+    const dx = p2[0] - p1[0], dy = p2[1] - p1[1], d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, nx = -uy * side * 5, ny = ux * side * 5;
+    const tone = favorTone(v), w = v === null ? 1.2 : 1.6 + Math.abs(v) * 0.55;
+    const x1 = p1[0] + ux * 28 + nx, y1 = p1[1] + uy * 28 + ny, x2 = p2[0] - ux * 31 + nx, y2 = p2[1] - uy * 31 + ny;
+    let s = `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="ga ${tone}" stroke="${ARROW[tone]}" stroke-width="${w}" ${v === null ? '' : `marker-end="url(#ga-${tone})"`} data-ids="${ids}"/>`;
+    if (v !== null && mark) s += `<text class="gv ${tone}" data-ids="${ids}" x="${x1 + (x2 - x1) * 0.26 + nx * 2.2}" y="${y1 + (y2 - y1) * 0.26 + ny * 2.2 + 4}" text-anchor="middle">${v > 0 ? '+' : ''}${v}</text>`;
+    return s;
+  };
   edges.forEach((x, i) => {
     const p1 = pos.get(x.a.it), p2 = pos.get(x.b.it);
     if (!p1 || !p2) return;
-    const neg = NEG_REL.test(x.t);
-    lines += `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" class="${x.rel ? (neg ? 'gl neg' : 'gl') : 'gl men'}"/>`;
-    if (x.rel) lines += `<g class="glab${neg ? ' neg' : ''}" data-e="${i}" transform="translate(${(p1[0] + p2[0]) / 2},${(p1[1] + p2[1]) / 2})"><rect x="${-[...x.t].length * 7 - 9}" y="-11" width="${[...x.t].length * 14 + 18}" height="22" rx="11"/><text text-anchor="middle" y="5">${x.t}</text></g>`;
+    const ids = x.a.it.id + ' ' + x.b.it.id;
+    if (!x.rel) { lines += `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" class="gl men" data-ids="${ids}"/>`; return; }
+    const fa = favorOf(x.a.it, x.b.it), fb = favorOf(x.b.it, x.a.it);
+    if (fa === null && fb === null) lines += `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" class="gl" data-ids="${ids}"/>`;
+    else { lines += arrow(p1, p2, fa, 1, ids, true); lines += arrow(p2, p1, fb, 1, ids, true); }
+    const neg = NEG_REL.test(x.t) || (fa !== null && fa < 0 && (fb === null || fb < 0));
+    lines += `<g class="glab${neg ? ' neg' : ''}" data-e="${i}" data-ids="${ids}" transform="translate(${(p1[0] + p2[0]) / 2},${(p1[1] + p2[1]) / 2})"><rect x="${-[...x.t].length * 7 - 9}" y="-11" width="${[...x.t].length * 14 + 18}" height="22" rx="11"/><text text-anchor="middle" y="5">${x.t}</text></g>`;
   });
+  if (GRAPH.party) for (const [it, p] of pos) {
+    if (it === PARTY || !it.favor) continue;
+    lines += arrow(p, pos.get(PARTY), Number(it.favor), 0, it.id + ' __party', false);
+  }
   let k = 0;
   for (const [it, [x, y]] of pos) {
     k++;
+    if (it === PARTY) { nodes += `<g class="gn party" data-id="__party" transform="translate(${x},${y})"><circle r="22"/><text y="5" text-anchor="middle">일행</text></g>`; continue; }
     nodes += `<g class="gn" data-id="${it.id}" transform="translate(${x},${y})"><circle r="25" fill="url(#gbg)"/><clipPath id="gc${k}"><circle r="23"/></clipPath><image href="${ASSET(it.asset)}" x="-21" y="-25" width="42" height="48" preserveAspectRatio="xMidYMax meet" clip-path="url(#gc${k})"/><circle r="25" class="ring"/><text y="41" text-anchor="middle">${itemName(it)}</text></g>`;
   }
   svg.innerHTML = defs + back + lines + nodes;
-  svg.querySelectorAll('.gn').forEach((g) => (g.onclick = () => { const e = itemById(g.dataset.id); if (e) { closePanels(); openSpread(e); } }));
+  svg.querySelectorAll('.gn').forEach((g) => {
+    g.onclick = () => { const e = itemById(g.dataset.id); if (e) { closePanels(); openSpread(e); } };
+    // 올리면 그 사람의 관계만 또렷하게
+    g.onmouseenter = () => {
+      const id = g.dataset.id;
+      svg.classList.add('focus');
+      svg.querySelectorAll('[data-ids]').forEach((x) => x.classList.toggle('hi', x.dataset.ids.split(' ').includes(id)));
+      const nb = new Set([id]);
+      svg.querySelectorAll('[data-ids].hi').forEach((x) => x.dataset.ids.split(' ').forEach((i) => nb.add(i)));
+      svg.querySelectorAll('.gn').forEach((x) => x.classList.toggle('hi', nb.has(x.dataset.id)));
+    };
+    g.onmouseleave = () => svg.classList.remove('focus');
+  });
   svg.querySelectorAll('.glab').forEach((g) => (g.onclick = () => {
     const x = edges[Number(g.dataset.e)];
     const t = prompt(`「${itemName(x.a.it)}」 ↔ 「${itemName(x.b.it)}」 관계 (비우면 관계를 끊어요)`, x.t);
@@ -2794,7 +2924,21 @@ function openSpread(e) {
   for (const w of splitTags(it.likes)) el('tag', tl, 'span').textContent = w;
   for (const w of splitTags(it.dislikes)) el('tag neg', tl, 'span').textContent = w;
   if (!tl.children.length) el('hint', tl).textContent = '좋아하는 것 · 싫어하는 것은 카드의 「성향」에서 적어요.';
-  el('', R, 'label').textContent = '관계';
+  el('', R, 'label').textContent = '관계 · 서로에 대한 우호도';
+  // 한눈에: 이 사람이 좋게 보는 쪽 · 나쁘게 보는 쪽 · 이 사람을 좋게 보는 쪽 · 나쁘게 보는 쪽
+  const sum = el('fsum', R);
+  const others = (it.rels || []).map((r) => itemById(r.to)).filter(Boolean);
+  for (const [t, list, tone] of [
+    ['좋게 보는 쪽', others.filter((o) => favorOf(it, o.it) > 0), 'pos'],
+    ['나쁘게 보는 쪽', others.filter((o) => favorOf(it, o.it) < 0), 'neg'],
+    ['나를 좋게 보는 쪽', others.filter((o) => favorOf(o.it, it) > 0), 'pos'],
+    ['나를 나쁘게 보는 쪽', others.filter((o) => favorOf(o.it, it) < 0), 'neg'],
+  ]) {
+    if (!list.length) continue;
+    const row = el('fs-row ' + tone, sum);
+    el('fs-t', row, 'span').textContent = t;
+    for (const o of list) { const c = el('men', row, 'button'); thumbEl(o.it, c); el('', c, 'span').textContent = itemName(o.it); c.onclick = () => openSpread(o); }
+  }
   const rl = el('rels', R);
   for (const r of it.rels || []) {
     const o = itemById(r.to);
@@ -2806,6 +2950,7 @@ function openSpread(e) {
     el('sub', n).textContent = whereOf(o);
     el('t' + (NEG_REL.test(r.t) ? ' neg' : ''), row, 'span').textContent = r.t;
     row.onclick = () => openSpread(o);
+    favorPairEl(rl, it, o.it, () => openSpread(e));
   }
   if (!rl.children.length) el('hint', rl).textContent = '아직 이은 관계가 없어요. 카드의 「관계」 갈피에서 이어요.';
   el('', R, 'label').textContent = '이야기';
