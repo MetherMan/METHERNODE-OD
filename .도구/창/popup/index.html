@@ -1129,7 +1129,7 @@ const INIT_VIEW = { tilt: 72, yaw: 0 };
 const LIM = { tilt: [64, 84], yaw: [-32, 32], zoom: [0.6, 2.2] }; // 위에서 내려다보는 각도로는 안 넘어가게
 let openState = null;
 let drag = null;
-const FPV = { on: (() => { try { return localStorage.getItem('mn-story-fp') !== '0'; } catch (e) { return true; } })(), hold: false, keys: new Set(), raf: 0, glide: null, last: 0, run: false }; // 1인칭 (아래 「1인칭」)
+const FPV = { on: false, guided: false, hold: false, keys: new Set(), raf: 0, glide: null, last: 0, run: false }; // 1인칭 (아래 「1인칭」)
 // 끝의 translate = 카메라가 보는 곳(판 가운데에서 fx, fy 만큼)을 화면 (cx, cy)로 데려옴. 늘 같은 함수 목록이라 구역 사이를 부드럽게 옮겨 감
 // Z = 카메라 쪽으로 당김 (1인칭: 눈자리를 원근의 눈에 둠 — 위에서 보기는 0). 같은 목록이라 위에서 보기 ↔ 1인칭도 부드럽게 이어짐
 const BT = (cx, cy, w, h, s, tilt, yaw, lift = 0, fx = 0, fy = 0, Z = 0) => `translate(${cx - (w * BZ) / 2}px, ${cy - (h * BZ) / 2}px) translateZ(${Z}px) scale(${s / BZ}) rotateX(${tilt}deg) rotateZ(${yaw}deg) translateZ(${lift * BZ}px) translate(${-fx * BZ}px, ${-fy * BZ}px)`;
@@ -1528,10 +1528,7 @@ function makePiece(it, V, add, flat, up) {
     e.stopPropagation();
     const o = openState;
     if (!scene.classList.contains('is-clear') || drag?.moved || o?.look || o?.editing || o?.placing || o?.busy) return;
-    p.im.classList.remove('hop');
-    void p.im.offsetWidth;
-    p.im.classList.add('hop');
-    showCard(it, p.im);
+    fpShowPiece(p); // 카메라가 그 앞 눈높이로 와서 보여 줌 + 카드
   };
   return p;
 }
@@ -1685,7 +1682,6 @@ async function openBlock(b) {
   drawStageUI(o);
   if (o.closeAsap) { closeBlock(); return; } // 펼치는 동안 덮기를 눌렀으면 다 펼쳐진 지금 덮음
   rezoomSoon(100); // 펼침이 끝났으니 실제 화면 배율에 맞춰 한 번 다시 그림
-  if (FPV.on) setTimeout(() => enterFP(o), 350); // 그리고 판 위로 내려섬 (1인칭)
 }
 
 /** 지금 카메라가 보는 모습 (판을 바꿀 때 새 판을 똑같이 보이게 깔려고): 화면 (cx, cy) 에 마을 좌표 (fx, fy) 를 배율 S 로 */
@@ -1725,7 +1721,8 @@ async function switchBoard(V, fast) {
   hideCard();
   closeRecord();
   scene.classList.add('is-moving');
-  const fp = FPV.on; // 1인칭이었으면 떠올라 옮겨 간 뒤 새 판에 다시 내려섬
+  const fp = FPV.on && !FPV.guided; // 걸어 다니던 중이면 떠올라 옮겨 간 뒤 새 판에 다시 내려섬 (들여다보기는 위에서 보기로 끝남)
+  if (FPV.guided) FPV.on = FPV.guided = false;
   FPV.hold = true;
   FPV.glide = null;
   const T = fast ? 0.7 : 1;
@@ -1878,7 +1875,8 @@ async function travelTo(b) {
   hideCard();
   closeRecord();
   scene.classList.add('is-moving');
-  const fp = FPV.on;
+  const fp = FPV.on && !FPV.guided;
+  if (FPV.guided) FPV.on = FPV.guided = false;
   FPV.hold = true;
   FPV.glide = null;
   // 1) 지금 장면을 접고 덮개를 닫으며 떠오름
@@ -2324,7 +2322,8 @@ async function refreshBoard(o, lying) {
   await wait(1150);
   N.busy = false;
   drawStageUI(N);
-  if (FPV.on) enterFP(N, 1.6);
+  if (FPV.on && !FPV.guided) enterFP(N, 1.6);
+  else FPV.on = FPV.guided = false;
   return N;
 }
 
@@ -2721,11 +2720,11 @@ function fpApply(o) {
   skyFollow('0s');
   fpMapEye(o);
 }
-/** 판 위로 내려섬: 카메라가 판 앞쪽 가운데 바닥까지 내려와 눈높이에서 안쪽을 봄 (처음 들어온 판이면) */
-async function enterFP(o, sec = 2.4) {
+/** 판 위로 내려섬. guided: 그림을 눌러 카메라가 그 앞으로 온 것 (들여다보기) · 아니면 걸어 다니기 (처음 들어온 판이면 잘 트인 자리에) */
+async function enterFP(o, sec = 2.4, guided = false) {
   if (!o || openState !== o || o.closing || o.placing || o.editing) return;
   FPV.on = true;
-  try { localStorage.setItem('mn-story-fp', '1'); } catch (e) {}
+  FPV.guided = guided;
   if (!o.eye) o.eye = o.eyeKeep || fpStart(o);
   o.busy = true;
   fpMap(o);
@@ -2739,7 +2738,7 @@ async function enterFP(o, sec = 2.4) {
 /** 위에서 보기로 떠오름 (선 자리는 기억해 둠) */
 async function leaveFP(o, sec = 1.8) {
   FPV.on = false;
-  try { localStorage.setItem('mn-story-fp', '0'); } catch (e) {}
+  FPV.guided = false;
   FPV.glide = null;
   FPV.keys.clear();
   if (!o || openState !== o) return;
@@ -2755,6 +2754,75 @@ function toggleFP() {
   const o = openState;
   if (!o || o.busy || o.closing || o.placing || o.editing || !scene.classList.contains('is-ready')) return;
   fpOn(o) ? leaveFP(o) : enterFP(o);
+}
+// ---------- 들여다보기: 건물 · 사람을 누르면 카메라가 그 앞 눈높이로 와서 보여 줌 (오른쪽에 카드) ----------
+// 마음대로 걷는 1인칭은 조작이 번거롭고, 오림 그림의 옆 · 뒤가 보여 어색했음. 오림 그림은 정면이 가장 예쁘니 늘 좋은 자리로 데려감
+/** 그 그림을 보여 줄 자리: 정면 쪽에서 그림이 화면 높이의 약 60%가 되는 거리, 판 안이면서 앞을 다른 그림이 가리지 않는 곳 */
+function fpShot(o, p) {
+  const px = p.it.x - o.ox, py = p.it.y - o.oy, person = p.it.kind === 'person';
+  const H = (p.im.naturalWidth ? (p.im.naturalHeight * p.it.w) / p.im.naturalWidth : p.it.w) * (person ? FP_PS : 1);
+  const eh = eyeHeight(o), d0 = clamp2(H * 1.7, 58, 330);
+  let best = null;
+  for (const a of [0, 18, -18, 36, -36, 55, -55, 80, -80]) for (const k of [1, 0.82, 0.66]) {
+    const d = d0 * k, r = (a * Math.PI) / 180, ex = px + Math.sin(r) * d, ey = py + Math.cos(r) * d;
+    if (ex < 40 || ex > o.w - 40 || ey < 46 || ey > o.h - 36) continue;
+    let block = 0; // 눈과 그림 사이를 가리는 다른 그림 (낮은 벤치는 조금만)
+    for (const q of o.pieces) {
+      if (q === p) continue;
+      const qx = q.it.x - o.ox - ex, qy = q.it.y - o.oy - ey, bx = px - ex, by = py - ey, L2 = bx * bx + by * by, t = (qx * bx + qy * by) / L2;
+      if (t < 0.04 || t > 0.94) continue;
+      const qh = q.im.naturalWidth ? ((q.im.naturalHeight * q.it.w) / q.im.naturalWidth) * (q.it.kind === 'person' ? FP_PS : 1) : q.it.w;
+      if (Math.hypot(qx - bx * t, qy - by * t) < Math.max(10, q.it.w * (q.it.kind === 'person' ? FP_PS : 1) * 0.45)) block += Math.min(1, qh / eh);
+    }
+    const score = -Math.abs(a) * 0.05 - (1 - k) * 4 - block * 6;
+    if (!best || score > best.score) best = { ex, ey, d, score };
+  }
+  if (!best) { const [ex, ey] = fpClamp(o, px, py + d0); best = { ex, ey, d: Math.hypot(px - ex, py - ey) || d0 }; }
+  const yaw = (Math.atan2(-(px - best.ex), -(py - best.ey)) * 180) / Math.PI;
+  const aimZ = person ? H * 0.62 : Math.min(H * 0.45, eh + best.d * 0.35); // 사람은 가슴께, 건물은 허리께를 봄
+  return { x: best.ex, y: best.ey, yaw, pitch: clamp2((Math.atan2(eh - aimZ, best.d) * 180) / Math.PI, -14, 30), h: eh };
+}
+/** 사람이 나를 돌아봄 */
+function fpFaceMe(o, p) {
+  if (p.it.kind !== 'person' || !o?.eye) return;
+  const b = (Math.atan2(-(o.eye.x - (p.it.x - o.ox)), o.eye.y - (p.it.y - o.oy)) * 180) / Math.PI, d = ((b - (p.im._phi ?? b) + 540) % 360) - 180;
+  if (Math.abs(d) > 8) { fpTurn(p.im); p.im._phi = (p.im._phi ?? b) + d; p.im.style.setProperty('--bb', p.im._phi.toFixed(1) + 'deg'); }
+}
+/** 그 그림 앞으로 카메라가 감 (위에서 보기면 내려가며, 이미 들여다보는 중이면 옆으로 옮겨 감) + 카드 */
+async function fpShowPiece(p) {
+  const o = openState;
+  if (!o || o.closing || o.placing || o.editing || o.busy || !scene.classList.contains('is-ready')) return;
+  if (document.pointerLockElement) document.exitPointerLock();
+  FPV.glide = null;
+  FPV.keys.clear();
+  FPV.cur = p;
+  p.im.classList.remove('hop');
+  void p.im.offsetWidth;
+  p.im.classList.add('hop');
+  showCard(p.it, p.im); // 카드를 먼저 열어야 화면 가운데가 카드 왼쪽으로 옮겨진 자리로 구도를 잡음
+  const shot = fpShot(o, p), was = fpOn(o);
+  if (was) shot.yaw = o.eye.yaw + ((((shot.yaw - o.eye.yaw) % 360) + 540) % 360) - 180; // 짧은 쪽으로 돎
+  o.eye = Object.assign(o.eye || {}, shot, { bob: 0 });
+  if (!was) { await enterFP(o, 2.0, true); fpFaceMe(o, p); return; }
+  FPV.guided = true;
+  o.faceAt = null;
+  fpFace(o);
+  fpFaceMe(o, p);
+  fpMapEye(o);
+  o.busy = true;
+  moveCamera(o, 1.25);
+  await wait(1300);
+  if (openState === o) o.busy = false;
+  fpUI(o);
+}
+/** ← → : 이 판의 다음 사람 · 건물로 (나무 같은 꾸밈은 건너뜀, 왼쪽에서 오른쪽 차례) */
+function fpHop(dir) {
+  const o = openState;
+  if (!o) return;
+  const tour = o.pieces.filter((p) => !isDeco(p.it)).sort((a, b) => a.it.x - b.it.x || a.it.y - b.it.y);
+  if (!tour.length) return;
+  const i = tour.indexOf(FPV.cur);
+  fpShowPiece(tour[i < 0 ? 0 : (i + dir + tour.length) % tour.length]);
 }
 // 걷기: W A S D · 방향키 (← → 는 돌기) · Shift 빨리 · 바닥 · 작은 지도를 누르면 그리로 · 휠로 앞뒤
 function fpTick(t) {
@@ -2874,14 +2942,15 @@ document.getElementById('fpmap').addEventListener('click', (e) => {
   const r = e.currentTarget.getBoundingClientRect();
   fpGlideTo(o, ...fpClamp(o, (e.clientX - r.left - o.mm.x) / o.mm.k - PAD, (e.clientY - r.top - o.mm.y) / o.mm.k - PAD));
 });
-const OV_HINT = document.getElementById('view-hint').textContent + ' · V 걸어 들어가기';
+const OV_HINT = '건물 · 사람을 누르면 카메라가 다가가 보여줘요 · ' + document.getElementById('view-hint').textContent + ' · V 걸어 다니기';
+const FP_GUIDE_HINT = '← → 다음 사람 · 건물 · 다른 그림을 누르면 그리로 · 끌어서 둘러보기 · W A S D 로 걷기 · Esc 위로';
 const FP_HINT = '화면을 한 번 누르면 마우스만 움직여 둘러봐요 (Esc 로 커서 되찾기) · W A S D · 방향키로 걷기 (Shift 빨리) · 사람 · 건물을 누르면 카드 · T 때 · V 위에서 보기';
 const FP_LOOK_HINT = '마우스로 둘러보는 중 · 가운데 표적으로 겨눠 누르면 사람은 카드, 바닥은 그리로 · Esc 커서 되찾기';
 function fpUI(o) {
   const bar = document.getElementById('fpbar');
-  bar.querySelector('.fp-go').textContent = FPV.on ? '⌂ 위에서 보기' : '걸어 들어가기';
+  bar.querySelector('.fp-go').textContent = FPV.on ? '⌂ 위에서 보기' : '걸어 다니기';
   bar.querySelector('.fp-time').textContent = '때 · ' + TIMES[timeIdx()][1];
-  document.getElementById('view-hint').textContent = fpOn(o) ? (FPLOOK.on ? FP_LOOK_HINT : FP_HINT) : OV_HINT;
+  document.getElementById('view-hint').textContent = fpOn(o) ? (FPV.guided ? FP_GUIDE_HINT : FPLOOK.on ? FP_LOOK_HINT : FP_HINT) : OV_HINT;
 }
 document.querySelector('#fpbar .fp-go').onclick = () => toggleFP();
 document.querySelector('#fpbar .fp-time').onclick = () => cycleTime();
@@ -2935,18 +3004,6 @@ function fpAim(p) {
   fpAimEl.classList.toggle('on', !!p);
   scene.classList.toggle('fp-over', !!p);
 }
-/** 그림 카드 열기 (1인칭에서 누른 그림) */
-function fpOpenCard(p) {
-  const o = openState;
-  if (p.it.kind === 'person' && o?.eye) { // 부르면 나를 돌아봄
-    const b = (Math.atan2(-(o.eye.x - (p.it.x - o.ox)), o.eye.y - (p.it.y - o.oy)) * 180) / Math.PI, d = ((b - (p.im._phi ?? b) + 540) % 360) - 180;
-    if (Math.abs(d) > 8) { fpTurn(p.im); p.im._phi = (p.im._phi ?? b) + d; p.im.style.setProperty('--bb', p.im._phi.toFixed(1) + 'deg'); }
-  }
-  p.im.classList.remove('hop');
-  void p.im.offsetWidth;
-  p.im.classList.add('hop');
-  showCard(p.it, p.im);
-}
 // 커서를 잡지 않았을 때도 마우스를 올린 그림이 빛나고 손가락 커서 (누르면 카드)
 scene.addEventListener('pointermove', (e) => {
   const o = openState;
@@ -2956,12 +3013,18 @@ scene.addEventListener('pointermove', (e) => {
 scene.addEventListener('click', (e) => {
   const o = openState;
   if (!fpOn(o) || !freeView() || drag?.moved) return;
+  if (FPV.guided) { // 들여다보는 중: 다른 그림을 누르면 그리로 (빈 곳은 그대로)
+    if (e.target.closest('.ui, #card, .hot, .flag')) return;
+    const p = fpPickPiece(o, e.clientX, e.clientY);
+    if (p) fpShowPiece(p);
+    return;
+  }
   if (FPLOOK.on) {
     fpAimCheck();
     if (FPLOOK.aim) {
       const p = FPLOOK.aim;
       document.exitPointerLock(); // 커서를 돌려줘서 카드에 바로 적을 수 있게
-      fpOpenCard(p);
+      fpShowPiece(p);
       return;
     }
     const c = fpAimPoint(), hit = fpPick(o, c.x, c.y);
@@ -2970,7 +3033,7 @@ scene.addEventListener('click', (e) => {
   }
   if (e.target.closest('.ui, #card, .piece, .hot, .flag')) return;
   const p = fpPickPiece(o, e.clientX, e.clientY);
-  if (p) { fpOpenCard(p); return; }
+  if (p) { fpShowPiece(p); return; }
   FPLOOK.at = [e.clientX, e.clientY];
   if (!scene.requestPointerLock) { fpLockFail(); return; }
   fpAimPoint();
@@ -2999,9 +3062,11 @@ addEventListener('keydown', (e) => {
   if (e.target.closest?.('input, textarea, select, [contenteditable]') || e.ctrlKey || e.metaKey || e.altKey) return;
   const o = openState;
   if (!o || anyPanel()) return;
-  if (e.code === 'KeyV') { toggleFP(); e.stopImmediatePropagation(); return; }
+  if (e.code === 'KeyV') { if (FPV.guided && fpOn(o)) { FPV.guided = false; fpUI(o); } else toggleFP(); e.stopImmediatePropagation(); return; } // 들여다보던 자리에서 그대로 걷기 시작
   if (e.code === 'KeyT' && scene.classList.contains('is-ready')) { cycleTime(); e.stopImmediatePropagation(); return; }
+  if (fpOn(o) && FPV.guided && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) { e.preventDefault(); e.stopImmediatePropagation(); fpHop(e.code === 'ArrowLeft' ? -1 : 1); return; }
   if (!fpOn(o) || !FP_KEYS.has(e.code)) return;
+  if (FPV.guided) { FPV.guided = false; fpUI(o); } // 걷는 키를 누르면 그 자리에서 걷기 시작
   e.preventDefault();
   e.stopImmediatePropagation();
   FPV.run = e.shiftKey;
@@ -3098,6 +3163,7 @@ addEventListener('keydown', (e) => {
   if (recpanel.classList.contains('on')) closeRecord();
   else if (o?.placing) endPlace();
   else if (o?.look) leaveFlap();
+  else if (FPV.guided && fpOn(o)) { hideCard(); toggleFP(); } // 들여다보기: 카드를 닫으며 위로
   else if (card.classList.contains('is-open')) hideCard();
   else if (sceneOpen()) closeScenePanel();
   else if (fpOn(o)) toggleFP();
@@ -3599,10 +3665,8 @@ async function goToItem(e, spread) {
   if ((openState.stage || null) !== (e.st || null)) { await switchBoard(viewOf(e.b, e.st)); await ready(); }
   const p = openState.pieces.find((q) => q.it === e.it);
   if (p) {
-    showCard(p.it, p.im);
+    fpShowPiece(p); // 그 앞으로 카메라가 와서 보여 줌
     if (spread) openSpread(e);
-    const o = openState; // 1인칭이면 그 앞까지 걸어가 마주 봄
-    if (fpOn(o)) fpGlideTo(o, ...fpClamp(o, p.it.x - o.ox, p.it.y - o.oy + clamp2(p.it.w * 0.9, 40, 140)), 0, false);
   }
 }
 
