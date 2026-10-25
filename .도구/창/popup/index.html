@@ -848,6 +848,18 @@
   #fpmap .mm-dots i.p { background: #a8482f; }
   #fpmap .mm-eye { position: absolute; left: 0; top: 0; width: 0; height: 0; }
   #fpmap .mm-eye svg { position: absolute; left: -24px; top: -24px; width: 48px; height: 48px; overflow: visible; }
+  /* 마우스로 둘러볼 때 가운데 표적: 사람 · 건물을 겨누면 커지고 이름이 밑에 뜸 */
+  #scene.fp-look { cursor: none; }
+  #scene.is-fp.is-ready.fp-over:not(.fp-look) { cursor: pointer; }
+  #fpaim { position: absolute; z-index: 5; width: 0; height: 0; display: none; pointer-events: none; }
+  #scene.fp-look #fpaim { display: block; }
+  #fpaim::before { content: ''; position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid rgba(255,244,214,0.9);
+    box-shadow: 0 0 0 1px rgba(40,22,8,0.45), 0 0 8px rgba(0,0,0,0.35); transition: transform 0.15s, border-color 0.15s; }
+  #fpaim::after { content: ''; position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: #fff4d6; box-shadow: 0 0 0 1px rgba(40,22,8,0.5); }
+  #fpaim.on::before { border-color: #ffd98a; transform: scale(1.4); box-shadow: 0 0 0 1px rgba(40,22,8,0.45), 0 0 12px rgba(255,200,110,0.85); }
+  #fpaim .nm { position: absolute; left: 0; top: 20px; transform: translateX(-50%); white-space: nowrap; padding: 3px 11px; border-radius: 999px; background: rgba(28,18,10,0.72); color: #f4e4c0; font: 13px/1.3 var(--serif); letter-spacing: 0.08em; }
+  #fpaim .nm:empty { display: none; }
+  .piece.is-aim { filter: drop-shadow(0 0 calc(5px * var(--k, 1)) rgba(255,214,150,0.95)); }
 </style>
 </head>
 <body>
@@ -865,6 +877,7 @@
     <div id="view-hint" class="ui">끌면 보는 각도가 돌아가요 · 휠로 가까이 · 아래 장면 이름 · ← → 로 마을 안 다른 장면 · → 장소(골목길 · 거리)는 새로 꾸민 판 · Backspace 위 판 · 「장소 · 기록」(S)으로 장소 만들기 · 기록 · Esc 덮기</div>
     <div id="fpbar" class="ui"><button class="fp-time" title="때 바꾸기 (T)"></button><button class="fp-go" title="위에서 보기 ↔ 걸어 들어가기 (V)"></button></div>
     <div id="fpmap" class="ui" title="누르면 그리로 걸어가요"><div class="mm"><div class="mm-floor"></div><div class="mm-dots"></div></div><div class="mm-eye"><svg viewBox="-24 -24 48 48"><path d="M0 0 L-13 -22 A25 25 0 0 1 13 -22Z" fill="rgba(255,226,160,0.4)" stroke="rgba(255,236,190,0.75)" stroke-width="1"/><circle r="4.5" fill="#a8482f" stroke="#fff6e2" stroke-width="1.6"/></svg></div></div>
+    <div id="fpaim"><span class="nm"></span></div>
     <div id="stagebar" class="ui"><div class="sb-scenes" title="이 마을의 장면 (← →)"></div><div class="sb-sub"><button class="sb-up" title="위 판으로 (Backspace)">⤴ 위로</button><div class="sb-kids"></div></div></div>
     <div id="flappanel" class="ui"><button class="fp-back">‹ 판으로</button><div class="flap"></div></div>
     <div id="ptools" class="ui"><b>배치 고치기</b><span class="tip">그림을 끌어 옮기기 · 오른쪽에서 기호를 골라 더 놓기</span><span class="pt-sel">고른 그림 없음</span><button class="pt-small" disabled>－</button><button class="pt-big" disabled>＋</button><button class="pt-del" disabled>지우기</button><span class="pt-board"><label>바닥 <select class="pt-floor"></select></label><button class="pt-narrow" title="판을 좁게">판 －</button><button class="pt-wide" title="판을 넓게">판 ＋</button></span><button class="pt-done go">다 했어요</button></div>
@@ -1201,7 +1214,8 @@ function standT(e) {
   // 판에서 털끝만큼 띄움: 발치가 판과 딱 닿아 있으면 크롬 3D 정렬이 각도에 따라 판을 앞에 그려서 그림이 통째로 사라졌다 나타남
   // 1인칭에서는 오림 그림이 늘 나를 보도록 돌아섬 (--bb, 종이라 뒤에서 보면 거울 그림이라서)
   const bb = e.classList.contains('piece') || e.classList.contains('glow') || e.classList.contains('dress') ? ' rotateZ(var(--bb, 0deg))' : '';
-  return `translateX(${dx}px) translateZ(${up ? 0.8 : 0.3}px)${bb} rotateX(${up ? -90 : 0}deg) scale(${sc})`;
+  const ps = e.classList.contains('person') ? ' scale(var(--ps, 1))' : ''; // 1인칭에서는 사람을 줄여 가로등 · 벤치 · 집과 키를 맞춤
+  return `translateX(${dx}px) translateZ(${up ? 0.8 : 0.3}px)${bb} rotateX(${up ? -90 : 0}deg) scale(${sc})${ps}`;
 }
 function bookT(o) {
   if (fpOn(o)) return fpT(o);
@@ -1347,7 +1361,7 @@ function buildBoard(V, opts = {}) {
   const stage3 = (e, T, d) => { e._T = T; e._d = d; e.dataset.up = '0'; Object.assign(e.style, { opacity: 0, visibility: 'hidden' }); e.style.transform = T(false); walls.push(e); return e; };
   let seed = [...boardKey(V.root, stage)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
   const rnd = () => (seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296;
-  const cx0 = w / 2, cy0 = h / 2, S = Math.max(w, h) / 2 + 560, Q = 3, EYE = 52; // S: 판 가운데에서 풍경 막까지, Q: 작게 깔고 키움 (먼 것이라 흐려도 됨 · 메모리)
+  const cx0 = w / 2, cy0 = h / 2, S = Math.max(w, h) / 2 + 560, Q = 3, EYE = 33; // S: 판 가운데에서 풍경 막까지, Q: 작게 깔고 키움 (먼 것이라 흐려도 됨 · 메모리)
   // 판 너머는 안개 낀 들: 땅은 안개 빛 한 가지(때마다 바뀜 --haze), 판 가장자리는 안개로 녹고, 먼 풍경 막 밑동도 안개에 잠김
   // (무늬 없는 풀빛 땅을 깔았더니 덜 그린 바닥처럼 보였음)
   const g = add('fp-ground');
@@ -2591,6 +2605,8 @@ function closeRecord() {
 function fpOn(o) { return !!(FPV.on && !FPV.hold && o && o.eye && !o.editing && !o.placing && !o.look && !o.closing); }
 // 세로 시야 약 53° (가로 약 80°): 66° 로 했더니 광각 렌즈처럼 가장자리가 늘어나고 화면 대부분이 흐린 바닥이었음
 const fpPersp = () => Math.round(innerHeight * 1.0);
+// 1인칭의 사람 크기 (위에서 볼 땐 1): 눈높이에서 보니 사람이 가로등보다 크고 집이 장난감 같았음. 눈높이도 이 키를 따라 낮아짐
+const FP_PS = 0.62;
 const FP_HY = 0.42; // 지평선 자리 (화면 높이 비율, 고개를 들고 숙이면 오르내림)
 const clamp2 = (v, a, b) => (a > b ? (a + b) / 2 : Math.min(b, Math.max(a, v)));
 function fpOrigin() {
@@ -2604,10 +2620,10 @@ function fpT(o) {
 /** 눈높이: 이 판 사람들 키의 가운데쯤 */
 function eyeHeight(o) {
   const hs = o.pieces.filter((p) => p.it.kind === 'person' && p.im.naturalWidth).map((p) => (p.im.naturalHeight * p.it.w) / p.im.naturalWidth).sort((a, b) => a - b);
-  return clamp2(hs.length ? hs[hs.length >> 1] * 0.92 : 42, 26, 80);
+  return clamp2(hs.length ? hs[hs.length >> 1] * 0.92 * FP_PS : 30, 18, 60);
 }
 /** 그림 둘레의 못 들어가는 자리 (큰 건물일수록 넓게 — 너무 바짝 붙으면 화면을 다 덮음) */
-const fpR = (p) => (p.it.kind === 'person' ? 26 : clamp2(p.it.w * 0.42, 14, 70));
+const fpR = (p) => (p.it.kind === 'person' ? 18 : clamp2(p.it.w * 0.42, 14, 70));
 /** 걸을 수 있는 곳: 둘레 배경 막 안쪽 · 그림 발치에서 조금 떨어져서 (사람 · 건물을 뚫고 지나가지 않게) */
 function fpClamp(o, x, y) {
   x = clamp2(x, 40, o.w - 40);
@@ -2662,6 +2678,8 @@ function fpSync(o, sec = 0) {
   scene.style.perspectiveOrigin = on ? `${c.x}px ${c.y}px` : '';
   scene.classList.toggle('is-fp', on);
   if (!on) scene.classList.remove('fp-in');
+  bookz.style.setProperty('--ps', on ? FP_PS : 1);
+  if (!on) { fpAim(null); if (document.pointerLockElement) document.exitPointerLock(); }
   if (o.walls && !!o.wallsUp !== on) {
     o.wallsUp = on;
     fpFace(o, !on);
@@ -2738,7 +2756,7 @@ function fpTick(t) {
   if (turn) e.yaw += turn * 75 * dt;
   if (f || s) {
     FPV.glide = null;
-    const a = (e.yaw * Math.PI) / 180, sp = (FPV.run ? 2.3 : 1) * 120 * dt;
+    const a = (e.yaw * Math.PI) / 180, sp = (FPV.run ? 2.3 : 1) * 85 * dt; // 눈높이가 낮아진 만큼 걸음도
     x += (-Math.sin(a) * f + Math.cos(a) * s) * sp;
     y += (-Math.cos(a) * f - Math.sin(a) * s) * sp;
   } else if (FPV.glide) {
@@ -2782,12 +2800,36 @@ function fpMark(o, x, y) {
 }
 /** 화면의 한 점 → 그 아래 바닥의 판 좌표 (눈에서 그 점으로 쏜 선이 바닥과 만나는 곳). 하늘이면 null */
 function fpPick(o, sx, sy) {
+  const e = o.eye, [bx, by, z1] = fpRay(o, sx, sy);
+  if (z1 > -1e-3) return null;
+  const k = -(e.h + (e.bob || 0)) / z1;
+  return [e.x + bx * k, e.y + by * k];
+}
+/** 눈에서 화면의 한 점으로 쏜 선의 방향 (판 좌표: x · y 바닥, z 위) */
+function fpRay(o, sx, sy) {
   const e = o.eye, c = fpOrigin(), t = ((90 - e.pitch) * Math.PI) / 180, ps = (e.yaw * Math.PI) / 180;
   const dx = sx - c.x, dy = sy - c.y, dz = -fpPersp();
   const y1 = dy * Math.cos(t) + dz * Math.sin(t), z1 = -dy * Math.sin(t) + dz * Math.cos(t);
-  if (z1 > -1e-3) return null;
-  const bx = dx * Math.cos(ps) + y1 * Math.sin(ps), by = -dx * Math.sin(ps) + y1 * Math.cos(ps), k = -(e.h + (e.bob || 0)) / z1;
-  return [e.x + bx * k, e.y + by * k];
+  return [dx * Math.cos(ps) + y1 * Math.sin(ps), -dx * Math.sin(ps) + y1 * Math.cos(ps), z1];
+}
+/** 화면의 한 점에 보이는 그림 (가장 가까운 것). 1인칭에서는 브라우저가 입체 속 그림을 짚어 내지 못해서(판 뒤만 잡힘) 직접 셈:
+ *  그림은 내 눈자리를 향해 서 있으니, 그 면과 시선이 만나는 곳이 그림 너비 · 키 안이면 맞음 */
+function fpPickPiece(o, sx, sy) {
+  const e = o.eye, ez = e.h + (e.bob || 0), [rx, ry, rz] = fpRay(o, sx, sy);
+  let best = null;
+  for (const p of o.pieces) {
+    if (!p.im.naturalWidth) continue;
+    const px = p.it.x - o.ox, py = p.it.y - o.oy, nl = Math.hypot(e.x - px, e.y - py) || 1, ux = (e.x - px) / nl, uy = (e.y - py) / nl;
+    const den = ux * rx + uy * ry;
+    if (den > -1e-6) continue;
+    const t = (ux * (px - e.x) + uy * (py - e.y)) / den;
+    if (t <= 0) continue;
+    const qx = e.x + rx * t, qy = e.y + ry * t, qz = ez + rz * t;
+    const sc = p.it.kind === 'person' ? FP_PS : 1, W = p.it.w * sc, H = ((p.im.naturalHeight * p.it.w) / p.im.naturalWidth) * sc;
+    if (Math.abs(-uy * (qx - px) + ux * (qy - py)) > W * 0.42 || qz < 0 || qz > H * 0.96) continue; // 가장자리 투명한 곳은 조금 빼고
+    if (!best || t < best.t) best = { p, t };
+  }
+  return best ? best.p : null;
 }
 /** 오른쪽 아래 작은 지도: 이 판 바닥 그림 + 그림 자리 + 나 (보는 쪽 부채꼴) */
 const FPMAP = 150;
@@ -2817,22 +2859,95 @@ document.getElementById('fpmap').addEventListener('click', (e) => {
   fpGlideTo(o, ...fpClamp(o, (e.clientX - r.left - o.mm.x) / o.mm.k - PAD, (e.clientY - r.top - o.mm.y) / o.mm.k - PAD));
 });
 const OV_HINT = document.getElementById('view-hint').textContent + ' · V 걸어 들어가기';
-const FP_HINT = '끌어서 둘러보기 · W A S D · 방향키로 걷기 (Shift 빨리) · 바닥이나 작은 지도를 누르면 그리로 · 사람 · 건물을 누르면 카드 · T 때 · V · Esc 위에서 보기';
+const FP_HINT = '화면을 한 번 누르면 마우스만 움직여 둘러봐요 (Esc 로 커서 되찾기) · W A S D · 방향키로 걷기 (Shift 빨리) · 사람 · 건물을 누르면 카드 · T 때 · V 위에서 보기';
+const FP_LOOK_HINT = '마우스로 둘러보는 중 · 가운데 표적으로 겨눠 누르면 사람은 카드, 바닥은 그리로 · Esc 커서 되찾기';
 function fpUI(o) {
   const bar = document.getElementById('fpbar');
   bar.querySelector('.fp-go').textContent = FPV.on ? '⌂ 위에서 보기' : '걸어 들어가기';
   bar.querySelector('.fp-time').textContent = '때 · ' + TIMES[timeIdx()][1];
-  document.getElementById('view-hint').textContent = fpOn(o) ? FP_HINT : OV_HINT;
+  document.getElementById('view-hint').textContent = fpOn(o) ? (FPLOOK.on ? FP_LOOK_HINT : FP_HINT) : OV_HINT;
 }
 document.querySelector('#fpbar .fp-go').onclick = () => toggleFP();
 document.querySelector('#fpbar .fp-time').onclick = () => cycleTime();
-// 바닥을 누르면 그리로 걸어감 (끌어서 둘러본 끝의 클릭은 빼고)
+// 마우스로 바로 둘러보기: 1인칭에서 빈 곳을 한 번 누르면 커서가 가운데 표적이 되고, 끌지 않고 움직이기만 해도 고개가 돎 (Esc 로 풀림).
+// 끌어서 돌리는 건 불편하다고 했음. 이때 누르면 표적이 가리키는 것: 사람 · 건물은 카드(커서를 돌려줘 바로 적을 수 있게), 바닥은 그리로 걸어감
+const FPLOOK = { on: false, aim: null, raf: 0 };
+const fpAimEl = document.getElementById('fpaim');
+document.addEventListener('pointerlockchange', () => {
+  FPLOOK.on = document.pointerLockElement === scene;
+  scene.classList.toggle('fp-look', FPLOOK.on);
+  if (!FPLOOK.on) fpAim(null);
+  else fpAimSoon();
+  fpUI(openState);
+});
+addEventListener('mousemove', (e) => {
+  const o = openState;
+  if (!FPLOOK.on || !fpOn(o) || !freeView()) return;
+  o.eye.yaw -= e.movementX * 0.13;
+  o.eye.pitch = clampv(o.eye.pitch + e.movementY * 0.11, [-14, 42]);
+  fpApply(o);
+  fpAimSoon();
+});
+/** 표적 자리 (화면에서 시선이 지나는 곳 = 원근 중심) */
+function fpAimPoint() { const c = fpOrigin(); Object.assign(fpAimEl.style, { left: c.x + 'px', top: c.y + 'px' }); return c; }
+const fpAimSoon = () => { if (!FPLOOK.raf) FPLOOK.raf = requestAnimationFrame(() => { FPLOOK.raf = 0; fpAimCheck(); }); };
+function fpAimCheck() {
+  const o = openState;
+  if (!FPLOOK.on || !o) return;
+  const c = fpAimPoint();
+  fpAim(fpPickPiece(o, c.x, c.y));
+}
+function fpAim(p) {
+  if (FPLOOK.aim === p) return;
+  FPLOOK.aim?.im.classList.remove('is-aim');
+  FPLOOK.aim = p;
+  p?.im.classList.add('is-aim');
+  fpAimEl.querySelector('.nm').textContent = p ? p.it.name || p.it.asset.split('/').pop().replace(/^\d+\s*|\.png$/g, '') : '';
+  fpAimEl.classList.toggle('on', !!p);
+  scene.classList.toggle('fp-over', !!p);
+}
+/** 그림 카드 열기 (1인칭에서 누른 그림) */
+function fpOpenCard(p) {
+  p.im.classList.remove('hop');
+  void p.im.offsetWidth;
+  p.im.classList.add('hop');
+  showCard(p.it, p.im);
+}
+// 커서를 잡지 않았을 때도 마우스를 올린 그림이 빛나고 손가락 커서 (누르면 카드)
+scene.addEventListener('pointermove', (e) => {
+  const o = openState;
+  if (FPLOOK.on || !fpOn(o) || drag || FPLOOK.hov) return;
+  FPLOOK.hov = requestAnimationFrame(() => { FPLOOK.hov = 0; if (!FPLOOK.on && fpOn(openState) && !drag) fpAim(fpPickPiece(openState, e.clientX, e.clientY)); });
+});
 scene.addEventListener('click', (e) => {
   const o = openState;
-  if (!fpOn(o) || !freeView() || drag?.moved || e.target.closest('.ui, #card, .piece, .hot, .flag')) return;
-  const hit = fpPick(o, e.clientX, e.clientY);
-  if (hit) fpGlideTo(o, ...fpClamp(o, hit[0], hit[1]));
+  if (!fpOn(o) || !freeView() || drag?.moved) return;
+  if (FPLOOK.on) {
+    fpAimCheck();
+    if (FPLOOK.aim) {
+      const p = FPLOOK.aim;
+      document.exitPointerLock(); // 커서를 돌려줘서 카드에 바로 적을 수 있게
+      fpOpenCard(p);
+      return;
+    }
+    const c = fpAimPoint(), hit = fpPick(o, c.x, c.y);
+    if (hit && Math.hypot(hit[0] - o.eye.x, hit[1] - o.eye.y) < 700) fpGlideTo(o, ...fpClamp(o, hit[0], hit[1]));
+    return;
+  }
+  if (e.target.closest('.ui, #card, .piece, .hot, .flag')) return;
+  const p = fpPickPiece(o, e.clientX, e.clientY);
+  if (p) { fpOpenCard(p); return; }
+  FPLOOK.at = [e.clientX, e.clientY];
+  if (scene.requestPointerLock) { fpAimPoint(); scene.requestPointerLock(); } else fpLockFail();
 });
+// 마우스를 잡지 못하는 곳이면(막힌 창 등) 예전처럼 누른 바닥으로 걸어감
+function fpLockFail() {
+  const o = openState;
+  if (!fpOn(o) || !FPLOOK.at) return;
+  const hit = fpPick(o, ...FPLOOK.at);
+  if (hit) fpGlideTo(o, ...fpClamp(o, hit[0], hit[1]));
+}
+document.addEventListener('pointerlockerror', fpLockFail);
 const FP_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 // 글자판 자리(e.code)로 받음: 한글 입력 상태에서도 W A S D 가 먹게. 다른 단축키보다 먼저 (S = 장면 패널 대신 뒤로 걷기)
 addEventListener('keydown', (e) => {
@@ -2925,10 +3040,10 @@ addEventListener('pointermove', (e) => {
   drag.moved = true;
   scene.classList.add('is-dragging');
   if (drag.fp && fpOn(openState)) {
-    // 1인칭: 잡아 끄는 쪽으로 고개를 돌림 (거리 보기처럼) — 옆 · 뒤로 다 돌아봄, 위아래는 조금만
+    // 1인칭: 끄는 쪽으로 고개를 돌림 (오른쪽으로 끌면 오른쪽을 봄 — 잡아 끄는 거리 보기 식은 좌우가 뒤집힌 느낌이었음)
     const ey = openState.eye;
-    ey.yaw = drag.fp.yaw + dx * 0.2;
-    ey.pitch = clampv(drag.fp.pitch - dy * 0.16, [-14, 42]);
+    ey.yaw = drag.fp.yaw - dx * 0.2;
+    ey.pitch = clampv(drag.fp.pitch + dy * 0.16, [-14, 42]);
     fpApply(openState);
     return;
   }
