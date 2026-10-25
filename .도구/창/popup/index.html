@@ -326,49 +326,107 @@
   #flappanel .flap .rec { cursor: pointer; }
   #flappanel .flap .rec:hover { background: rgba(255,236,190,0.45); }
 
-  /* ---------- 카드: 책갈피에 끼운 장서표 ---------- */
-  #card { position: absolute; right: 20px; top: 20px; bottom: 20px; width: 340px; z-index: 6; box-sizing: border-box; padding: 26px 26px 22px;
-    background: url('assets/paper_card.jpg') center / cover, #f2e7cf; border-radius: 4px;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 2px 0 rgba(255,255,255,0.4) inset, inset 0 0 0 1px rgba(120,80,45,0.45), inset 0 0 0 7px rgba(255,248,230,0.0), inset 0 0 0 8px rgba(120,80,45,0.35), inset 0 0 40px rgba(120,80,45,0.18);
-    transform: translateX(380px) rotate(1.5deg); transition: transform 0.45s cubic-bezier(.2,.8,.2,1); overflow: auto; }
+  /* ---------- 카드: 책갈피에 끼운 장서표 (금박 테 · 모서리 장식 · 초상 액자 · 갈피 탭) ---------- */
+  #card { --gold-ink: #a8813f; position: absolute; right: 20px; top: 20px; bottom: 20px; width: 360px; z-index: 6; box-sizing: border-box; padding: 0;
+    display: flex; flex-direction: column; border-radius: 5px; color: var(--ink);
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='54' height='54'%3E%3Cg fill='none' stroke='%23a8813f' stroke-width='1.2'%3E%3Cpath d='M6 50V16q0-10 10-10h34'/%3E%3Cpath d='M11 50V20q0-9 9-9h30' stroke-opacity='.45'/%3E%3Cpath d='M6 26q10 1 13-7t11-13' stroke-opacity='.8'/%3E%3C/g%3E%3Cpath d='M16 16l4-4 4 4-4 4z' fill='%23a8813f'/%3E%3C/svg%3E") left 6px top 6px / 54px no-repeat,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='54' height='54'%3E%3Cg transform='translate(54 0) scale(-1 1)'%3E%3Cg fill='none' stroke='%23a8813f' stroke-width='1.2'%3E%3Cpath d='M6 50V16q0-10 10-10h34'/%3E%3Cpath d='M11 50V20q0-9 9-9h30' stroke-opacity='.45'/%3E%3Cpath d='M6 26q10 1 13-7t11-13' stroke-opacity='.8'/%3E%3C/g%3E%3Cpath d='M16 16l4-4 4 4-4 4z' fill='%23a8813f'/%3E%3C/g%3E%3C/svg%3E") right 6px top 6px / 54px no-repeat,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='54' height='54'%3E%3Cg transform='translate(0 54) scale(1 -1)'%3E%3Cg fill='none' stroke='%23a8813f' stroke-width='1.2'%3E%3Cpath d='M6 50V16q0-10 10-10h34'/%3E%3Cpath d='M11 50V20q0-9 9-9h30' stroke-opacity='.45'/%3E%3Cpath d='M6 26q10 1 13-7t11-13' stroke-opacity='.8'/%3E%3C/g%3E%3Cpath d='M16 16l4-4 4 4-4 4z' fill='%23a8813f'/%3E%3C/g%3E%3C/svg%3E") left 6px bottom 6px / 54px no-repeat,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='54' height='54'%3E%3Cg transform='translate(54 54) scale(-1 -1)'%3E%3Cg fill='none' stroke='%23a8813f' stroke-width='1.2'%3E%3Cpath d='M6 50V16q0-10 10-10h34'/%3E%3Cpath d='M11 50V20q0-9 9-9h30' stroke-opacity='.45'/%3E%3Cpath d='M6 26q10 1 13-7t11-13' stroke-opacity='.8'/%3E%3C/g%3E%3Cpath d='M16 16l4-4 4 4-4 4z' fill='%23a8813f'/%3E%3C/g%3E%3C/svg%3E") right 6px bottom 6px / 54px no-repeat,
+      url('assets/paper_card.jpg') center / cover, #f2e7cf;
+    box-shadow: 0 26px 64px rgba(0,0,0,0.62), 0 2px 0 rgba(255,255,255,0.4) inset, inset 0 0 0 1px rgba(110,72,38,0.55), inset 0 0 0 6px rgba(255,248,230,0.35),
+      inset 0 0 0 7px rgba(168,129,63,0.75), inset 0 0 0 9px rgba(255,248,230,0.25), inset 0 0 0 10px rgba(168,129,63,0.35), inset 0 0 46px rgba(120,80,45,0.22);
+    transform: translateX(400px) rotate(1.5deg); transition: transform 0.45s cubic-bezier(.2,.8,.2,1); overflow: hidden; }
   #card.is-open { transform: translateX(0) rotate(0deg); }
-  #card .kind { font: 12px/1 var(--serif); letter-spacing: 0.5em; color: var(--accent); text-align: center; margin-top: 4px; }
-  #card .nm { font: 400 28px/1.25 var(--hand); color: #3c2616; margin-top: 10px; text-align: center; letter-spacing: 0.06em; min-height: 35px; }
-  #card .orn { display: flex; align-items: center; gap: 12px; margin: 12px 0 2px; }
-  #card .orn i { width: 6px; height: 6px; transform: rotate(45deg); background: #b08650; box-shadow: 0 0 0 2px #f2e7cf, 0 0 0 3px rgba(176,134,80,0.6); }
-  #card .orn::before, #card .orn::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(140,100,60,0.6), transparent); }
-  #card .pic { position: relative; height: 190px; margin: 6px 0 4px; display: flex; align-items: flex-end; justify-content: center;
-    background: radial-gradient(ellipse 60% 55% at 50% 62%, rgba(255,250,236,0.9), rgba(255,250,236,0) 72%); }
-  #card .pic::after { content: ''; position: absolute; left: 22%; right: 22%; bottom: 2px; height: 14px; border-radius: 50%; background: radial-gradient(ellipse, rgba(60,35,15,0.35), transparent 70%); }
-  #card img { position: relative; z-index: 1; display: block; max-width: 84%; max-height: 176px; filter: drop-shadow(1px 1.5px 0 rgba(150,115,80,0.9)) drop-shadow(0 6px 8px rgba(60,40,20,0.3)); }
-  #card label { display: block; font: 12px/1 var(--serif); letter-spacing: 0.32em; color: #8a6440; margin: 18px 0 6px; }
+  /* 맨 위에 꽂힌 붉은 갈피끈 */
+  #card::before { content: ''; position: absolute; left: 34px; top: -2px; width: 14px; height: 54px; z-index: 2; pointer-events: none;
+    background: linear-gradient(90deg, #7a2a1b, #b0462c 45%, #8a3220); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); filter: drop-shadow(0 2px 2px rgba(40,10,5,0.4)); }
+  #card .x { position: absolute; right: 18px; top: 16px; z-index: 3; width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(120,85,50,0.4); background: rgba(255,250,236,0.6);
+    font: 16px/1 var(--serif); color: #7a5a3c; cursor: pointer; }
+  #card .x:hover { background: rgba(255,250,236,0.95); color: var(--accent); }
+  /* 머리: 초상 액자 + 이름 + 자리 */
+  #card .head { flex: none; padding: 26px 30px 0; text-align: center; }
+  #card .kind { font: 11px/1 var(--serif); letter-spacing: 0.55em; text-indent: 0.55em; color: var(--accent); display: flex; align-items: center; justify-content: center; gap: 8px; }
+  #card .kind::before, #card .kind::after { content: '✦'; font-size: 8px; color: var(--gold-ink); letter-spacing: 0; }
+  #card .portrait { position: relative; width: 138px; height: 146px; margin: 10px auto 0; border-radius: 70px 70px 8px 8px; overflow: hidden;
+    background: radial-gradient(ellipse 70% 60% at 50% 38%, rgba(255,236,190,0.95), rgba(214,180,120,0.55) 55%, rgba(92,58,30,0.75) 100%), url('assets/paper_card.jpg') center / cover;
+    box-shadow: 0 0 0 2px #f6ecd4, 0 0 0 3.5px var(--gold-ink), 0 0 0 7px rgba(255,248,230,0.4), 0 0 0 8px rgba(168,129,63,0.45), inset 0 -18px 28px rgba(60,35,15,0.35), 0 8px 18px rgba(60,35,15,0.25); }
+  #card .portrait img { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); max-width: 82%; max-height: 128px; filter: drop-shadow(1px 1.5px 0 rgba(150,115,80,0.9)) drop-shadow(0 5px 7px rgba(60,40,20,0.35)); }
+  #card .portrait::after { content: ''; position: absolute; left: 24%; right: 24%; bottom: 4px; height: 12px; border-radius: 50%; background: radial-gradient(ellipse, rgba(50,28,10,0.4), transparent 70%); }
+  #card .nm { display: block; width: 100%; margin-top: 12px; border: 0; background: transparent; text-align: center; font: 400 27px/1.25 var(--hand); color: #3c2616; letter-spacing: 0.08em; outline: none; padding: 2px 0; border-bottom: 1px dashed transparent; }
+  #card .nm:hover { border-bottom-color: rgba(120,85,50,0.35); }
+  #card .nm:focus { border-bottom-color: var(--accent); }
+  #card .where { font: 12px/1.4 var(--serif); color: #8a6a48; letter-spacing: 0.06em; margin-top: 2px; }
+  #card .orn { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; }
+  #card .orn i { width: 6px; height: 6px; transform: rotate(45deg); background: var(--gold-ink); box-shadow: 0 0 0 2px #f2e7cf, 0 0 0 3px rgba(168,129,63,0.6); }
+  #card .orn::before, #card .orn::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(140,100,60,0.65), transparent); }
+  /* 한눈에: 상태 · 우호 · 노트 */
+  #card .chips { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  #card .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font: 12px/1.2 var(--serif); color: #4a3020; background: rgba(255,250,236,0.65); box-shadow: inset 0 0 0 1px rgba(120,85,50,0.35); }
+  #card .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c, #8a9a6a); box-shadow: 0 0 0 2px rgba(255,255,255,0.6); }
+  /* 갈피 탭 */
+  #card .tabs { flex: none; display: flex; gap: 2px; margin: 14px 18px 0; border-bottom: 1.5px solid rgba(140,100,60,0.45); }
+  #card .tabs button { flex: 1; padding: 8px 0 7px; border: 0; border-radius: 6px 6px 0 0; background: transparent; color: #8a6a48; font: 13px/1 var(--serif); letter-spacing: 0.2em; text-indent: 0.2em; cursor: pointer; position: relative; top: 1.5px; }
+  #card .tabs button:hover { color: #4a3020; background: rgba(255,246,222,0.45); }
+  #card .tabs button.on { color: #fff4e0; background: linear-gradient(180deg, #b8553a, #9a3d27); box-shadow: 0 -1px 0 rgba(255,220,180,0.4) inset; }
+  #card .body { flex: 1; overflow: auto; padding: 4px 28px 8px; scrollbar-width: thin; scrollbar-color: rgba(140,100,60,0.5) transparent; }
+  #card .pane { display: none; }
+  #card .pane.on { display: block; }
+  #card .foot { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 8px 28px 18px; font: italic 12px/1.4 var(--serif); color: #9a8266; border-top: 1px dashed rgba(120,85,50,0.3); margin: 0 18px; }
+  /* 칸 */
+  #card label { display: flex; align-items: center; gap: 6px; font: 11px/1 var(--serif); letter-spacing: 0.32em; color: #8a6440; margin: 16px 0 6px; }
+  #card label::before { content: '❖'; font-size: 9px; color: var(--gold-ink); letter-spacing: 0; }
   #card input, #card select, #card textarea { width: 100%; box-sizing: border-box; font: 15px/1.5 var(--serif); color: var(--ink);
-    background: transparent; border: 0; border-bottom: 1px solid rgba(120,85,50,0.45); border-radius: 0; padding: 4px 2px 6px; outline: none; }
-  #card input:focus, #card select:focus, #card textarea:focus { border-bottom-color: var(--accent); }
+    background: transparent; border: 0; border-bottom: 1px solid rgba(120,85,50,0.42); border-radius: 0; padding: 4px 2px 6px; outline: none; }
+  #card input:focus, #card select:focus, #card textarea:focus { border-bottom-color: var(--accent); background: rgba(255,250,236,0.4); }
   #card select { -webkit-appearance: none; appearance: none; cursor: pointer; padding-right: 22px;
     background: linear-gradient(45deg, transparent 50%, #8a6440 50%) calc(100% - 9px) 52% / 5px 5px no-repeat, linear-gradient(-45deg, transparent 50%, #8a6440 50%) calc(100% - 4px) 52% / 5px 5px no-repeat; }
-  #card textarea { min-height: 168px; resize: vertical; line-height: 28px; padding: 0 2px; border: 0;
-    background: repeating-linear-gradient(180deg, transparent 0 27px, rgba(120,85,50,0.28) 27px 28px); background-attachment: local; }
-  #card .saved { font: italic 12px/1.4 var(--serif); color: #9a8266; margin-top: 12px; text-align: right; }
-  #card .x { position: absolute; right: 14px; top: 12px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(120,85,50,0.4); background: rgba(255,250,236,0.5);
-    font: 16px/1 var(--serif); color: #7a5a3c; cursor: pointer; }
-  #card .x:hover { background: rgba(255,250,236,0.95); }
+  #card textarea { resize: vertical; line-height: 28px; padding: 0 2px; border: 0;
+    background: repeating-linear-gradient(180deg, transparent 0 27px, rgba(120,85,50,0.26) 27px 28px); background-attachment: local; }
   #card .seg { display: flex; gap: 4px; }
-  #card .seg button { flex: 1; padding: 6px 0; border-radius: 999px; border: 1px solid rgba(120,85,50,0.4); background: rgba(255,250,236,0.4); color: #6a4a2c; font: 13px/1 var(--serif); cursor: pointer; }
-  #card .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff3df; }
-  #card .favor { display: flex; align-items: center; gap: 10px; }
-  #card .favor input { flex: 1; accent-color: var(--accent); border: 0; padding: 0; }
-  #card .favor span { min-width: 76px; text-align: right; font: 13px/1 var(--serif); color: #6a4a2c; }
-  #card .two { display: flex; gap: 12px; }
-  #card .two > div { flex: 1; min-width: 0; }
-  #card .extra { display: flex; gap: 6px; margin-top: 6px; }
-  #card .extra input:first-child { width: 36%; flex: none; }
-  #card .extra button { flex: none; width: 26px; border: 0; background: none; color: #9a7a58; font: 16px/1 var(--serif); cursor: pointer; }
-  #card .addx, #card .notebox button { margin-top: 8px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(120,85,50,0.45); background: rgba(255,250,236,0.6); color: #5a3a20; font: 12px/1 var(--serif); cursor: pointer; }
-  #card .notebox { margin-top: 18px; padding-top: 10px; border-top: 1px dashed rgba(120,85,50,0.4); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  #card .notebox .np { flex-basis: 100%; font: 11px/1.4 var(--serif); color: #9a8266; word-break: break-all; }
+  #card .seg button { flex: 1; padding: 7px 0; border-radius: 999px; border: 1px solid rgba(120,85,50,0.4); background: rgba(255,250,236,0.4); color: #6a4a2c; font: 13px/1 var(--serif); letter-spacing: 0.1em; cursor: pointer; }
+  #card .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff3df; box-shadow: 0 2px 6px rgba(120,40,20,0.3); }
+  /* 우호도: −5 원수 … +5 맹우 눈금 막대 (누르면 그 칸으로) */
+  #card .gauge { display: flex; gap: 2px; margin-top: 4px; }
+  #card .gauge b { flex: 1; height: 16px; border-radius: 2px; cursor: pointer; background: rgba(120,85,50,0.12); box-shadow: inset 0 0 0 1px rgba(120,85,50,0.25); transition: background-color 0.15s, transform 0.15s; }
+  #card .gauge b:hover { transform: scaleY(1.25); }
+  #card .gauge b.zero { box-shadow: inset 0 0 0 1px rgba(120,85,50,0.5); }
+  #card .gauge-cap { display: flex; justify-content: space-between; font: 11px/1.6 var(--serif); color: #9a8266; }
+  #card .gauge-now { font: 400 18px/1.2 var(--hand); text-align: center; margin-top: 4px; color: #3c2616; }
+  /* 좋아하는 것 · 싫어하는 것: 낱말 쪽지 */
+  #card .tags { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; padding: 4px 0 6px; border-bottom: 1px solid rgba(120,85,50,0.42); }
+  #card .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px 3px 10px; border-radius: 3px; font: 13px/1.3 var(--serif);
+    background: var(--tb, rgba(108,140,86,0.16)); color: var(--tc, #3f5a2c); box-shadow: inset 0 0 0 1px var(--tl, rgba(108,140,86,0.4)); }
+  #card .tags.neg .tag { --tb: rgba(168,72,47,0.12); --tc: #7a2e1c; --tl: rgba(168,72,47,0.4); }
+  #card .tag button { border: 0; background: none; color: inherit; opacity: 0.6; cursor: pointer; font: 13px/1 var(--serif); padding: 0 2px; }
+  #card .tag button:hover { opacity: 1; }
+  #card .tags input { flex: 1; min-width: 90px; width: auto; border: 0; padding: 3px 2px; font-size: 14px; background: transparent; }
+  /* 덧붙인 항목: 장부 */
+  #card .ledger { margin-top: 2px; }
+  #card .extra { display: flex; gap: 6px; align-items: baseline; border-bottom: 1px dotted rgba(120,85,50,0.4); }
+  #card .extra input { border: 0; padding: 5px 2px; }
+  #card .extra input:first-child { width: 34%; flex: none; font-weight: 600; color: #6a4428; }
+  #card .extra button { flex: none; width: 24px; border: 0; background: none; color: #9a7a58; font: 16px/1 var(--serif); cursor: pointer; }
+  #card .extra button:hover { color: var(--accent); }
+  #card .addx, #card .notebox button { margin-top: 10px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(120,85,50,0.45); background: rgba(255,250,236,0.6); color: #5a3a20; font: 12px/1 var(--serif); cursor: pointer; }
+  #card .addx:hover, #card .notebox button:hover { background: rgba(255,250,236,0.95); }
+  #card .notebox { margin-top: 16px; padding: 12px 12px 10px; border-radius: 6px; background: rgba(255,248,230,0.45); box-shadow: inset 0 0 0 1px rgba(120,85,50,0.3); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  #card .notebox .np { flex-basis: 100%; font: 12px/1.5 var(--serif); color: #8a6a48; word-break: break-all; }
+  #card .notebox button { margin-top: 0; }
   #card .notebox button.go { background: var(--accent); border-color: var(--accent); color: #fff3df; }
   #card .notebox button[hidden] { display: none; }
+  #card .hint { font: italic 12px/1.5 var(--serif); color: #9a8266; margin-top: 6px; }
+  /* 낮은 창: 머리를 줄여 아래 칸이 넉넉하게 */
+  @media (max-height: 780px) {
+    #card .head { padding-top: 20px; }
+    #card .portrait { width: 112px; height: 112px; border-radius: 56px 56px 6px 6px; margin-top: 8px; }
+    #card .portrait img { max-height: 98px; bottom: 6px; }
+    #card .nm { font-size: 23px; margin-top: 8px; }
+    #card .orn { margin-top: 6px; }
+    #card .chips { margin-top: 7px; }
+    #card .tabs { margin-top: 10px; }
+  }
 </style>
 </head>
 <body>
@@ -1832,7 +1890,7 @@ scene.addEventListener('dblclick', (e) => {
 // ---------- 카드: 사람 · 장소 · 기관의 모습 (하는 일 · 상황 · 현재 · 좋아하는 것 · 싫어하는 것 · 우호도 · 이야기 · 덧붙인 항목) ----------
 const STATES = ['평온', '활기', '분주', '근심', '위기', '비어 있음'];
 const CATS = ['인물', '장소', '기관'];
-const FAVOR = ['원수', '적대', '적대', '경계', '냉담', '중립', '호감', '호의', '우호', '신뢰', '맹우'];
+const FAVOR = ['원수', '증오', '적대', '경계', '냉담', '중립', '호감', '호의', '우호', '신뢰', '맹우'];
 const catOf = (it) => it.cat || (it.kind === 'person' ? '인물' : '장소');
 const favorText = (v) => `${v > 0 ? '+' : ''}${v} ${FAVOR[v + 5]}`;
 /** 그림 하나의 노트 속성 (카드와 같은 내용) */
@@ -1843,61 +1901,140 @@ function itemFm(it, o) {
   return fm;
 }
 let cardTimer = null;
+let cardTab = 'basic'; // 마지막으로 본 갈피 (다른 그림을 눌러도 같은 갈피로)
+const STATE_COLOR = { 평온: '#7d9a6a', 활기: '#d0a03a', 분주: '#d07a3a', 근심: '#6f7f9a', 위기: '#b0402a', '비어 있음': '#9a9188' };
+/** 우호도 눈금 색: 원수(짙은 붉음) … 중립(종이) … 맹우(짙은 금록) */
+const favorColor = (v) => (v < 0 ? `rgba(${150 + v * 4}, ${60 + v * 4}, ${40 + v * 2}, ${0.35 + 0.13 * -v})` : v > 0 ? `rgba(${150 - v * 14}, ${120 + v * 4}, ${50}, ${0.35 + 0.13 * v})` : 'rgba(140,110,70,0.45)');
+/** 낱말 쪽지 (쉼표 · 가운뎃점으로 나눠 저장했던 글을 그대로 씀) */
+const splitTags = (s) => String(s || '').split(/[,·、\n]/).map((x) => x.trim()).filter(Boolean);
 function showCard(it, im) {
   document.querySelectorAll('.piece.is-sel').forEach((x) => x.classList.remove('is-sel'));
   im.classList.add('is-sel');
   card.innerHTML = '';
   const o = openState;
+  const saved = () => {
+    saveSoon();
+    drawChips();
+    if (it.note) { clearTimeout(cardTimer); cardTimer = setTimeout(() => patchNote(it.note, itemFm(it, o)), 900); }
+  };
   const x = el('x', card, 'button');
   x.textContent = '×';
-  x.title = '닫기';
+  x.title = '닫기 (Esc)';
   x.onclick = hideCard;
-  const kindEl = el('kind', card);
-  const nmEl = el('nm', card);
-  nmEl.textContent = it.name || '';
-  el('', el('orn', card), 'i');
-  const pic = el('pic', card);
-  const img = el('', pic, 'img');
+  // ── 머리: 무엇 · 초상 액자 · 이름(바로 고침) · 자리 · 한눈에 보는 쪽지
+  const head = el('head', card);
+  const kindEl = el('kind', head);
+  const portrait = el('portrait', head);
+  const img = el('', portrait, 'img');
   img.src = ASSET(it.asset);
-  const saved = () => { saveSoon(); if (it.note) { clearTimeout(cardTimer); cardTimer = setTimeout(() => patchNote(it.note, itemFm(it, o)), 900); } };
-  const label = (t, parent = card) => { el('', parent, 'label').textContent = t; };
-  const input = (t, key, ph, parent = card, tag = 'input') => {
+  img.draggable = false;
+  const nm = el('nm', head, 'input');
+  nm.value = it.name || '';
+  nm.placeholder = '이름';
+  nm.title = '눌러서 이름 고치기';
+  nm.oninput = () => { it.name = nm.value; saved(); };
+  el('where', head).textContent = o ? o.name : '';
+  el('', el('orn', head), 'i');
+  const chips = el('chips', head);
+  function drawChips() {
+    chips.innerHTML = '';
+    const st = STATES.includes(it.state) ? it.state : '평온';
+    const c1 = el('chip', chips);
+    el('', c1, 'i').style.setProperty('--c', STATE_COLOR[st]);
+    el('', c1, 'span').textContent = st;
+    const fv = Number(it.favor || 0);
+    const c2 = el('chip', chips);
+    el('', c2, 'i').style.setProperty('--c', favorColor(fv));
+    el('', c2, 'span').textContent = favorText(fv);
+    c2.title = '일행에게 우호도';
+    const c3 = el('chip', chips);
+    el('', c3, 'i').style.setProperty('--c', it.note ? '#7d9a6a' : 'rgba(140,110,70,0.35)');
+    el('', c3, 'span').textContent = it.note ? '노트 있음' : '노트 없음';
+  }
+  // ── 갈피: 개요 · 성향 · 이야기
+  const tabs = el('tabs', card);
+  const body = el('body', card);
+  const panes = {};
+  for (const [k, t] of [['basic', '개 요'], ['mind', '성 향'], ['story', '이 야 기']]) {
+    const b = el(k === cardTab ? 'on' : '', tabs, 'button');
+    b.textContent = t;
+    b.onclick = () => { cardTab = k; tabs.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); Object.entries(panes).forEach(([pk, p]) => p.classList.toggle('on', pk === k)); body.scrollTop = 0; };
+    panes[k] = el('pane' + (k === cardTab ? ' on' : ''), body);
+  }
+  const label = (t, parent) => { el('', parent, 'label').textContent = t; };
+  const input = (parent, t, key, ph, tag = 'input') => {
     label(t, parent);
     const e = el('', parent, tag);
     e.value = it[key] || '';
     if (ph) e.placeholder = ph;
-    e.oninput = () => { it[key] = e.value; if (key === 'name') nmEl.textContent = e.value; saved(); };
+    e.oninput = () => { it[key] = e.value; saved(); };
     return e;
   };
-  // 무엇인가: 인물 · 장소 · 기관
-  label('무엇');
-  const seg = el('seg', card);
+  // 개요: 무엇 · 상태 · 하는 일 · 상황 · 현재
+  const P1 = panes.basic;
+  label('무엇', P1);
+  const seg = el('seg', P1);
   const setCat = (c) => { it.cat = c; kindEl.textContent = [...c].join(' '); seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.textContent === c)); };
   for (const c of CATS) { const b = el('', seg, 'button'); b.textContent = c; b.onclick = () => { setCat(c); saved(); }; }
   setCat(catOf(it));
-  input('이름', 'name');
-  label('상태');
-  const st = el('', card, 'select');
+  label('상태', P1);
+  const st = el('', P1, 'select');
   for (const s of STATES) el('', st, 'option').textContent = s;
   st.value = STATES.includes(it.state) ? it.state : '평온';
   st.onchange = () => { it.state = st.value; saved(); };
-  input('하는 일', 'doing', '무엇을 하는 곳 · 사람인가');
-  input('상황', 'situation', '지금 처한 형편');
-  input('현재', 'now', '지금 이 순간 벌어지는 일');
-  const two = el('two', card);
-  input('좋아하는 것', 'likes', '', el('', two));
-  input('싫어하는 것', 'dislikes', '', el('', two));
-  label('우호도 (일행에게)');
-  const fv = el('favor', card);
-  const range = el('', fv, 'input');
-  Object.assign(range, { type: 'range', min: -5, max: 5, step: 1, value: Number(it.favor || 0) });
-  const ft = el('', fv, 'span');
-  ft.textContent = favorText(Number(range.value));
-  range.oninput = () => { it.favor = Number(range.value); ft.textContent = favorText(it.favor); saved(); };
-  input('이야기', 'story', '얽힌 이야기 · 내력 (길게는 아래 노트에)', card, 'textarea').style.minHeight = '110px';
+  input(P1, '하는 일', 'doing', '무엇을 하는 곳 · 사람인가', 'textarea').rows = 2;
+  input(P1, '상황', 'situation', '지금 처한 형편', 'textarea').rows = 2;
+  input(P1, '현재', 'now', '지금 이 순간 벌어지는 일', 'textarea').rows = 2;
+  // 성향: 우호도 눈금 · 좋아하는 것 · 싫어하는 것 · 덧붙인 항목
+  const P2 = panes.mind;
+  label('우호도 (일행에게)', P2);
+  const gauge = el('gauge', P2);
+  const cap = el('gauge-cap', P2);
+  el('', cap, 'span').textContent = '−5 원수';
+  el('', cap, 'span').textContent = '0 중립';
+  el('', cap, 'span').textContent = '+5 맹우';
+  const now = el('gauge-now', P2);
+  const drawGauge = () => {
+    const v = Number(it.favor || 0);
+    gauge.querySelectorAll('b').forEach((b) => {
+      const i = Number(b.dataset.v);
+      const lit = v === 0 ? i === 0 : (v > 0 ? i > 0 && i <= v : i < 0 && i >= v);
+      b.style.backgroundColor = lit ? favorColor(i === 0 ? 0 : v) : '';
+    });
+    now.textContent = favorText(v);
+  };
+  for (let i = -5; i <= 5; i++) {
+    const b = el(i === 0 ? 'zero' : '', gauge, 'b');
+    b.dataset.v = i;
+    b.title = favorText(i);
+    b.onclick = () => { it.favor = i; drawGauge(); saved(); };
+  }
+  drawGauge();
+  const tagBox = (t, key, neg) => {
+    label(t, P2);
+    const box = el('tags' + (neg ? ' neg' : ''), P2);
+    const draw = () => {
+      box.innerHTML = '';
+      splitTags(it[key]).forEach((w, i, all) => {
+        const tg = el('tag', box, 'span');
+        el('', tg, 'span').textContent = w;
+        const del = el('', tg, 'button');
+        del.textContent = '×';
+        del.onclick = () => { it[key] = all.filter((_, j) => j !== i).join(', '); draw(); saved(); };
+      });
+      const inp = el('', box, 'input');
+      inp.placeholder = splitTags(it[key]).length ? '더 적기' : '적고 Enter (예: 단골손님, 비 오는 날)';
+      const add = () => { const v = inp.value.trim(); if (!v) return; it[key] = [...splitTags(it[key]), ...splitTags(v)].join(', '); draw(); saved(); box.querySelector('input').focus(); };
+      inp.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); } if (e.key === 'Backspace' && !inp.value && splitTags(it[key]).length) { it[key] = splitTags(it[key]).slice(0, -1).join(', '); draw(); saved(); box.querySelector('input').focus(); } };
+      inp.onblur = add;
+    };
+    draw();
+  };
+  tagBox('좋아하는 것', 'likes', false);
+  tagBox('싫어하는 것', 'dislikes', true);
   // 덧붙인 항목: 작가가 필요한 칸을 더 만들어 씀 (예: 소속 · 비밀 · 거래 품목)
-  label('덧붙인 항목');
-  const xs = el('', card);
+  label('덧붙인 항목', P2);
+  const xs = el('ledger', P2);
   const drawExtra = () => {
     xs.innerHTML = '';
     (it.extra || []).forEach((row, i) => {
@@ -1906,27 +2043,32 @@ function showCard(it, im) {
       k.value = row.k || ''; k.placeholder = '항목';
       v.value = row.v || ''; v.placeholder = '내용';
       del.textContent = '×';
+      del.title = '이 항목 지우기';
       k.oninput = () => { row.k = k.value; saved(); };
       v.oninput = () => { row.v = v.value; saved(); };
       del.onclick = () => { it.extra.splice(i, 1); drawExtra(); saved(); };
     });
+    if (!(it.extra || []).length) el('hint', xs).textContent = '소속 · 비밀 · 거래 품목처럼 필요한 칸을 더 만들어 써요.';
   };
   drawExtra();
-  const addx = el('addx', card, 'button');
+  const addx = el('addx', P2, 'button');
   addx.textContent = '＋ 항목';
-  addx.onclick = () => { (it.extra ||= []).push({ k: '', v: '' }); drawExtra(); xs.lastChild?.querySelector('input')?.focus(); };
-  // 노트: 길게 적을 곳 (옵시디언 노트 한 장, 속성은 위 카드와 같이 맞춰 둠)
-  const nb = el('notebox', card);
+  addx.onclick = () => { (it.extra ||= []).push({ k: '', v: '' }); drawExtra(); xs.querySelector('.extra:last-child input')?.focus(); };
+  // 이야기: 줄 공책 + 노트 (길게 적을 곳 — 옵시디언 노트 한 장, 속성은 이 카드와 같이 맞춰 둠)
+  const P3 = panes.story;
+  input(P3, '이야기', 'story', '얽힌 이야기 · 내력', 'textarea').style.minHeight = '196px';
+  const nb = el('notebox', P3);
   const np = el('np', nb);
   const mk = el('go', nb, 'button'), big = el('', nb, 'button'), obs = el('', nb, 'button');
   mk.textContent = '노트 만들기';
   big.textContent = '크게 쓰기';
   obs.textContent = '옵시디언에서 열기';
   const drawNote = () => {
-    np.textContent = it.note ? '노트: ' + it.note : '길게 적을 곳이 필요하면 노트를 만들어요 (속성은 이 카드와 같이 맞춰져요).';
+    np.textContent = it.note ? '노트 · ' + it.note : '더 길게 적을 곳이 필요하면 노트를 만들어요. 노트 속성은 이 카드와 같이 맞춰져요.';
     mk.hidden = !!it.note;
     big.hidden = !it.note;
     obs.hidden = !it.note || !OBS;
+    drawChips();
   };
   mk.onclick = async () => {
     const dir = catOf(it) === '인물' ? 'The Main - 인물/펼쳐지는 마을/' : `${TOWN_NOTES}${safeName(o.root.name)}/`;
@@ -1937,7 +2079,9 @@ function showCard(it, im) {
   big.onclick = () => openRecord(it.note, { lockTitle: true });
   obs.onclick = () => openInObsidian(it.note);
   drawNote();
-  el('saved', card).textContent = '적으면 저절로 저장돼요';
+  const foot = el('foot', card);
+  el('saved', foot, 'span').textContent = '적으면 저절로 저장돼요';
+  el('', foot, 'span').textContent = it.asset.split('/').pop().replace(/^\d+\s*|\.png$/g, '');
   card.classList.add('is-open');
   shiftBook(true);
 }
