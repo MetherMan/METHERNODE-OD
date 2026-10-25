@@ -427,6 +427,165 @@
     #card .chips { margin-top: 7px; }
     #card .tabs { margin-top: 10px; }
   }
+  /* ---------- 위 왼쪽 도구 (명부 · 찾기 · 관계도): 지도에서도, 펼친 책에서도 ---------- */
+  #tools { left: 22px; top: 64px; display: flex; gap: 6px; z-index: 5; }
+  #app.is-open #tools { left: 132px; top: 20px; }
+  #tools button { padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(226,194,126,0.42); background: rgba(28,18,10,0.6); color: #ecd9b0; font: 13.5px/1 var(--serif); letter-spacing: 0.1em; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
+  #tools button:hover { background: rgba(60,38,20,0.85); border-color: rgba(226,194,126,0.8); }
+  /* ---------- 판(명부 · 찾기 · 관계도 · 펼쳐 보기): 어두운 바탕 위의 종이 ---------- */
+  .panel { position: absolute; inset: 0; z-index: 8; background: rgba(12,7,4,0.55); opacity: 0; visibility: hidden; transition: opacity 0.25s, visibility 0s 0.25s; }
+  .panel.on { opacity: 1; visibility: visible; transition: opacity 0.25s; }
+  .paper { box-sizing: border-box; border-radius: 6px; color: var(--ink); background: url('assets/paper_card.jpg') center / cover, #f2e7cf;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(110,72,38,0.55), inset 0 0 0 6px rgba(255,248,230,0.35), inset 0 0 0 7px rgba(168,129,63,0.75), inset 0 0 0 9px rgba(255,248,230,0.25), inset 0 0 0 10px rgba(168,129,63,0.35), inset 0 0 46px rgba(120,80,45,0.22); }
+  .pp { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -48%); transition: transform 0.25s; display: flex; flex-direction: column; padding: 24px 30px 18px; }
+  .panel.on .pp { transform: translate(-50%, -50%); }
+  #ledger .pp, #graph .pp { width: min(1080px, 94vw); height: min(680px, 90vh); }
+  #finder .pp { top: 70px; transform: translate(-50%, -8px); width: min(680px, 92vw); max-height: min(620px, 84vh); padding: 20px 24px 14px; }
+  #finder.on .pp { transform: translate(-50%, 0); }
+  .pp h2 { margin: 0; font: 400 26px/1.2 var(--hand); color: #3c2616; letter-spacing: 0.12em; }
+  .pp .sub { font: 12px/1.5 var(--serif); color: #8a6a48; letter-spacing: 0.04em; }
+  .pp .ptop { display: flex; align-items: flex-end; gap: 16px; }
+  .pp .px, .sp .px { margin-left: auto; align-self: flex-start; width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(120,85,50,0.4); background: rgba(255,250,236,0.6); color: #7a5a3c; font: 17px/1 var(--serif); cursor: pointer; flex: none; }
+  .pp .px:hover, .sp .px:hover { background: rgba(255,250,236,0.95); color: var(--accent); }
+  .psearch { box-sizing: border-box; width: 300px; padding: 8px 12px 8px 34px; border: 0; border-radius: 6px; outline: none; font: 15px/1.2 var(--serif); color: #3c2616;
+    background: rgba(255,252,242,0.88) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='6.5' cy='6.5' r='5' fill='none' stroke='%238a6440' stroke-width='1.6'/%3E%3Cpath d='M10.5 10.5l4 4' stroke='%238a6440' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") 11px 50% no-repeat; box-shadow: inset 0 0 0 1px rgba(120,85,50,0.45); }
+  .psearch:focus { box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .psearch.big { width: 100%; font-size: 18px; padding: 11px 14px 11px 38px; background-position: 13px 50%; }
+  .panel .chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font: 12px/1.2 var(--serif); background: rgba(255,250,236,0.6); border: 0; box-shadow: inset 0 0 0 1px rgba(120,85,50,0.35); color: #4a3020; white-space: nowrap; cursor: pointer; }
+  .panel .chip.on { background: var(--accent); color: #fff3df; box-shadow: none; }
+  .chip.auto { background: rgba(120,100,70,0.12); color: #6a5238; box-shadow: inset 0 0 0 1px rgba(120,85,50,0.25); cursor: default; }
+  .chip.auto::before { content: '⚙'; font-size: 9px; opacity: 0.55; }
+  .panel .th, #card .th { width: 32px; height: 32px; border-radius: 50%; flex: none; overflow: hidden; display: flex; align-items: flex-end; justify-content: center;
+    background: radial-gradient(circle at 50% 40%, #fff3d6, #d9bf8e 70%, #8a6440); box-shadow: 0 0 0 1.5px #a8813f; }
+  .panel .th img, #card .th img { max-width: 84%; max-height: 92%; }
+  .panel .th.place { align-items: center; color: #8a6440; font-size: 14px; }
+  .panel .hint { font: italic 13px/1.6 var(--serif); color: #9a8266; padding: 10px 2px; }
+  .panel .empty { font: italic 13px/1.6 var(--serif); color: #9a8266; padding: 14px 4px; text-align: center; }
+  /* 명부 */
+  .pfilt { display: flex; flex-direction: column; gap: 5px; margin: 12px 0 6px; }
+  .pfilt .frow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .pfilt .fl { width: 38px; font: 11px/1 var(--serif); letter-spacing: 0.2em; color: #8a6440; }
+  .ptable { flex: 1; overflow: auto; margin: 0 -6px; padding: 0 6px; scrollbar-width: thin; scrollbar-color: rgba(140,100,60,0.5) transparent; }
+  .ptable table { width: 100%; border-collapse: collapse; font: 14px/1.3 var(--serif); }
+  .ptable thead th { position: sticky; top: 0; z-index: 1; background: rgba(240,228,203,0.97); text-align: left; font: 11px/1 var(--serif); letter-spacing: 0.22em; color: #8a6440; padding: 9px 8px; border-bottom: 1.5px solid rgba(140,100,60,0.5); white-space: nowrap; cursor: pointer; user-select: none; }
+  .ptable thead th.on { color: var(--accent); }
+  .ptable td { padding: 5px 8px; border-bottom: 1px dashed rgba(120,85,50,0.28); white-space: nowrap; }
+  .ptable tbody tr { cursor: pointer; }
+  .ptable tbody tr:hover td { background: rgba(255,236,190,0.5); }
+  .ptable tbody tr:hover .go { opacity: 1; }
+  .ptable .go { opacity: 0; font: 12px/1 var(--serif); color: var(--accent); }
+  .ptable .c-doing { max-width: 220px; overflow: hidden; text-overflow: ellipsis; color: #6a5238; }
+  .ptable .c-where { color: #6a5238; }
+  .ptable td input { width: 100%; box-sizing: border-box; font: 14px/1.3 var(--serif); padding: 3px 5px; border: 1px solid var(--accent); border-radius: 3px; background: #fffaf0; color: var(--ink); }
+  .ptable select { border: 0; background: transparent; font: 13.5px/1 var(--serif); color: var(--ink); cursor: pointer; padding: 2px 0 2px 14px; -webkit-appearance: none; appearance: none;
+    background: radial-gradient(circle, var(--c) 0 4px, transparent 4.5px) 0 50% / 10px 10px no-repeat; }
+  .kindb { font: 11px/1 var(--serif); padding: 4px 9px; border-radius: 999px; color: #fff4e0; cursor: pointer; background: #7a6a3a; }
+  .kindb[data-c='인물'] { background: #a8482f; }
+  .kindb[data-c='기관'] { background: #4b5f7a; }
+  .mini { display: inline-flex; gap: 1px; vertical-align: middle; }
+  .mini i { width: 7px; height: 12px; border-radius: 1px; background: rgba(120,85,50,0.14); cursor: pointer; }
+  .mini i.z { box-shadow: inset 0 0 0 1px rgba(120,85,50,0.5); }
+  .mini i:hover { transform: scaleY(1.3); }
+  .fv { font-size: 12px; color: #6a5238; margin-left: 5px; }
+  /* 찾기 */
+  .fres { overflow: auto; margin: 10px -6px 8px; padding: 0 6px; max-height: calc(min(620px, 84vh) - 120px); scrollbar-width: thin; }
+  .fg { font: 11px/1 var(--serif); letter-spacing: 0.24em; color: #8a6440; margin: 12px 0 4px; display: flex; gap: 6px; }
+  .fg::before { content: '❖'; color: #a8813f; font-size: 9px; letter-spacing: 0; }
+  .fr { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 5px; cursor: pointer; }
+  .fr.on { background: rgba(255,226,170,0.6); box-shadow: inset 0 0 0 1px rgba(168,129,63,0.5); }
+  .fr .fm { flex: 1; min-width: 0; }
+  .fr .ft { font: 600 14.5px/1.3 var(--serif); color: #3c2616; }
+  .fr .fs { font: 12.5px/1.45 var(--serif); color: #6a5238; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fr .fw { flex: none; font: 12px/1.2 var(--serif); color: #8a6a48; }
+  .fr mark { background: rgba(226,170,80,0.5); color: inherit; border-radius: 2px; padding: 0 1px; }
+  .rk { flex: none; font: 11px/1 var(--serif); padding: 4px 8px; border-radius: 999px; color: #fff4e0; background: #8a5a33; }
+  .rk[data-k='세션'] { background: #a8482f; } .rk[data-k='사건'] { background: #4b5f7a; } .rk[data-k='메모'] { background: #6b7a4b; }
+  /* 관계도 */
+  .gsvg { margin-top: 8px; overflow: visible; }
+  .gsvg .gt { font: 16px var(--hand); fill: #8a6440; letter-spacing: 3px; }
+  .gsvg .gl { stroke: #7a6a3a; stroke-width: 2; opacity: 0.8; }
+  .gsvg .gl.neg { stroke: #a8482f; stroke-dasharray: 7 4; }
+  .gsvg .gl.men { stroke: #8a7a5a; stroke-width: 1.4; stroke-dasharray: 2 5; opacity: 0.7; }
+  .gsvg .glab { cursor: pointer; }
+  .gsvg .glab rect { fill: #fbf3df; stroke: #a8813f; }
+  .gsvg .glab.neg rect { stroke: #a8482f; }
+  .gsvg .glab text { font: 12px var(--serif); fill: #4a3020; }
+  .gsvg .glab.neg text { fill: #7a2e1c; }
+  .gsvg .glab:hover rect { fill: #fff; }
+  .gsvg .gn { cursor: pointer; }
+  .gsvg .gn .ring { fill: none; stroke: #a8813f; stroke-width: 2.5; }
+  .gsvg .gn:hover .ring { stroke: #a8482f; stroke-width: 3.5; }
+  .gsvg .gn text { font: 600 12.5px var(--serif); fill: #3c2616; paint-order: stroke; stroke: rgba(246,236,212,0.9); stroke-width: 3px; }
+  /* ---------- 펼쳐 보기: 가죽 위에 펼친 두 쪽 (가운데서 양옆으로 넘어오며 펼쳐짐) ---------- */
+  .sp { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(1100px, 94vw); height: min(720px, 90vh); display: flex; padding: 14px; box-sizing: border-box; border-radius: 10px;
+    background: linear-gradient(90deg, #4a2a16, #6a3c20 48%, #2a160b 50%, #6a3c20 52%, #4a2a16); box-shadow: 0 34px 90px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(226,194,126,0.35), inset 0 0 0 5px rgba(40,20,8,0.5); perspective: 2200px; }
+  .sp .px { position: absolute; right: -14px; top: -14px; z-index: 3; background: #f2e7cf; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  .sp .page { flex: 1; overflow: auto; padding: 34px 40px 26px; background: url('assets/paper_card.jpg') center / cover, #f2e7cf; color: var(--ink); scrollbar-width: thin; scrollbar-color: rgba(140,100,60,0.5) transparent;
+    transition: transform 0.6s cubic-bezier(.3,.8,.25,1), opacity 0.4s; }
+  .sp .sp-l { border-radius: 6px 0 0 6px; transform-origin: 100% 50%; box-shadow: inset -26px 0 30px -18px rgba(60,35,15,0.45), inset 0 0 0 1px rgba(120,85,50,0.35); text-align: center; }
+  .sp .sp-r { border-radius: 0 6px 6px 0; transform-origin: 0 50%; box-shadow: inset 26px 0 30px -18px rgba(60,35,15,0.45), inset 0 0 0 1px rgba(120,85,50,0.35); }
+  #spread:not(.on) .sp-l { transform: rotateY(80deg); opacity: 0; }
+  #spread:not(.on) .sp-r { transform: rotateY(-80deg); opacity: 0; }
+  .sp .kind { font: 12px/1 var(--serif); letter-spacing: 0.6em; text-indent: 0.6em; color: var(--accent); }
+  .sp .kind::before, .sp .kind::after { content: ' ✦ '; font-size: 9px; color: #a8813f; letter-spacing: 0; }
+  .sp .portrait { position: relative; width: 210px; height: 230px; margin: 16px auto 0; border-radius: 105px 105px 10px 10px; overflow: hidden;
+    background: radial-gradient(ellipse 70% 60% at 50% 38%, rgba(255,236,190,0.95), rgba(214,180,120,0.55) 55%, rgba(92,58,30,0.75) 100%);
+    box-shadow: 0 0 0 2.5px #f6ecd4, 0 0 0 4.5px #a8813f, 0 0 0 9px rgba(255,248,230,0.4), 0 0 0 10px rgba(168,129,63,0.45), inset 0 -22px 32px rgba(60,35,15,0.35), 0 10px 22px rgba(60,35,15,0.28); }
+  .sp .portrait img { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: 84%; max-height: 205px; filter: drop-shadow(1px 1.5px 0 rgba(150,115,80,0.9)) drop-shadow(0 6px 8px rgba(60,40,20,0.35)); }
+  .sp .nm { display: block; width: 100%; margin-top: 16px; border: 0; background: transparent; text-align: center; font: 400 34px/1.2 var(--hand); color: #3c2616; letter-spacing: 0.1em; outline: none; }
+  .sp .where { font: 13px/1.5 var(--serif); color: #8a6a48; }
+  .sp .orn { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; }
+  .sp .orn i { width: 7px; height: 7px; transform: rotate(45deg); background: #a8813f; box-shadow: 0 0 0 2px #f2e7cf, 0 0 0 3px rgba(168,129,63,0.6); }
+  .sp .orn::before, .sp .orn::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(140,100,60,0.65), transparent); }
+  .sp .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-top: 12px; }
+  .sp label { display: flex; align-items: center; gap: 6px; font: 11.5px/1 var(--serif); letter-spacing: 0.32em; color: #8a6440; margin: 18px 0 7px; text-align: left; }
+  .sp label::before { content: '❖'; font-size: 9px; color: #a8813f; letter-spacing: 0; }
+  .sp textarea { width: 100%; box-sizing: border-box; border: 0; outline: none; resize: vertical; font: 15px/28px var(--serif); color: var(--ink); padding: 0 2px; text-align: left;
+    background: repeating-linear-gradient(180deg, transparent 0 27px, rgba(120,85,50,0.25) 27px 28px); background-attachment: local; }
+  .sp textarea.story { min-height: 168px; }
+  .sp .gauge { display: flex; gap: 2px; }
+  .sp .gauge b { flex: 1; height: 14px; border-radius: 2px; cursor: pointer; background: rgba(120,85,50,0.12); box-shadow: inset 0 0 0 1px rgba(120,85,50,0.25); }
+  .sp .gauge b.zero { box-shadow: inset 0 0 0 1px rgba(120,85,50,0.5); }
+  .sp .gnow { font: 13px/1.6 var(--serif); color: #6a5238; margin-top: 4px; }
+  .sp .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .sp .tag { padding: 3px 10px; border-radius: 3px; font: 13px/1.3 var(--serif); background: rgba(108,140,86,0.16); color: #3f5a2c; box-shadow: inset 0 0 0 1px rgba(108,140,86,0.4); }
+  .sp .tag.neg { background: rgba(168,72,47,0.12); color: #7a2e1c; box-shadow: inset 0 0 0 1px rgba(168,72,47,0.4); }
+  .sp .rel, #card .rel { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-bottom: 1px dotted rgba(120,85,50,0.4); font: 14px/1.3 var(--serif); cursor: pointer; border-radius: 4px; }
+  .sp .rel:hover, #card .rel:hover { background: rgba(255,236,190,0.45); }
+  .sp .rel .n, #card .rel .n { flex: 1; min-width: 0; }
+  .sp .rel .sub, #card .rel .sub { font: 11.5px/1.3 var(--serif); color: #8a6a48; }
+  .sp .rel .t, #card .rel .t { font: 12px/1 var(--serif); padding: 4px 10px; border-radius: 999px; background: rgba(108,140,86,0.16); color: #3f5a2c; box-shadow: inset 0 0 0 1px rgba(108,140,86,0.4); white-space: nowrap; }
+  .sp .rel .t.neg, #card .rel .t.neg { background: rgba(168,72,47,0.12); color: #7a2e1c; box-shadow: inset 0 0 0 1px rgba(168,72,47,0.4); }
+  .sp .mens, #card .mens { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sp .men, #card .men { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px; border: 0; background: rgba(255,250,236,0.6); box-shadow: inset 0 0 0 1px rgba(120,85,50,0.35); font: 12.5px/1 var(--serif); color: #4a3020; cursor: pointer; }
+  .sp .men .th, #card .men .th { width: 24px; height: 24px; }
+  .sp .men.by, #card .men.by { box-shadow: inset 0 0 0 1px rgba(120,85,50,0.35), inset 3px 0 0 #a8813f; }
+  .sp .rec { display: flex; gap: 8px; align-items: baseline; padding: 5px 4px; border-bottom: 1px dashed rgba(120,85,50,0.3); font: 14px/1.4 var(--serif); cursor: pointer; text-align: left; }
+  .sp .rec .k { flex: none; font-size: 10px; letter-spacing: 0.2em; color: #fff4e0; background: #8a5a33; padding: 2px 6px; border-radius: 999px; }
+  .sp .rec .k[data-k='세션'] { background: #a8482f; } .sp .rec .k[data-k='사건'] { background: #4b5f7a; } .sp .rec .k[data-k='메모'] { background: #6b7a4b; }
+  .sp .rec .t { flex: 1; } .sp .rec .d { font-size: 11px; color: #9a8266; }
+  .sp .sp-foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+  .sp .sp-foot button { padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(120,85,50,0.45); background: rgba(255,250,236,0.6); color: #5a3a20; font: 13px/1 var(--serif); cursor: pointer; }
+  .sp .sp-foot button:hover { background: rgba(255,250,236,0.95); }
+  .sp .hint { font: italic 13px/1.6 var(--serif); color: #9a8266; }
+  /* 카드: 관계 갈피 */
+  #card .relpick { display: flex; gap: 6px; align-items: center; margin-top: 4px; position: relative; }
+  #card .relpick input { flex: 1; }
+  #card .reldrop { position: absolute; left: 0; right: 0; top: 100%; z-index: 4; margin-top: 2px; border-radius: 6px; background: rgba(255,252,242,0.98); box-shadow: 0 8px 22px rgba(60,35,15,0.3), inset 0 0 0 1px rgba(120,85,50,0.4); overflow: hidden; max-height: 220px; overflow-y: auto; }
+  #card .reldrop div { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font: 13.5px/1.2 var(--serif); cursor: pointer; }
+  #card .reldrop div:hover, #card .reldrop div.on { background: rgba(255,226,170,0.6); }
+  #card .reldrop .sub { margin-left: auto; font-size: 11.5px; color: #8a6a48; }
+  #card .reltypes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  #card .reltypes button { padding: 4px 10px; border-radius: 999px; border: 0; background: rgba(255,250,236,0.6); box-shadow: inset 0 0 0 1px rgba(120,85,50,0.35); font: 12px/1.2 var(--serif); color: #4a3020; cursor: pointer; }
+  #card .reltypes button.on { background: var(--accent); color: #fff3df; box-shadow: none; }
+  #card .reltypes input { width: 90px; flex: none; padding: 3px 4px; font-size: 12.5px; }
+  #card .relgo { margin-top: 10px; padding: 7px 14px; border-radius: 999px; border: 0; background: var(--accent); color: #fff3df; font: 13px/1 var(--serif); cursor: pointer; }
+  #card .relgo:disabled { opacity: 0.4; cursor: default; }
+  #card .rel .del { flex: none; width: 22px; height: 22px; border: 0; border-radius: 50%; background: none; color: #9a7a58; cursor: pointer; font: 14px/1 var(--serif); }
+  #card .rel .del:hover { background: rgba(168,72,47,0.15); color: var(--accent); }
+  #card .autotags { display: flex; flex-wrap: wrap; gap: 4px; }
+  #card .spreadbtn { position: absolute; left: 18px; top: 52px; z-index: 3; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(120,85,50,0.4); background: rgba(255,250,236,0.6); color: #6a4a2c; font: 12px/1 var(--serif); cursor: pointer; }
+  #card .spreadbtn:hover { background: rgba(255,250,236,0.95); color: var(--accent); }
 </style>
 </head>
 <body>
@@ -449,6 +608,11 @@
     <div id="recpanel" class="ui"><div class="rp-head"><span class="rp-kind"></span><input class="rp-title" placeholder="제목"><span class="rp-date"></span></div><textarea class="rp-body" placeholder="여기에 길게 적어요…"></textarea><div class="rp-foot"><span class="rp-path"></span><span class="rp-saved"></span><button class="rp-open">옵시디언에서 열기</button><button class="rp-close go">닫기</button></div></div>
   </div>
   <div id="card"></div>
+  <div id="tools" class="ui"><button data-p="ledger" title="마을 명부">명부</button><button data-p="finder" title="찾기 (Ctrl+K)">찾기</button><button data-p="graph" title="관계도">관계도</button></div>
+  <div id="ledger" class="panel"><div class="pp paper"></div></div>
+  <div id="finder" class="panel"><div class="pp paper"></div></div>
+  <div id="graph" class="panel"><div class="pp paper"></div></div>
+  <div id="spread" class="panel"><div class="sp"><button class="px" title="닫기 (Esc)">×</button><div class="sp-l page"></div><div class="sp-r page"></div></div></div>
 </div>
 <script>
 const VERSION = 3;
@@ -1898,6 +2062,8 @@ function itemFm(it, o) {
   const fm = { 분류: '그림책', 종류: catOf(it), 이름: it.name || '', 상태: it.state || '', '하는 일': it.doing || '', 상황: it.situation || '', 현재: it.now || '',
     '좋아하는 것': it.likes || '', '싫어하는 것': it.dislikes || '', 우호도: Number(it.favor || 0), 마을: '펼쳐지는 마을 (시험)', 장소: o ? o.name : '' };
   for (const x of it.extra || []) if (x.k && x.k.trim()) fm[x.k.trim()] = x.v || '';
+  const rels = (it.rels || []).map((r) => { const e = itemById(r.to); return e ? `[[${itemName(e.it)}]] ${r.t}` : ''; }).filter(Boolean);
+  if (rels.length) fm['관계'] = rels.join(', ');
   return fm;
 }
 let cardTimer = null;
@@ -1915,12 +2081,17 @@ function showCard(it, im) {
   const saved = () => {
     saveSoon();
     drawChips();
+    drawAuto();
     if (it.note) { clearTimeout(cardTimer); cardTimer = setTimeout(() => patchNote(it.note, itemFm(it, o)), 900); }
   };
   const x = el('x', card, 'button');
   x.textContent = '×';
   x.title = '닫기 (Esc)';
   x.onclick = hideCard;
+  const spb = el('spreadbtn', card, 'button');
+  spb.textContent = '⤢ 펼쳐 보기';
+  spb.title = '이 인물 · 장소 · 기관을 책 두 쪽 가득 펼쳐 봐요';
+  spb.onclick = () => { const e = entryOf(it); if (e) openSpread(e); };
   // ── 머리: 무엇 · 초상 액자 · 이름(바로 고침) · 자리 · 한눈에 보는 쪽지
   const head = el('head', card);
   const kindEl = el('kind', head);
@@ -1955,7 +2126,7 @@ function showCard(it, im) {
   const tabs = el('tabs', card);
   const body = el('body', card);
   const panes = {};
-  for (const [k, t] of [['basic', '개 요'], ['mind', '성 향'], ['story', '이 야 기']]) {
+  for (const [k, t] of [['basic', '개 요'], ['mind', '성 향'], ['rel', '관 계'], ['story', '이 야 기']]) {
     const b = el(k === cardTab ? 'on' : '', tabs, 'button');
     b.textContent = t;
     b.onclick = () => { cardTab = k; tabs.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); Object.entries(panes).forEach(([pk, p]) => p.classList.toggle('on', pk === k)); body.scrollTop = 0; };
@@ -1981,7 +2152,11 @@ function showCard(it, im) {
   const st = el('', P1, 'select');
   for (const s of STATES) el('', st, 'option').textContent = s;
   st.value = STATES.includes(it.state) ? it.state : '평온';
-  st.onchange = () => { it.state = st.value; saved(); };
+  st.onchange = () => { it.state = st.value; saved(); drawAuto(); };
+  label('꼬리표 (저절로 붙음)', P1);
+  const autoBox = el('autotags', P1);
+  const drawAuto = () => { autoBox.innerHTML = ''; const e = entryOf(it); if (e) for (const t of autoTags(e)) el('chip auto', autoBox, 'span').textContent = t; };
+  drawAuto();
   input(P1, '하는 일', 'doing', '무엇을 하는 곳 · 사람인가', 'textarea').rows = 2;
   input(P1, '상황', 'situation', '지금 처한 형편', 'textarea').rows = 2;
   input(P1, '현재', 'now', '지금 이 순간 벌어지는 일', 'textarea').rows = 2;
@@ -2054,6 +2229,79 @@ function showCard(it, im) {
   const addx = el('addx', P2, 'button');
   addx.textContent = '＋ 항목';
   addx.onclick = () => { (it.extra ||= []).push({ k: '', v: '' }); drawExtra(); xs.querySelector('.extra:last-child input')?.focus(); };
+  // 관계: 이은 관계 (양쪽 카드에 같이 생김) · 이야기에 나오는 이름 · 나를 언급한 곳 · 새로 잇기
+  const P4 = panes.rel;
+  const drawRel = () => {
+    P4.innerHTML = '';
+    const me = entryOf(it);
+    label('이은 관계', P4);
+    const list = el('', P4);
+    for (const r of it.rels || []) {
+      const o = itemById(r.to);
+      if (!o) continue;
+      const row = el('rel', list);
+      thumbEl(o.it, row);
+      const n = el('n', row);
+      el('', n, 'b').textContent = itemName(o.it);
+      el('sub', n).textContent = whereOf(o);
+      el('t' + (NEG_REL.test(r.t) ? ' neg' : ''), row, 'span').textContent = r.t;
+      const del = el('del', row, 'button');
+      del.textContent = '×';
+      del.title = '관계 끊기 (상대 카드에서도)';
+      del.onclick = (ev) => { ev.stopPropagation(); removeRel(it, o.it); drawRel(); drawChips(); drawAuto(); };
+      row.onclick = () => goToItem(o);
+    }
+    if (!list.children.length) el('hint', list).textContent = '아직 이은 관계가 없어요. 아래에서 상대를 골라 이어요.';
+    if (me) {
+      const men = mentionsOf(me), by = mentionedBy(me);
+      if (men.length || by.length) {
+        label('이어진 이름 (이야기 속)', P4);
+        const ml = el('mens', P4);
+        for (const m of men) { const c = el('men', ml, 'button'); thumbEl(m.it, c); el('', c, 'span').textContent = itemName(m.it); c.title = '이 카드의 글에 나옴'; c.onclick = () => goToItem(m); }
+        for (const m of by) { const c = el('men by', ml, 'button'); thumbEl(m.it, c); el('', c, 'span').textContent = itemName(m.it); c.title = '이 이름을 언급함'; c.onclick = () => goToItem(m); }
+      }
+    }
+    // 새로 잇기: 상대 고르기 (글자를 치면 후보) + 관계 고르기
+    label('＋ 관계 잇기', P4);
+    const pick = el('relpick', P4);
+    const q = el('', pick, 'input');
+    q.placeholder = '상대 이름 (글자 몇 개)';
+    const drop = el('reldrop', pick);
+    drop.hidden = true;
+    let target = null, type = '';
+    const types = el('reltypes', P4);
+    const go = el('relgo', P4, 'button');
+    go.textContent = '잇기';
+    go.disabled = true;
+    const ready = () => { go.disabled = !(target && type); go.textContent = target && type ? `「${itemName(target.it)}」와 ${type}(으)로 잇기` : '잇기'; };
+    const showDrop = () => {
+      const t = q.value.trim();
+      drop.innerHTML = '';
+      const hits = allItems().filter((e) => e.it !== it && !isDeco(e.it) && (!t || itemName(e.it).includes(t))).slice(0, 8);
+      drop.hidden = !hits.length || (!t && document.activeElement !== q);
+      for (const e of hits) {
+        const r = el('', drop);
+        thumbEl(e.it, r);
+        el('', r, 'span').textContent = itemName(e.it);
+        el('sub', r, 'span').textContent = whereOf(e);
+        r.onmousedown = (ev) => { ev.preventDefault(); target = e; q.value = itemName(e.it); drop.hidden = true; ready(); };
+      }
+      if (!drop.hidden) drop.scrollIntoView({ block: 'nearest' }); // 카드 아래쪽이라 잘려 보이지 않게
+    };
+    q.oninput = () => { target = null; ready(); showDrop(); };
+    q.onfocus = showDrop;
+    q.onblur = () => setTimeout(() => { drop.hidden = true; }, 120);
+    for (const t of REL_TYPES) {
+      const b = el('', types, 'button');
+      b.textContent = t;
+      b.onclick = () => { type = t; own.value = ''; types.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); ready(); };
+    }
+    const own = el('', types, 'input');
+    own.placeholder = '직접 적기';
+    own.oninput = () => { type = own.value.trim(); types.querySelectorAll('button').forEach((x) => x.classList.remove('on')); ready(); };
+    go.onclick = () => { if (!(target && type)) return; addRel(it, target.it, type); drawRel(); drawChips(); drawAuto(); };
+  };
+  drawRel();
   // 이야기: 줄 공책 + 노트 (길게 적을 곳 — 옵시디언 노트 한 장, 속성은 이 카드와 같이 맞춰 둠)
   const P3 = panes.story;
   input(P3, '이야기', 'story', '얽힌 이야기 · 내력', 'textarea').style.minHeight = '196px';
@@ -2099,8 +2347,504 @@ function hideCard() {
   document.querySelectorAll('.piece.is-sel').forEach((x) => x.classList.remove('is-sel'));
 }
 
+// ---------- 마을 전체를 한꺼번에: 모든 항목 · 저절로 붙는 꼬리표 · 관계 · 언급 ----------
+/** 이 마을의 모든 그림(인물 · 장소 · 기관): { it, b: 장면, st: 장소 또는 null } */
+function allItems() {
+  const out = [];
+  for (const b of town.blocks) {
+    for (const it of b.items) out.push({ it, b, st: null });
+    for (const s of b.stages || []) for (const it of s.items || []) out.push({ it, b, st: s });
+  }
+  return out;
+}
+const entryOf = (it) => allItems().find((e) => e.it === it) || null;
+const itemById = (id) => allItems().find((e) => e.it.id === id) || null;
+/** 나무 · 가로등 · 벤치 같은 꾸밈 (이야기나 노트 · 관계가 생기면 꾸밈이 아님) */
+const isDeco = (it) => /^팝업\/자연\//.test(it.asset || '') && !it.story && !it.note && !(it.rels || []).length && !it.cat;
+const whereOf = (e) => e.b.name + (e.st ? ' › ' + lineage(e.b, e.st).map(placeName).join(' › ') : '');
+const itemName = (it) => it.name || (it.asset || '').split('/').pop().replace(/^\d+\s*|\.png$/g, '');
+function ensureIds() {
+  for (const { it } of allItems()) if (!it.id) it.id = 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+const favorBand = (v) => (v <= -3 ? '적대 쪽' : v < 0 ? '경계 쪽' : v === 0 ? '중립' : v <= 2 ? '호감 쪽' : '우호 쪽');
+/** 저절로 붙는 꼬리표: 적어 둔 것에서 바로 나옴 (따로 달지 않음) */
+function autoTags(e) {
+  const it = e.it, n = (it.rels || []).length;
+  return [e.b.name, e.st && placeName(e.st), catOf(it), STATES.includes(it.state) ? it.state : '평온', favorBand(Number(it.favor || 0)), it.note && '노트 있음', n && `관계 ${n}`].filter(Boolean);
+}
+/** 카드 · 노트를 고쳤을 때 (저장 + 노트 속성 맞추기) */
+const noteTimers = new Map();
+function touchItem(it) {
+  saveSoon();
+  if (!it.note) return;
+  clearTimeout(noteTimers.get(it));
+  noteTimers.set(it, setTimeout(() => { const e = entryOf(it); patchNote(it.note, itemFm(it, e ? { name: whereOf(e) } : openState)); }, 900));
+}
+// 관계: 한쪽에서 이으면 상대에도 같이 생김
+const REL_TYPES = ['가족', '친구', '동료', '단골', '소속', '거래', '이웃', '스승', '적'];
+const NEG_REL = /적|원수|껄끄|경계|감시|빚/;
+function addRel(a, b, t) {
+  if (!a || !b || a === b) return;
+  for (const [x, y] of [[a, b], [b, a]]) {
+    x.rels ||= [];
+    const had = x.rels.find((r) => r.to === y.id);
+    if (had) had.t = t; else x.rels.push({ to: y.id, t });
+    touchItem(x);
+  }
+}
+function removeRel(a, b) {
+  for (const [x, y] of [[a, b], [b, a]]) { x.rels = (x.rels || []).filter((r) => r.to !== y.id); touchItem(x); }
+}
+/** 이야기 · 하는 일 · 상황 · 현재 · 좋아하는 것 · 덧붙인 항목에 쓴 글 */
+const textOf = (it) => [it.story, it.doing, it.situation, it.now, it.likes, it.dislikes, ...(it.extra || []).map((x) => x.v)].filter(Boolean).join('\n');
+/** 글에 나오는 다른 항목 (이름을 그냥 쓰거나 [[이름]]). 같은 이름이 여럿이면 같은 장면 것을 먼저 */
+function mentionsIn(text, selfIt, near) {
+  if (!text) return [];
+  const cands = allItems().filter((e) => e.it !== selfIt && [...itemName(e.it)].length >= 2 && !isDeco(e.it));
+  const names = [...new Set(cands.map((e) => itemName(e.it)))].sort((a, b) => b.length - a.length);
+  const out = [];
+  let rest = text;
+  for (const n of names) {
+    if (!rest.includes(n)) continue;
+    rest = rest.split(n).join('\u0000'); // 긴 이름에 든 짧은 이름이 겹쳐 잡히지 않게
+    const same = cands.filter((e) => itemName(e.it) === n);
+    out.push(same.find((e) => e.b === near) || same[0]);
+  }
+  return out;
+}
+const mentionsOf = (e) => mentionsIn(textOf(e.it), e.it, e.b);
+/** 이 항목을 언급한 다른 항목 */
+const mentionedBy = (e) => allItems().filter((x) => x.it !== e.it && mentionsOf(x).some((m) => m.it === e.it));
+// 기록 · 그림 노트 글 모음 (찾기 · 언급용, 열 때마다 새로)
+let NOTE_INDEX = null;
+async function noteIndex(fresh) {
+  if (NOTE_INDEX && !fresh) return NOTE_INDEX;
+  const list = await listNotes([...new Set([...Object.values(REC_DIR), 'The Main - 인물/펼쳐지는 마을/', TOWN_NOTES])]);
+  NOTE_INDEX = await Promise.all(list.filter((n) => n.fm['분류'] === '기록' || n.fm['분류'] === '그림책').map(async (n) => ({ ...n, text: fmParse((await readVault(n.path)) || '').body })));
+  return NOTE_INDEX;
+}
+const recordsMentioning = async (e) => (await noteIndex()).filter((n) => n.fm['분류'] === '기록' && n.text.includes(itemName(e.it)));
+
+/** 그 항목이 있는 자리로 가서 카드를 엶 (닫힌 책이면 펼치고, 다른 장면이면 날아가고, 장소 안이면 들어감) */
+async function goToItem(e, spread) {
+  closePanels();
+  const ready = async () => { for (let i = 0; i < 80 && (!openState || openState.busy || !scene.classList.contains('is-ready')); i++) await wait(100); };
+  if (openState?.look) { leaveFlap(); await wait(500); }
+  if (openState?.placing) await endPlace();
+  if (!openState) await openBlock(e.b);
+  await ready();
+  if (openState.root !== e.b) { await travelTo(e.b); await ready(); }
+  if ((openState.stage || null) !== (e.st || null)) { await switchBoard(viewOf(e.b, e.st)); await ready(); }
+  const p = openState.pieces.find((q) => q.it === e.it);
+  if (p) { showCard(p.it, p.im); if (spread) openSpread(e); }
+}
+
+// ---------- 위 왼쪽 도구: 명부 · 찾기 · 관계도 ----------
+const panels = {};
+function closePanels() {
+  for (const p of Object.values(panels)) p.classList.remove('on');
+}
+function openPanel(name) {
+  closePanels();
+  panels[name].classList.add('on');
+  ({ ledger: drawLedger, finder: openFinder, graph: drawGraph })[name]?.();
+}
+document.querySelectorAll('#tools button').forEach((b) => (b.onclick = () => openPanel(b.dataset.p)));
+for (const id of ['ledger', 'finder', 'graph', 'spread']) {
+  panels[id] = document.getElementById(id);
+  panels[id].addEventListener('pointerdown', (e) => { if (e.target === panels[id]) closePanels(); }); // 바깥(어두운 곳)을 누르면 닫힘
+  panels[id].querySelector('.px')?.addEventListener('click', closePanels);
+}
+const anyPanel = () => Object.values(panels).some((p) => p.classList.contains('on'));
+const thumbEl = (it, parent, cls = 'th') => { const t = el(cls, parent); const im = el('', t, 'img'); im.src = ASSET(it.asset); im.draggable = false; return t; };
+
+// ---------- 마을 명부: 한 표로 보고 · 거르고 · 정렬하고 · 바로 고치고 · 그 자리로 ----------
+const LEDGER = { q: '', cats: new Set(), scene: '', state: '', band: '', deco: false, sort: 'name', dir: 1 };
+function drawLedger() {
+  const P = panels.ledger.querySelector('.pp');
+  P.innerHTML = '';
+  const top = el('ptop', P);
+  const tt = el('', top);
+  el('h', tt, 'h2').textContent = '마을 명부';
+  const sub = el('sub', tt);
+  const s = el('psearch', top, 'input');
+  s.placeholder = '이름 · 하는 일 · 꼬리표로 거르기';
+  s.value = LEDGER.q;
+  s.oninput = () => { LEDGER.q = s.value.trim(); drawRows(); };
+  el('px', top, 'button').textContent = '×';
+  P.querySelector('.px').onclick = closePanels;
+  // 거르기: 종류 · 장면 · 상태 · 우호 (모두 저절로 붙는 꼬리표)
+  const f = el('pfilt', P);
+  const chipRow = (label, values, get, set) => {
+    const row = el('frow', f);
+    el('fl', row, 'span').textContent = label;
+    for (const v of values) {
+      const c = el('chip' + (get(v) ? ' on' : ''), row, 'button');
+      c.textContent = v;
+      c.onclick = () => { set(v); drawLedger(); };
+    }
+  };
+  chipRow('종류', CATS, (v) => LEDGER.cats.has(v), (v) => (LEDGER.cats.has(v) ? LEDGER.cats.delete(v) : LEDGER.cats.add(v)));
+  chipRow('장면', town.blocks.map((b) => b.name), (v) => LEDGER.scene === v, (v) => (LEDGER.scene = LEDGER.scene === v ? '' : v));
+  chipRow('상태', STATES, (v) => LEDGER.state === v, (v) => (LEDGER.state = LEDGER.state === v ? '' : v));
+  chipRow('우호', ['적대 쪽', '경계 쪽', '중립', '호감 쪽', '우호 쪽'], (v) => LEDGER.band === v, (v) => (LEDGER.band = LEDGER.band === v ? '' : v));
+  const deco = el('chip' + (LEDGER.deco ? ' on' : ''), f.lastChild, 'button');
+  deco.textContent = '꾸밈(나무 · 가로등)도';
+  deco.style.marginLeft = 'auto';
+  deco.onclick = () => { LEDGER.deco = !LEDGER.deco; drawLedger(); };
+  const wrap = el('ptable', P);
+  const tb = el('', wrap, 'table');
+  const cols = [['', ''], ['name', '이름'], ['cat', '종류'], ['state', '상태'], ['favor', '우호도'], ['where', '자리'], ['doing', '하는 일'], ['rels', '관계'], ['', '']];
+  const thr = el('', el('', tb, 'thead'), 'tr');
+  for (const [k, t] of cols) {
+    const th = el(k && LEDGER.sort === k ? 'on' : '', thr, 'th');
+    th.textContent = t + (k && LEDGER.sort === k ? (LEDGER.dir > 0 ? ' ▴' : ' ▾') : '');
+    if (k) th.onclick = () => { LEDGER.dir = LEDGER.sort === k ? -LEDGER.dir : 1; LEDGER.sort = k; drawLedger(); };
+  }
+  const body = el('', tb, 'tbody');
+  function drawRows() {
+    body.innerHTML = '';
+    const q = LEDGER.q;
+    let rows = allItems().filter((e) => (LEDGER.deco || !isDeco(e.it))
+      && (!LEDGER.cats.size || LEDGER.cats.has(catOf(e.it)))
+      && (!LEDGER.scene || e.b.name === LEDGER.scene)
+      && (!LEDGER.state || (STATES.includes(e.it.state) ? e.it.state : '평온') === LEDGER.state)
+      && (!LEDGER.band || favorBand(Number(e.it.favor || 0)) === LEDGER.band)
+      && (!q || [itemName(e.it), e.it.doing, textOf(e.it), ...autoTags(e)].join(' ').includes(q)));
+    const key = { name: (e) => itemName(e.it), cat: (e) => catOf(e.it), state: (e) => STATES.indexOf(e.it.state || '평온'), favor: (e) => Number(e.it.favor || 0), where: whereOf, doing: (e) => e.it.doing || '', rels: (e) => (e.it.rels || []).length }[LEDGER.sort];
+    rows.sort((a, b) => { const x = key(a), y = key(b); return (x > y ? 1 : x < y ? -1 : 0) * LEDGER.dir; });
+    sub.textContent = `펼쳐지는 마을 · ${rows.length}곳 보는 중 · 칸을 두 번 누르면 바로 고침 · 줄을 누르면 그 자리로`;
+    for (const e of rows) {
+      const it = e.it, tr = el('', body, 'tr');
+      thumbEl(it, el('', tr, 'td'));
+      const cell = (k, show, edit) => {
+        const td = el('c-' + k, tr, 'td');
+        show(td);
+        if (edit) td.ondblclick = (ev) => { ev.stopPropagation(); edit(td); };
+        return td;
+      };
+      const inline = (key) => (td) => {
+        const inp = document.createElement('input');
+        inp.value = it[key] || '';
+        td.innerHTML = '';
+        td.appendChild(inp);
+        inp.focus();
+        inp.select();
+        inp.onclick = (ev) => ev.stopPropagation();
+        const done = () => { it[key] = inp.value.trim(); touchItem(it); drawRows(); };
+        inp.onkeydown = (ev) => { if (ev.key === 'Enter') done(); if (ev.key === 'Escape') { ev.stopPropagation(); drawRows(); } };
+        inp.onblur = done;
+      };
+      cell('name', (td) => { td.innerHTML = ''; el('', td, 'b').textContent = itemName(it); }, inline('name'));
+      cell('cat', (td) => { const k = el('kindb', td, 'span'); k.textContent = catOf(it); k.dataset.c = catOf(it); k.title = '눌러서 바꾸기'; k.onclick = (ev) => { ev.stopPropagation(); it.cat = CATS[(CATS.indexOf(catOf(it)) + 1) % CATS.length]; touchItem(it); drawRows(); }; });
+      cell('state', (td) => {
+        const sel = el('', td, 'select');
+        for (const st of STATES) el('', sel, 'option').textContent = st;
+        sel.value = STATES.includes(it.state) ? it.state : '평온';
+        sel.style.setProperty('--c', STATE_COLOR[sel.value]);
+        sel.onclick = (ev) => ev.stopPropagation();
+        sel.onchange = () => { it.state = sel.value; touchItem(it); drawRows(); };
+      });
+      cell('favor', (td) => {
+        const m = el('mini', td, 'span');
+        const v = Number(it.favor || 0);
+        for (let i = -5; i <= 5; i++) {
+          const x = el(i === 0 ? 'z' : '', m, 'i');
+          if ((v > 0 && i > 0 && i <= v) || (v < 0 && i < 0 && i >= v)) x.style.background = favorColor(v);
+          x.title = favorText(i);
+          x.onclick = (ev) => { ev.stopPropagation(); it.favor = i; touchItem(it); drawRows(); };
+        }
+        el('fv', td, 'span').textContent = (v > 0 ? '+' : '') + v;
+      });
+      cell('where', (td) => { td.textContent = whereOf(e); });
+      cell('doing', (td) => { td.textContent = it.doing || ''; td.title = it.doing || ''; }, inline('doing'));
+      cell('rels', (td) => { const n = (it.rels || []).length; td.textContent = n ? n + '명' : ''; });
+      const go = el('go', el('', tr, 'td'), 'span');
+      go.textContent = '그 자리로 →';
+      tr.onclick = () => goToItem(e);
+    }
+    if (!rows.length) { const tr = el('', body, 'tr'); const td = el('empty', tr, 'td'); td.colSpan = cols.length; td.textContent = '맞는 것이 없어요.'; }
+  }
+  drawRows();
+  setTimeout(() => s.focus(), 50);
+}
+
+// ---------- 찾기 창: 이름 · 이야기 · 카드 속 글 · 장소 · 기록 노트까지 ----------
+const finder = { sel: 0, hits: [] };
+function openFinder() {
+  const P = panels.finder.querySelector('.pp');
+  P.innerHTML = '';
+  const inp = el('psearch big', P, 'input');
+  inp.placeholder = '무엇이든 찾기 — 이름 · 이야기 · 좋아하는 것 · 장소 · 기록';
+  const res = el('fres', P);
+  el('sub', P).textContent = '↑ ↓ 로 고르고 Enter 면 그 자리로 · Esc 닫기 · 단축키 Ctrl+K';
+  const snip = (text, q) => {
+    const i = text.indexOf(q);
+    if (i < 0) return null;
+    const a = Math.max(0, i - 18), b = Math.min(text.length, i + q.length + 26);
+    return (a ? '…' : '') + text.slice(a, i) + '\u0001' + text.slice(i, i + q.length) + '\u0002' + text.slice(i + q.length, b) + (b < text.length ? '…' : '');
+  };
+  const put = (parent, s) => { for (const [k, part] of s.split(/(\u0001[^\u0002]*\u0002)/).entries()) { if (!part) continue; if (part[0] === '\u0001') el('', parent, 'mark').textContent = part.slice(1, -1); else parent.appendChild(document.createTextNode(part)); } };
+  const run = async () => {
+    const q = inp.value.trim();
+    res.innerHTML = '';
+    finder.hits = [];
+    finder.sel = 0;
+    if (!q) { el('empty', res).textContent = '찾을 글자를 쳐요.'; return; }
+    const groups = [];
+    const items = allItems().filter((e) => !isDeco(e.it) || itemName(e.it).includes(q));
+    const byName = items.filter((e) => itemName(e.it).includes(q) || autoTags(e).some((t) => t === q));
+    groups.push(['인물 · 장소 · 기관', byName.map((e) => ({ e, title: itemName(e.it), sub: `${whereOf(e)} · ${catOf(e.it)}`, go: () => goToItem(e) }))]);
+    const byText = items.filter((e) => !byName.includes(e) && textOf(e.it).includes(q));
+    groups.push(['이야기 · 카드 속', byText.map((e) => ({ e, title: itemName(e.it), snip: snip(textOf(e.it).replace(/\n/g, ' · '), q), sub: whereOf(e), go: () => goToItem(e) }))]);
+    const places = town.blocks.flatMap((b) => [{ b, st: null, name: b.name }, ...(b.stages || []).map((st) => ({ b, st, name: placeName(st) }))]).filter((x) => x.name.includes(q));
+    groups.push(['장면 · 장소', places.map((x) => ({ title: x.name, sub: x.st ? x.b.name + ' 안의 장소' : '마을의 장면', go: async () => { closePanels(); await goToItem({ it: null, b: x.b, st: x.st }); } }))]);
+    // 기록 노트는 창을 열 때 한 번 모아 둔 것에서 (모이는 동안은 이름 · 이야기 결과만 먼저 보임)
+    const notes = (NOTE_INDEX || []).filter((n) => n.fm['분류'] === '기록' && ((n.fm['제목'] || '') + '\n' + n.text).includes(q));
+    groups.push(['기록 노트', notes.map((n) => ({ kind: n.fm['종류'], title: n.fm['제목'] || n.path.split('/').pop(), snip: snip(n.text.replace(/\n/g, ' '), q), sub: n.fm['장소'] || '', go: () => { closePanels(); openRecord(n.path); } }))]);
+    if (inp.value.trim() !== q) return; // 그새 글자가 바뀜
+    for (const [g, hits] of groups) {
+      if (!hits.length) continue;
+      el('fg', res).textContent = `${g} · ${hits.length}`;
+      for (const h of hits) {
+        const row = el('fr', res);
+        row.dataset.i = finder.hits.length;
+        finder.hits.push(h);
+        if (h.e) thumbEl(h.e.it, row); else if (h.kind) { const k = el('rk', row, 'span'); k.textContent = h.kind; k.dataset.k = h.kind; } else el('th place', row).textContent = '◇';
+        const mid = el('fm', row);
+        const t = el('ft', mid);
+        put(t, snip(h.title, q) || h.title);
+        if (h.snip) put(el('fs', mid), h.snip);
+        el('fw', row, 'span').textContent = h.sub;
+        row.onclick = () => h.go();
+        row.onmouseenter = () => { finder.sel = Number(row.dataset.i); mark(); };
+      }
+    }
+    if (!finder.hits.length) el('empty', res).textContent = `「${q}」 — 찾은 것이 없어요.`;
+    mark();
+  };
+  const mark = () => res.querySelectorAll('.fr').forEach((r) => r.classList.toggle('on', Number(r.dataset.i) === finder.sel));
+  let t = null;
+  inp.oninput = () => { clearTimeout(t); t = setTimeout(run, 120); };
+  inp.onkeydown = (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); finder.sel = clampv(finder.sel + (e.key === 'ArrowDown' ? 1 : -1), [0, Math.max(0, finder.hits.length - 1)]); mark(); res.querySelector('.fr.on')?.scrollIntoView({ block: 'nearest' }); }
+    if (e.key === 'Enter') finder.hits[finder.sel]?.go();
+    if (e.key === 'Escape') { e.stopPropagation(); closePanels(); }
+  };
+  run();
+  noteIndex(true).then(() => { if (panels.finder.classList.contains('on') && inp.value.trim()) run(); });
+  setTimeout(() => inp.focus(), 50);
+}
+
+// ---------- 관계도: 장면별로 묶어 얼굴과 선으로 (관계 = 실선 · 이야기 속 언급 = 점선) ----------
+function drawGraph() {
+  const P = panels.graph.querySelector('.pp');
+  P.innerHTML = '';
+  const top = el('ptop', P);
+  const tt = el('', top);
+  el('h', tt, 'h2').textContent = '관계도';
+  el('sub', tt).textContent = '실선 = 이은 관계 · 점선 = 이야기에 이름이 나옴 · 얼굴을 누르면 펼쳐 보기 · 선 이름을 누르면 관계 고치기';
+  el('px', top, 'button').textContent = '×';
+  P.querySelector('.px').onclick = closePanels;
+  const items = allItems().filter((e) => !isDeco(e.it));
+  const edges = [];
+  const seen = new Set();
+  for (const e of items) {
+    for (const r of e.it.rels || []) {
+      const o = itemById(r.to);
+      if (!o) continue;
+      const k = [e.it.id, o.it.id].sort().join('|');
+      if (seen.has(k)) continue;
+      seen.add(k);
+      edges.push({ a: e, b: o, t: r.t, rel: true });
+    }
+    for (const m of mentionsOf(e)) {
+      const k = [e.it.id, m.it.id].sort().join('|');
+      if (seen.has(k)) continue;
+      seen.add(k);
+      edges.push({ a: e, b: m, t: '', rel: false });
+    }
+  }
+  const used = new Set(edges.flatMap((x) => [x.a.it, x.b.it]));
+  const show = items.filter((e) => used.has(e.it) || catOf(e.it) !== '장소');
+  if (!edges.length) el('hint', P).textContent = '아직 이어진 것이 없어요. 카드의 「관계」 갈피에서 잇거나, 이야기에 다른 인물 · 장소 이름을 쓰면 여기에 선이 생겨요. (지금은 인물 · 기관만 장면별로 보여요)';
+  const W = P.clientWidth - 40, H = P.clientHeight - (edges.length ? 96 : 130);
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.classList.add('gsvg');
+  P.appendChild(svg);
+  // 장면마다 둥근 무리 (마을 지도의 자리를 따라 배치)
+  const pos = new Map();
+  const groups = town.blocks.map((b) => ({ b, list: show.filter((e) => e.b === b) })).filter((g) => g.list.length);
+  const [mx0, my0, mx1, my1] = bbox(town.blocks.flatMap((b) => b.poly));
+  let defs = '<defs><radialGradient id="gbg" cx="50%" cy="40%"><stop offset="0" stop-color="#fff3d6"/><stop offset=".7" stop-color="#d9bf8e"/><stop offset="1" stop-color="#8a6440"/></radialGradient></defs>';
+  let back = '', lines = '', nodes = '';
+  // 처음 자리: 마을 지도에서 그 장면이 있는 쪽, 장면 안에서는 둥글게
+  const home = new Map();
+  // 장면 무리끼리 먼저 겹치지 않게 벌려 놓음 (마을 지도에서 가까운 장면도 무리가 크면 서로 밀어냄)
+  for (const g of groups) {
+    const [x0, y0, x1, y1] = bbox(g.b.poly);
+    g.x = 90 + ((((x0 + x1) / 2) - mx0) / (mx1 - mx0 || 1)) * (W - 180);
+    g.y = 80 + ((((y0 + y1) / 2) - my0) / (my1 - my0 || 1)) * (H - 160);
+    g.r = 46 + Math.sqrt(g.list.length) * 40;
+  }
+  for (let step = 0; step < 200; step++) {
+    for (let i = 0; i < groups.length; i++) for (let j = i + 1; j < groups.length; j++) {
+      const a = groups[i], b = groups[j], dx = a.x - b.x, dy = (a.y - b.y) * 1.3, d = Math.hypot(dx, dy) || 0.1, min = a.r + b.r + 24;
+      if (d < min) { const k = ((min - d) / d) * 0.25; a.x += dx * k; a.y += (dy * k) / 1.3; b.x -= dx * k; b.y -= (dy * k) / 1.3; }
+    }
+    for (const g of groups) { g.x = clampv(g.x, [g.r * 1.2, W - g.r * 1.2]); g.y = clampv(g.y, [g.r * 0.85 + 10, H - g.r * 0.85]); }
+  }
+  for (const g of groups) {
+    const n = g.list.length, R = g.r - 40;
+    g.list.forEach((e, i) => { const a = (i / n) * Math.PI * 2 - Math.PI / 2; pos.set(e.it, [g.x + (n > 1 ? Math.cos(a) * R * 1.25 : 0), g.y + (n > 1 ? Math.sin(a) * R * 0.85 : 0)]); home.set(e.it, [g.x, g.y]); });
+  }
+  // 겹치지 않게 밀어내고 (얼굴 · 이름 자리), 이어진 것끼리는 당기고, 제 장면 쪽으로 살짝 끌어당김
+  const its = [...pos.keys()];
+  const near = new Map(edges.filter((x) => pos.has(x.a.it) && pos.has(x.b.it)).map((x, i) => [i, x]));
+  for (let step = 0; step < 260; step++) {
+    const f = new Map(its.map((it) => [it, [0, 0]]));
+    for (let i = 0; i < its.length; i++) for (let j = i + 1; j < its.length; j++) {
+      const [ax, ay] = pos.get(its[i]), [bx, by] = pos.get(its[j]);
+      let dx = ax - bx, dy = (ay - by) * 1.25;
+      const d = Math.hypot(dx, dy) || 0.1, min = 100;
+      if (d < min) { const k = ((min - d) / d) * 0.5; f.get(its[i])[0] += dx * k; f.get(its[i])[1] += dy * k; f.get(its[j])[0] -= dx * k; f.get(its[j])[1] -= dy * k; }
+    }
+    for (const x of near.values()) {
+      const [ax, ay] = pos.get(x.a.it), [bx, by] = pos.get(x.b.it), d = Math.hypot(ax - bx, ay - by) || 0.1, k = ((d - 150) / d) * 0.04;
+      f.get(x.a.it)[0] -= (ax - bx) * k; f.get(x.a.it)[1] -= (ay - by) * k; f.get(x.b.it)[0] += (ax - bx) * k; f.get(x.b.it)[1] += (ay - by) * k;
+    }
+    for (const it of its) {
+      const p = pos.get(it), h = home.get(it), v = f.get(it);
+      p[0] = clampv(p[0] + v[0] + (h[0] - p[0]) * 0.012, [40, W - 40]);
+      p[1] = clampv(p[1] + v[1] + (h[1] - p[1]) * 0.012, [50, H - 40]);
+      // 제 장면 무리 밖으로는 나가지 않게
+      const gr = groups.find((g) => g.list.some((e) => e.it === it))?.r || 120, dx = p[0] - h[0], dy = (p[1] - h[1]) / 0.8, d = Math.hypot(dx, dy), lim = gr - 34;
+      if (d > lim) { p[0] = h[0] + (dx * lim) / d; p[1] = h[1] + (dy * lim * 0.8) / d; }
+    }
+  }
+  // 장면 무리: 그 장면 얼굴들을 감싸는 둥근 테
+  for (const g of groups) {
+    const ps = g.list.map((e) => pos.get(e.it));
+    const [x0, y0, x1, y1] = bbox(ps);
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2 + 52, ry = (y1 - y0) / 2 + 50;
+    back += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="rgba(168,129,63,0.07)" stroke="rgba(168,129,63,0.45)" stroke-dasharray="6 5"/><text x="${cx}" y="${cy - ry + 18}" text-anchor="middle" class="gt">${g.b.name}</text>`;
+  }
+  edges.forEach((x, i) => {
+    const p1 = pos.get(x.a.it), p2 = pos.get(x.b.it);
+    if (!p1 || !p2) return;
+    const neg = NEG_REL.test(x.t);
+    lines += `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" class="${x.rel ? (neg ? 'gl neg' : 'gl') : 'gl men'}"/>`;
+    if (x.rel) lines += `<g class="glab${neg ? ' neg' : ''}" data-e="${i}" transform="translate(${(p1[0] + p2[0]) / 2},${(p1[1] + p2[1]) / 2})"><rect x="${-[...x.t].length * 7 - 9}" y="-11" width="${[...x.t].length * 14 + 18}" height="22" rx="11"/><text text-anchor="middle" y="5">${x.t}</text></g>`;
+  });
+  let k = 0;
+  for (const [it, [x, y]] of pos) {
+    k++;
+    nodes += `<g class="gn" data-id="${it.id}" transform="translate(${x},${y})"><circle r="25" fill="url(#gbg)"/><clipPath id="gc${k}"><circle r="23"/></clipPath><image href="${ASSET(it.asset)}" x="-21" y="-25" width="42" height="48" preserveAspectRatio="xMidYMax meet" clip-path="url(#gc${k})"/><circle r="25" class="ring"/><text y="41" text-anchor="middle">${itemName(it)}</text></g>`;
+  }
+  svg.innerHTML = defs + back + lines + nodes;
+  svg.querySelectorAll('.gn').forEach((g) => (g.onclick = () => { const e = itemById(g.dataset.id); if (e) { closePanels(); openSpread(e); } }));
+  svg.querySelectorAll('.glab').forEach((g) => (g.onclick = () => {
+    const x = edges[Number(g.dataset.e)];
+    const t = prompt(`「${itemName(x.a.it)}」 ↔ 「${itemName(x.b.it)}」 관계 (비우면 관계를 끊어요)`, x.t);
+    if (t === null) return;
+    if (t.trim()) addRel(x.a.it, x.b.it, t.trim()); else removeRel(x.a.it, x.b.it);
+    drawGraph();
+  }));
+}
+
+// ---------- 펼쳐 보기: 인물 · 장소 · 기관을 책의 두 쪽 가득 ----------
+function openSpread(e) {
+  const S = panels.spread;
+  const it = e.it;
+  const L = S.querySelector('.sp-l'), R = S.querySelector('.sp-r');
+  L.innerHTML = '';
+  R.innerHTML = '';
+  // 왼쪽 쪽: 초상 · 이름 · 자리 · 꼬리표 · 개요
+  el('kind', L).textContent = [...catOf(it)].join(' ');
+  const pt = el('portrait', L);
+  const im = el('', pt, 'img');
+  im.src = ASSET(it.asset);
+  const nm = el('nm', L, 'input');
+  nm.value = itemName(it);
+  nm.oninput = () => { it.name = nm.value; touchItem(it); };
+  el('where', L).textContent = whereOf(e);
+  el('', el('orn', L), 'i');
+  const tags = el('chips', L);
+  for (const t of autoTags(e)) el('chip auto', tags, 'span').textContent = t;
+  const field = (parent, t, key, ph, rows = 2) => {
+    el('', parent, 'label').textContent = t;
+    const ta = el('', parent, 'textarea');
+    ta.rows = rows;
+    ta.value = it[key] || '';
+    ta.placeholder = ph;
+    ta.oninput = () => { it[key] = ta.value; touchItem(it); };
+  };
+  field(L, '하는 일', 'doing', '무엇을 하는 곳 · 사람인가');
+  field(L, '상황', 'situation', '지금 처한 형편');
+  field(L, '현재', 'now', '지금 이 순간 벌어지는 일');
+  // 오른쪽 쪽: 성향 · 관계 · 이야기 · 언급 · 기록
+  el('', R, 'label').textContent = '성향';
+  const fv = Number(it.favor || 0);
+  const g = el('gauge', R);
+  for (let i = -5; i <= 5; i++) { const b = el(i === 0 ? 'zero' : '', g, 'b'); if ((fv > 0 && i > 0 && i <= fv) || (fv < 0 && i < 0 && i >= fv) || (fv === 0 && i === 0)) b.style.backgroundColor = favorColor(fv === 0 ? 0 : fv); b.title = favorText(i); b.onclick = () => { it.favor = i; touchItem(it); openSpread(e); }; }
+  el('gnow', R).textContent = '우호도 ' + favorText(fv) + (STATES.includes(it.state) ? ` · 상태 ${it.state}` : '');
+  const tl = el('tags', R);
+  for (const w of splitTags(it.likes)) el('tag', tl, 'span').textContent = w;
+  for (const w of splitTags(it.dislikes)) el('tag neg', tl, 'span').textContent = w;
+  if (!tl.children.length) el('hint', tl).textContent = '좋아하는 것 · 싫어하는 것은 카드의 「성향」에서 적어요.';
+  el('', R, 'label').textContent = '관계';
+  const rl = el('rels', R);
+  for (const r of it.rels || []) {
+    const o = itemById(r.to);
+    if (!o) continue;
+    const row = el('rel', rl);
+    thumbEl(o.it, row);
+    const n = el('n', row);
+    el('', n, 'b').textContent = itemName(o.it);
+    el('sub', n).textContent = whereOf(o);
+    el('t' + (NEG_REL.test(r.t) ? ' neg' : ''), row, 'span').textContent = r.t;
+    row.onclick = () => openSpread(o);
+  }
+  if (!rl.children.length) el('hint', rl).textContent = '아직 이은 관계가 없어요. 카드의 「관계」 갈피에서 이어요.';
+  el('', R, 'label').textContent = '이야기';
+  const st = el('story', R, 'textarea');
+  st.value = it.story || '';
+  st.placeholder = '얽힌 이야기 · 내력';
+  st.oninput = () => { it.story = st.value; touchItem(it); };
+  const men = mentionsOf(e), by = mentionedBy(e);
+  if (men.length || by.length) {
+    el('', R, 'label').textContent = '이어진 이름';
+    const ml = el('mens', R);
+    for (const m of men) { const c = el('men', ml, 'button'); thumbEl(m.it, c); el('', c, 'span').textContent = itemName(m.it); c.title = '이 이야기에 나옴'; c.onclick = () => openSpread(m); }
+    for (const m of by) { const c = el('men by', ml, 'button'); thumbEl(m.it, c); el('', c, 'span').textContent = itemName(m.it); c.title = '이 이름을 언급함'; c.onclick = () => openSpread(m); }
+  }
+  const recBox = el('recs2', R);
+  recordsMentioning(e).then((list) => {
+    if (!list.length || !recBox.isConnected) return;
+    el('', recBox, 'label').textContent = '이 이름이 나오는 기록';
+    for (const n of list) { const row = el('rec', recBox); const k = el('k', row, 'span'); k.textContent = n.fm['종류'] || '기록'; k.dataset.k = n.fm['종류']; el('t', row, 'span').textContent = n.fm['제목'] || n.path.split('/').pop(); el('d', row, 'span').textContent = String(n.fm['날짜'] || ''); row.onclick = () => openRecord(n.path); }
+  });
+  const foot = el('sp-foot', R);
+  const toCard = el('', foot, 'button');
+  toCard.textContent = '그 자리에서 카드로';
+  toCard.onclick = () => goToItem(e);
+  if (it.note) { const nb = el('', foot, 'button'); nb.textContent = '노트 크게 쓰기'; nb.onclick = () => openRecord(it.note, { lockTitle: true }); }
+  closePanels();
+  S.classList.remove('on');
+  void S.offsetWidth;
+  S.classList.add('on');
+}
+addEventListener('keydown', (e) => {
+  const typing = e.target.closest?.('input, textarea, select');
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openPanel('finder'); return; }
+  if (e.key === 'Escape' && anyPanel() && !(typing && !e.target.closest('.panel'))) { e.stopImmediatePropagation(); closePanels(); }
+}, true);
+
 (async () => {
   town = await loadTown();
+  ensureIds();
   fitOverview();
   drawBoard();
   const refit = () => {
