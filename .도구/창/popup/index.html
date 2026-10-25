@@ -2762,22 +2762,26 @@ function fpShot(o, p) {
   const px = p.it.x - o.ox, py = p.it.y - o.oy, person = p.it.kind === 'person';
   const H = (p.im.naturalWidth ? (p.im.naturalHeight * p.it.w) / p.im.naturalWidth : p.it.w) * (person ? FP_PS : 1);
   const eh = eyeHeight(o), d0 = clamp2(H * 1.7, 58, 330);
+  // 카메라는 걷는 범위와 달리 판 앞 가장자리 바로 바깥(둘레 나무 안쪽)까지 나갈 수 있음 — 맨 앞줄에 선 사람은 앞에 자리가 없어
+  // 대신 고른 자리가 판 안쪽으로 끌려 들어가며 그림 뒤쪽에서 찍혔음
+  const X0 = 16, X1 = o.w - 16, Y0 = 24, Y1 = o.h + 22;
   let best = null;
-  for (const a of [0, 18, -18, 36, -36, 55, -55, 80, -80]) for (const k of [1, 0.82, 0.66]) {
+  for (const a of [0, 15, -15, 30, -30, 45, -45, 60, -60]) for (const k of [1, 0.82, 0.66, 0.52]) {
     const d = d0 * k, r = (a * Math.PI) / 180, ex = px + Math.sin(r) * d, ey = py + Math.cos(r) * d;
-    if (ex < 40 || ex > o.w - 40 || ey < 46 || ey > o.h - 36) continue;
+    if (ex < X0 || ex > X1 || ey < Y0 || ey > Y1) continue;
     let block = 0; // 눈과 그림 사이를 가리는 다른 그림 (낮은 벤치는 조금만)
     for (const q of o.pieces) {
       if (q === p) continue;
       const qx = q.it.x - o.ox - ex, qy = q.it.y - o.oy - ey, bx = px - ex, by = py - ey, L2 = bx * bx + by * by, t = (qx * bx + qy * by) / L2;
       if (t < 0.04 || t > 0.94) continue;
       const qh = q.im.naturalWidth ? ((q.im.naturalHeight * q.it.w) / q.im.naturalWidth) * (q.it.kind === 'person' ? FP_PS : 1) : q.it.w;
-      if (Math.hypot(qx - bx * t, qy - by * t) < Math.max(10, q.it.w * (q.it.kind === 'person' ? FP_PS : 1) * 0.45)) block += Math.min(1, qh / eh);
+      // 카메라에 가까울수록(t 작을수록) 화면을 넓게 가리므로 더 넓게 봄 (학당 거리에서 앞줄 사람이 건물을 크게 가렸음)
+      if (Math.hypot(qx - bx * t, qy - by * t) < Math.max(10, q.it.w * (q.it.kind === 'person' ? FP_PS : 1) * 0.45) + (1 - t) * 16) block += Math.min(1, qh / eh);
     }
-    const score = -Math.abs(a) * 0.05 - (1 - k) * 4 - block * 6;
+    const score = -Math.abs(a) * 0.09 - (1 - k) * 3 - block * 3.5; // 정면을 가장 앞세움 (조금 가려도 옆으로 돌기보다 낫게)
     if (!best || score > best.score) best = { ex, ey, d, score };
   }
-  if (!best) { const [ex, ey] = fpClamp(o, px, py + d0); best = { ex, ey, d: Math.hypot(px - ex, py - ey) || d0 }; }
+  if (!best) { const ey = clamp2(py + d0, py + 30, Y1); best = { ex: clamp2(px, X0, X1), ey, d: ey - py }; } // 어떤 경우에도 그림 앞쪽
   const yaw = (Math.atan2(-(px - best.ex), -(py - best.ey)) * 180) / Math.PI;
   const aimZ = person ? H * 0.62 : Math.min(H * 0.45, eh + best.d * 0.35); // 사람은 가슴께, 건물은 허리께를 봄
   return { x: best.ex, y: best.ey, yaw, pitch: clamp2((Math.atan2(eh - aimZ, best.d) * 180) / Math.PI, -14, 30), h: eh };
