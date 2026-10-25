@@ -801,10 +801,18 @@
   #scene.is-fp .glow.is-up { transition: opacity 0.8s; }
   /* 눈높이에서는 발치 종이 받침이 바닥에 뜬 회색 판처럼 보이고, 비스듬한 그림자는 앞으로 길게 번져 보여서 */
   #scene.is-fp .tab.ptab { opacity: 0; }
+  /* 1인칭에선 화면 전체에 거는 빛 보정(뒤를 읽어 거르는 필터)을 끔: 고개를 돌릴 때마다 온 화면을 다시 걸러서 장면이 가끔 끊겼음 */
+  #scene.is-fp .fx-bloom, #scene.is-fp .fx-tone { display: none; }
+  /* 고정 그림의 앞면은 앞에서만, 뒤로 돌아가면 그림이 흐릿하게 비치는 종이 뒷면 */
+  #scene.is-fp .piece.fixed { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+  .piece-back { pointer-events: none; -webkit-backface-visibility: hidden; backface-visibility: hidden; filter: grayscale(1) sepia(0.65) contrast(0.32) brightness(1.32); }
+  .piece-x { pointer-events: none; }
   /* 1인칭 하늘: 화면에 붙은 구름 · 해 · 달 · 새는 고개를 돌려도 덜 돌아서 감추고, 판 속(3D)에 멀리 매단 종이 구름 · 해로 바꿈 */
   .sky-cloud { transition: filter 2.2s, opacity 1.2s; }
   #scene.is-fp .sky-cloud, #scene.is-fp .sky-sun, #scene.is-fp .sky-noon, #scene.is-fp .sky-moon, #scene.is-fp .sky-birds, #scene.is-fp .sky-stars2 { opacity: 0; }
   #scene.is-fp .sky-stars { background-position: var(--skx, 0px) 0; }
+  /* 다 내려선 뒤에는 아예 끔: 투명해도 계속 움직여서 고개를 돌릴 때마다 큰 하늘 층 전체를 다시 그렸음 (회전이 버벅인 주범) */
+  #scene.fp-in .sky-cloud, #scene.fp-in .sky-birds, #scene.fp-in .sky-stars2, #scene.fp-in .sky-sun, #scene.fp-in .sky-noon, #scene.fp-in .sky-moon, #scene.fp-in.time-day .sky-stars { display: none; }
   #scene.is-fp .bk-page { box-shadow: none; }
   /* 안개 빛: 그 때의 하늘 아랫자락 빛깔 */
   /* 판 너머 땅: 그늘진 풀빛 (나무 울타리 틈으로 보임) · 안개: 먼 풍경 막 밑동 */
@@ -1391,11 +1399,12 @@ function buildBoard(V, opts = {}) {
   }
   const billboard = (up, z = 0) => `translateZ(${up ? 0.8 + z : 0.3}px) rotateZ(var(--bb, 0deg)) rotateX(${up ? -90 : 0}deg)`;
   const prop = (name, x, y, pw, d) => {
+    // 사람처럼 평소엔 가만히, 너무 비스듬해지면 그때만 휙 돌아섬 (fpFace). 열십자로 두 장씩 세웠더니 겹친 종이가 많아 회전이 버벅였음
     const im = add('stand dress', 'img');
     im.src = ASSET(`팝업/자연/${name}.png`);
     im.draggable = false;
     placeBottom(im, { x, y, w: Math.round(pw) });
-    return stage3(im, (up) => billboard(up), d);
+    stage3(im, (up) => billboard(up), d);
   };
   // 판 바로 바깥을 두른 두 줄 울타리: 뒷줄은 눈높이보다 큰 나무(판 너머 빈 들을 가림), 앞줄은 덤불 · 꽃 울타리.
   // 그 위로 먼 풍경 · 하늘만 보임 (무대 옆 막처럼 가까운 건 가깝게 보임)
@@ -2651,8 +2660,11 @@ function fpStart(o) {
       for (const p of o.pieces) {
         const dx = p.it.x - o.ox - x, dy = p.it.y - o.oy - y, d = Math.hypot(dx, dy), c = (dx * fx2 + dy * fy2) / d;
         const ph = p.im.naturalWidth ? (p.im.naturalHeight * p.it.w) / p.im.naturalWidth : p.it.w;
+        // 고정 그림(건물 · 소품)은 앞(+y)을 보고 서 있어서, 내가 그 뒤쪽이면 종이 뒷면이 보임
+        const back = p.it.kind !== 'person' && !/^팝업\/자연\/(0\d|10) /.test(p.it.asset) && y < p.it.y - o.oy - 4;
         if (c > 0.85 && ph / d > 0.55) seen -= 3; // 코앞에서 시야를 다 막는 큰 그림 (광장에서 여관 바로 앞에 섰었음)
-        else if (d > 55 && d < 480 && c > cos35) seen += p.it.kind === 'person' ? 1.5 : 1;
+        else if (d > 55 && d < 480 && c > cos35) seen += back ? -1.2 : p.it.kind === 'person' ? 1.5 : 1;
+        if (back && d < 130 && c > 0.2) seen -= 1.5; // 가까이 보이는 종이 뒷면
       }
       // 앞으로 판 끝까지의 거리 (판 안을 오래 들여다볼수록 좋음)
       const ahead = Math.min(fx2 > 0.01 ? (o.w - x) / fx2 : fx2 < -0.01 ? -x / fx2 : 1e4, fy2 > 0.01 ? (o.h - y) / fy2 : fy2 < -0.01 ? -y / fy2 : 1e4);
@@ -2682,6 +2694,7 @@ function fpSync(o, sec = 0) {
   if (!on) { fpAim(null); if (document.pointerLockElement) document.exitPointerLock(); }
   if (o.walls && !!o.wallsUp !== on) {
     o.wallsUp = on;
+    fpExtras(o, on);
     fpFace(o, !on);
     // 먼 풍경 막 · 땅이 먼저, 꾸밈 · 나무 · 구름은 그 사이사이 흩어져 툭툭 일어섬
     o.walls.forEach((wl) => setTimeout(() => { if (!!o.wallsUp === on) setWall(wl, on); }, on ? sec * 600 + wl._d : 0));
@@ -2813,21 +2826,24 @@ function fpRay(o, sx, sy) {
   return [dx * Math.cos(ps) + y1 * Math.sin(ps), -dx * Math.sin(ps) + y1 * Math.cos(ps), z1];
 }
 /** 화면의 한 점에 보이는 그림 (가장 가까운 것). 1인칭에서는 브라우저가 입체 속 그림을 짚어 내지 못해서(판 뒤만 잡힘) 직접 셈:
- *  그림은 내 눈자리를 향해 서 있으니, 그 면과 시선이 만나는 곳이 그림 너비 · 키 안이면 맞음 */
+ *  그림이 서 있는 면(사람은 지금 보는 쪽, 건물은 정면, 나무는 엇갈린 두 장)과 시선이 만나는 곳이 그림 너비 · 키 안이면 맞음 */
 function fpPickPiece(o, sx, sy) {
   const e = o.eye, ez = e.h + (e.bob || 0), [rx, ry, rz] = fpRay(o, sx, sy);
   let best = null;
   for (const p of o.pieces) {
     if (!p.im.naturalWidth) continue;
-    const px = p.it.x - o.ox, py = p.it.y - o.oy, nl = Math.hypot(e.x - px, e.y - py) || 1, ux = (e.x - px) / nl, uy = (e.y - py) / nl;
-    const den = ux * rx + uy * ry;
-    if (den > -1e-6) continue;
-    const t = (ux * (px - e.x) + uy * (py - e.y)) / den;
-    if (t <= 0) continue;
-    const qx = e.x + rx * t, qy = e.y + ry * t, qz = ez + rz * t;
+    const px = p.it.x - o.ox, py = p.it.y - o.oy;
     const sc = p.it.kind === 'person' ? FP_PS : 1, W = p.it.w * sc, H = ((p.im.naturalHeight * p.it.w) / p.im.naturalWidth) * sc;
-    if (Math.abs(-uy * (qx - px) + ux * (qy - py)) > W * 0.42 || qz < 0 || qz > H * 0.96) continue; // 가장자리 투명한 곳은 조금 빼고
-    if (!best || t < best.t) best = { p, t };
+    const angs = p.it.kind === 'person' ? [p.im._phi ?? (Math.atan2(-(e.x - px), e.y - py) * 180) / Math.PI] : p.planes || [0];
+    for (const a of angs) {
+      const r = (a * Math.PI) / 180, nx = -Math.sin(r), ny = Math.cos(r), den = nx * rx + ny * ry; // 면의 법선 · 시선
+      if (Math.abs(den) < 1e-6) continue;
+      const t = (nx * (px - e.x) + ny * (py - e.y)) / den;
+      if (t <= 0) continue;
+      const qx = e.x + rx * t, qy = e.y + ry * t, qz = ez + rz * t;
+      if (Math.abs(Math.cos(r) * (qx - px) + Math.sin(r) * (qy - py)) > W * 0.42 || qz < 0 || qz > H * 0.96) continue; // 가장자리 투명한 곳은 조금 빼고
+      if (!best || t < best.t) best = { p, t };
+    }
   }
   return best ? best.p : null;
 }
@@ -2880,13 +2896,26 @@ document.addEventListener('pointerlockchange', () => {
   else fpAimSoon();
   fpUI(openState);
 });
+// 움직임은 모아 두었다가 한 장면에 한 번만 그림 (마우스가 촘촘히 보내는 이동마다 다시 그리면 버벅임).
+// 윈도 크롬은 잠근 마우스의 이동값이 가끔 한 번 크게 튀어서(시점이 휙 돌아감) 큰 값은 버림
 addEventListener('mousemove', (e) => {
   const o = openState;
   if (!FPLOOK.on || !fpOn(o) || !freeView()) return;
-  o.eye.yaw -= e.movementX * 0.13;
-  o.eye.pitch = clampv(o.eye.pitch + e.movementY * 0.11, [-14, 42]);
-  fpApply(o);
-  fpAimSoon();
+  const mx = e.movementX, my = e.movementY;
+  if (Math.abs(mx) > 160 || Math.abs(my) > 160) return;
+  FPLOOK.dx = (FPLOOK.dx || 0) + mx;
+  FPLOOK.dy = (FPLOOK.dy || 0) + my;
+  if (FPLOOK.mv) return;
+  FPLOOK.mv = requestAnimationFrame(() => {
+    FPLOOK.mv = 0;
+    const o2 = openState;
+    if (!fpOn(o2)) { FPLOOK.dx = FPLOOK.dy = 0; return; }
+    o2.eye.yaw -= FPLOOK.dx * 0.13;
+    o2.eye.pitch = clampv(o2.eye.pitch + FPLOOK.dy * 0.11, [-14, 42]);
+    FPLOOK.dx = FPLOOK.dy = 0;
+    fpApply(o2);
+    fpAimCheck();
+  });
 });
 /** 표적 자리 (화면에서 시선이 지나는 곳 = 원근 중심) */
 function fpAimPoint() { const c = fpOrigin(); Object.assign(fpAimEl.style, { left: c.x + 'px', top: c.y + 'px' }); return c; }
@@ -2908,6 +2937,11 @@ function fpAim(p) {
 }
 /** 그림 카드 열기 (1인칭에서 누른 그림) */
 function fpOpenCard(p) {
+  const o = openState;
+  if (p.it.kind === 'person' && o?.eye) { // 부르면 나를 돌아봄
+    const b = (Math.atan2(-(o.eye.x - (p.it.x - o.ox)), o.eye.y - (p.it.y - o.oy)) * 180) / Math.PI, d = ((b - (p.im._phi ?? b) + 540) % 360) - 180;
+    if (Math.abs(d) > 8) { fpTurn(p.im); p.im._phi = (p.im._phi ?? b) + d; p.im.style.setProperty('--bb', p.im._phi.toFixed(1) + 'deg'); }
+  }
   p.im.classList.remove('hop');
   void p.im.offsetWidth;
   p.im.classList.add('hop');
@@ -2938,7 +2972,18 @@ scene.addEventListener('click', (e) => {
   const p = fpPickPiece(o, e.clientX, e.clientY);
   if (p) { fpOpenCard(p); return; }
   FPLOOK.at = [e.clientX, e.clientY];
-  if (scene.requestPointerLock) { fpAimPoint(); scene.requestPointerLock(); } else fpLockFail();
+  if (!scene.requestPointerLock) { fpLockFail(); return; }
+  fpAimPoint();
+  // 마우스 가속 없이 원래 움직임 그대로 (튀는 값이 덜함) — 못 쓰는 곳이면 보통으로
+  const r = scene.requestPointerLock({ unadjustedMovement: true });
+  if (r && r.catch) {
+    FPLOOK.tryP = true; // 약속(Promise)으로 답을 받는 동안은 실패 알림(pointerlockerror)으로 따로 걷지 않음
+    r.then(() => { FPLOOK.tryP = false; }, () => {
+      const r2 = scene.requestPointerLock();
+      if (r2 && r2.then) r2.then(() => { FPLOOK.tryP = false; }, () => { FPLOOK.tryP = false; fpLockFail(); });
+      else FPLOOK.tryP = false;
+    });
+  }
 });
 // 마우스를 잡지 못하는 곳이면(막힌 창 등) 예전처럼 누른 바닥으로 걸어감
 function fpLockFail() {
@@ -2947,7 +2992,7 @@ function fpLockFail() {
   const hit = fpPick(o, ...FPLOOK.at);
   if (hit) fpGlideTo(o, ...fpClamp(o, hit[0], hit[1]));
 }
-document.addEventListener('pointerlockerror', fpLockFail);
+document.addEventListener('pointerlockerror', () => { if (!FPLOOK.tryP) fpLockFail(); });
 const FP_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 // 글자판 자리(e.code)로 받음: 한글 입력 상태에서도 W A S D 가 먹게. 다른 단축키보다 먼저 (S = 장면 패널 대신 뒤로 걷기)
 addEventListener('keydown', (e) => {
@@ -2977,22 +3022,61 @@ function setWall(bd, up) {
   // 다 일어선 뒤에는 걸으며 나를 향해 돌아설 때 늦게 따라 돌며 출렁이지 않게
   else bd._t = setTimeout(() => { bd.style.transition = bd.classList.contains('fp-sun') ? 'opacity 0.4s, transform 2.2s ease-in-out' : 'opacity 0.4s, background-color 2.2s'; }, 1300); // 해는 때를 바꾸면 천천히 뜨고 짐
 }
-/** 오림 그림 · 꾸밈 · 구름 · 해가 내 눈자리를 향해 돌아섬. 서서 고개만 돌릴 땐 그대로 (화면을 향해 돌게 했더니 둘러볼 때마다 온 세상이 빙글 돌았음) */
+/** 1인칭에서 그림이 서는 방식 — 늘 나를 향해 미끄러지듯 돌면 어색해서 종류마다 진짜 팝업북처럼:
+ *  · 건물 · 분수 · 천막 · 벤치 · 가로등: 돌지 않음. 뒤로 돌아가면 그림이 비치는 종이 뒷면 (fpExtras)
+ *  · 나무 · 덤불: 종이 두 장을 엇갈려 끼운 열십자 (어느 쪽에서 봐도 나무, 돌지 않음)
+ *  · 사람: 가만히 있다가 내가 옆으로 많이 돌아가면(62° 넘게) 휙 돌아 나를 봄 (페이퍼 마리오처럼)
+ *  · 판 둘레 꾸밈도 사람처럼 (너무 비스듬해질 때만 돌아섬), 멀리 매단 구름 · 해만 늘 나를 봄 */
 function fpFace(o, off) {
   if (!o.face) {
     o.face = [];
-    for (const p of o.pieces) for (const e of [p.im, p.glow]) if (e) o.face.push([e, p.it.x - o.ox, p.it.y - o.oy]);
+    for (const p of o.pieces) if (p.it.kind === 'person') o.face.push([p.im, p.it.x - o.ox, p.it.y - o.oy, 'flip']);
     for (const e of o.walls || []) {
-      if (e.classList.contains('fpfar') || e.classList.contains('fp-ground') || e.classList.contains('fp-mist')) continue;
-      const s = e.style; // 발치 자리 (placeBottom 으로 깐 것은 dataset, 해는 상자 아래 가운데)
-      o.face.push([e, e.dataset.cx ? Number(e.dataset.cx) : parseFloat(s.left) + parseFloat(s.width) / 2, e.dataset.by ? Number(e.dataset.by) : parseFloat(s.top) + parseFloat(s.height)]);
+      const how = e.classList.contains('dress') ? 'flip' : e.classList.contains('fpcloud') || e.classList.contains('fp-sun') ? 'face' : null;
+      if (!how) continue;
+      const s = e.style; // 발치 자리 (꾸밈 · 구름은 dataset, 해는 상자 아래 가운데)
+      o.face.push([e, e.dataset.cx ? Number(e.dataset.cx) : parseFloat(s.left) + parseFloat(s.width) / 2, e.dataset.by ? Number(e.dataset.by) : parseFloat(s.top) + parseFloat(s.height), how]);
     }
   }
   const ex = o.eye.x, ey = o.eye.y;
-  for (const [e, x, y] of o.face) {
-    if (off) e.style.removeProperty('--bb');
-    else e.style.setProperty('--bb', ((Math.atan2(-(ex - x), ey - y) * 180) / Math.PI).toFixed(1) + 'deg');
+  for (const [e, x, y, how] of o.face) {
+    if (off) { e.style.removeProperty('--bb'); e._phi = null; continue; }
+    const b = (Math.atan2(-(ex - x), ey - y) * 180) / Math.PI;
+    if (how === 'face') { e.style.setProperty('--bb', b.toFixed(1) + 'deg'); continue; }
+    const d = ((b - (e._phi ?? b) + 540) % 360) - 180;
+    if (e._phi != null && Math.abs(d) <= 62) continue;
+    if (e._phi != null) fpTurn(e);
+    e._phi = e._phi == null ? b : e._phi + d; // 짧은 쪽으로 돎
+    e.style.setProperty('--bb', e._phi.toFixed(1) + 'deg');
   }
+}
+/** 사람이 휙 돌아섬 (1인칭에선 그림이 바로바로 따라 돌게 transition 을 꺼 두었으니 이때만 잠깐 켬) */
+function fpTurn(e) {
+  e.style.transition = 'transform 0.38s cubic-bezier(.3,1.35,.5,1)';
+  clearTimeout(e._ft);
+  e._ft = setTimeout(() => { e.style.transition = ''; }, 420);
+}
+/** 1인칭 전용 덧종이: 고정 그림의 종이 뒷면 · 나무의 엇갈린 둘째 장 (처음 내려설 때 만들고, 위에서 볼 땐 감춤) */
+function fpExtras(o, on) {
+  if (on && !o.extras) {
+    o.extras = [];
+    for (const p of o.pieces) {
+      if (p.it.kind === 'person') continue;
+      const tree = /^팝업\/자연\/(0\d|10) /.test(p.it.asset);
+      const e = el('stand ' + (tree ? 'piece-x' : 'piece-back'), bookz, 'img');
+      e.src = p.im.src;
+      e.draggable = false;
+      Object.assign(e.dataset, { w: p.it.w, cx: p.it.x - o.ox, by: p.it.y - o.oy, up: '1' });
+      layBottom(e);
+      if (!(e.complete && e.naturalWidth)) e.addEventListener('load', () => layBottom(e), { once: true });
+      // 뒷면: 같은 자리에 법선만 뒤집어(scaleZ(-1)) 뒤에서만 보이게 · 둘째 장: 90° 돌려 끼움
+      e.style.transform = tree ? standT(e).replace('rotateX', 'rotateZ(90deg) rotateX') : standT(e) + ' scaleZ(-1)';
+      p.im.classList.toggle('fixed', !tree);
+      p.planes = tree ? [0, 90] : [0];
+      o.extras.push(e);
+    }
+  }
+  for (const e of o.extras || []) e.style.display = on ? '' : 'none';
 }
 
 document.getElementById('close').onclick = closeBlock;
@@ -3039,6 +3123,7 @@ addEventListener('pointermove', (e) => {
   if (!drag.moved && Math.hypot(dx, dy) < 4) return;
   drag.moved = true;
   scene.classList.add('is-dragging');
+  if (FPLOOK.on) return; // 마우스를 잠근 동안은 움직임으로만 돎 (끌기와 둘이 같이 시점을 건드려 튀지 않게)
   if (drag.fp && fpOn(openState)) {
     // 1인칭: 끄는 쪽으로 고개를 돌림 (오른쪽으로 끌면 오른쪽을 봄 — 잡아 끄는 거리 보기 식은 좌우가 뒤집힌 느낌이었음)
     const ey = openState.eye;
