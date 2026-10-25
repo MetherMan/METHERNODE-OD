@@ -93,7 +93,6 @@
   .cover-back.l { transform-origin: 0 50%; border-radius: 6px 0 0 6px; }
   .cover-back.r { transform-origin: 100% 50%; border-radius: 0 6px 6px 0; }
   /* 양옆에 펼쳐져 누운 안쪽 면은 판보다 튀지 않게 둘레 지도처럼 살짝 가라앉힘 */
-  #scene.is-unfolded .cover-back { filter: brightness(0.7) saturate(0.85); }
   .stand { position: absolute; transform-origin: 50% 100%; -webkit-user-drag: none; user-select: none; }
   /* 평소엔 거름(filter)을 걸지 않음: 입체 속 그림에 거름을 걸면 크롬이 그 그림을 낮은 해상도로 따로 그려서 인물 둘레가 뿌옇게 번졌음.
      고를 때만 빛남 (--k: 그림을 k배 크게 깔고 줄여 보이므로 빛 번짐도 k배) */
@@ -621,6 +620,58 @@
   .gsvg .gn.party text { fill: #f4e4c0; stroke: none; font: 400 13px var(--hand); }
   .gsvg [data-ids], .gsvg .gn { transition: opacity 0.15s; }
   .gsvg.focus [data-ids]:not(.hi), .gsvg.focus .gn:not(.hi) { opacity: 0.12; }
+  /* ---------- 장면 패널: 왼쪽에 끼우는 장서표 (오른쪽 카드와 짝) ---------- */
+  #app:not(.is-open) #tb-scene { display: none; }
+  #tb-scene { background: rgba(110,44,26,0.75) !important; border-color: rgba(226,170,120,0.6) !important; }
+  #scenepanel { position: absolute; left: 20px; top: 66px; bottom: 20px; width: 340px; z-index: 6; display: flex; flex-direction: column; border-radius: 5px; color: var(--ink);
+    background: url('assets/paper_card.jpg') center / cover, #f2e7cf;
+    box-shadow: 0 26px 64px rgba(0,0,0,0.62), 0 2px 0 rgba(255,255,255,0.4) inset, inset 0 0 0 1px rgba(110,72,38,0.55), inset 0 0 0 6px rgba(255,248,230,0.35),
+      inset 0 0 0 7px rgba(168,129,63,0.75), inset 0 0 0 9px rgba(255,248,230,0.25), inset 0 0 0 10px rgba(168,129,63,0.35), inset 0 0 46px rgba(120,80,45,0.22);
+    transform: translateX(-400px) rotate(-1.5deg); transition: transform 0.45s cubic-bezier(.2,.8,.2,1); overflow: hidden; }
+  #scenepanel.is-open { transform: translateX(0) rotate(0deg); }
+  #scenepanel::before { content: ''; position: absolute; right: 34px; top: -2px; width: 14px; height: 50px; z-index: 2; pointer-events: none;
+    background: linear-gradient(90deg, #2e4a6a, #4b6a8e 45%, #34506e); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); filter: drop-shadow(0 2px 2px rgba(10,20,40,0.4)); }
+  #scenepanel .x { position: absolute; left: 16px; top: 14px; z-index: 3; width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(120,85,50,0.4); background: rgba(255,250,236,0.6); font: 16px/1 var(--serif); color: #7a5a3c; cursor: pointer; }
+  #scenepanel .x:hover { background: rgba(255,250,236,0.95); color: var(--accent); }
+  #scenepanel .shead { flex: none; padding: 22px 30px 0; text-align: center; }
+  #scenepanel .sk { font: 11px/1 var(--serif); letter-spacing: 0.55em; text-indent: 0.55em; color: #3e5878; }
+  #scenepanel .sk::before, #scenepanel .sk::after { content: ' ✦ '; font-size: 8px; color: #a8813f; letter-spacing: 0; }
+  #scenepanel .snm { font: 400 27px/1.25 var(--hand); color: #3c2616; letter-spacing: 0.1em; margin-top: 8px; }
+  #scenepanel .swhere { font: 12px/1.4 var(--serif); color: #8a6a48; margin-top: 2px; }
+  #scenepanel .orn { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; }
+  #scenepanel .orn i { width: 6px; height: 6px; transform: rotate(45deg); background: #a8813f; box-shadow: 0 0 0 2px #f2e7cf, 0 0 0 3px rgba(168,129,63,0.6); }
+  #scenepanel .orn::before, #scenepanel .orn::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(140,100,60,0.65), transparent); }
+  #scenepanel .tabs { flex: none; display: flex; gap: 2px; margin: 12px 18px 0; border-bottom: 1.5px solid rgba(140,100,60,0.45); }
+  #scenepanel .tabs button { flex: 1; padding: 8px 0 7px; border: 0; border-radius: 6px 6px 0 0; background: transparent; color: #8a6a48; font: 13px/1 var(--serif); letter-spacing: 0.12em; cursor: pointer; position: relative; top: 1.5px; }
+  #scenepanel .tabs button:hover { color: #4a3020; background: rgba(255,246,222,0.45); }
+  #scenepanel .tabs button.on { color: #f4f0e6; background: linear-gradient(180deg, #4b6a8e, #34506e); }
+  #scenepanel .body { flex: 1; overflow: auto; padding: 10px 26px 16px; scrollbar-width: thin; scrollbar-color: rgba(140,100,60,0.5) transparent; }
+  .flap.inpanel { position: static; transform: none; padding: 0; cursor: default; overflow: visible; display: block; }
+  .flap.inpanel .mini { margin: 4px auto 10px; }
+  .flap.inpanel li, .flap.inpanel .mini polygon, .flap.inpanel .tool, .flap.inpanel .rec { cursor: pointer; }
+  .flap.inpanel li:hover, .flap.inpanel .rec:hover { background: rgba(255,236,190,0.45); }
+  .flap.inpanel .tool { display: block; width: 100%; margin-top: 14px; padding: 9px 0; border-radius: 999px; border: 1px solid rgba(120,85,50,0.45); background: rgba(255,250,236,0.6); color: #5a3a20; font: 13px/1 var(--serif); letter-spacing: 0.15em; }
+  .flap.inpanel .tool:hover { background: rgba(255,250,236,0.95); color: var(--accent); }
+  .flap.inpanel .recs { overflow: visible; }
+  /* ---------- 양옆 면: 꾸밈 면지 (마블 무늬 · 금테 · 가운데 장식 액자) ---------- */
+  #scene.is-unfolded .cover-back { filter: brightness(0.86) saturate(0.95); }
+  .endpaper { position: absolute; inset: 14px; transform: scaleX(-1); box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 3px; overflow: hidden; pointer-events: none;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.034' numOctaves='3' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.24 0 0 0 0 0.3 0 0 0 0 0.42 0 0 0 1.6 -0.62'/%3E%3C/filter%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.01 0.05' numOctaves='2' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.62 0 0 0 0 0.32 0 0 0 0 0.2 0 0 0 1.5 -0.66'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 260px 260px,
+      linear-gradient(160deg, #eadfc4, #dccbaa);
+    box-shadow: inset 0 0 0 1.5px #a8813f, inset 0 0 0 5px rgba(246,236,212,0.6), inset 0 0 0 6px rgba(168,129,63,0.6), inset 0 0 50px rgba(50,30,15,0.35); }
+  .ep-cart { position: relative; width: 74%; max-width: 280px; padding: 30px 14px 26px; text-align: center; border-radius: 50% / 12%;
+    background: url('assets/paper_card.jpg') center / cover, #f2e7cf;
+    box-shadow: 0 0 0 2px #f6ecd4, 0 0 0 3.5px #a8813f, 0 0 0 9px rgba(246,236,212,0.55), 0 0 0 10px rgba(168,129,63,0.55), 0 8px 22px rgba(40,22,8,0.4); }
+  .ep-cart::before, .ep-cart::after { content: '❦'; position: absolute; left: 50%; transform: translateX(-50%); font-size: 16px; color: #a8813f; }
+  .ep-cart::before { top: 6px; }
+  .ep-cart::after { bottom: 4px; transform: translateX(-50%) rotate(180deg); }
+  .ep-town { font: 12px/1 var(--serif); letter-spacing: 0.3em; color: #7a5a34; white-space: nowrap; }
+  .ep-orn { height: 8px; margin: 10px auto 8px; width: 70%; background: radial-gradient(circle, #a8813f 0 2.5px, transparent 3px) center / 8px 8px no-repeat, linear-gradient(rgba(168,129,63,0.6), rgba(168,129,63,0.6)) center / 100% 1px no-repeat; }
+  .ep-name { font: 400 32px/1.2 var(--hand); color: #3c2616; letter-spacing: 0.12em; }
+  .ep-sub { font: 14px/1.4 var(--serif); color: #8a3220; margin-top: 8px; letter-spacing: 0.08em; }
+  .ep-rose { display: block; width: 62%; margin: 0 auto; }
+  .ep-chap { font: 400 22px/1.2 var(--hand); color: #3c2616; letter-spacing: 0.3em; text-indent: 0.3em; margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -635,7 +686,7 @@
     <div id="fx"><div class="fx-tone"></div><div class="fx-bloom"></div><div class="fx-rays"></div><div class="motes"></div><div class="fx-grade"></div></div>
     <div id="scene-title" class="ui heading"></div>
     <button id="close" class="ui">책 덮기</button>
-    <div id="view-hint" class="ui">끌면 보는 각도가 돌아가요 · 휠로 가까이 · 아래 장면 이름 · ← → 로 마을 안 다른 장면 · → 장소(골목길 · 거리)는 새로 꾸민 판 · Backspace 위 판 · 양옆 면을 누르면 목차·기록 · Esc 덮기</div>
+    <div id="view-hint" class="ui">끌면 보는 각도가 돌아가요 · 휠로 가까이 · 아래 장면 이름 · ← → 로 마을 안 다른 장면 · → 장소(골목길 · 거리)는 새로 꾸민 판 · Backspace 위 판 · 「장소 · 기록」(S)으로 장소 만들기 · 기록 · Esc 덮기</div>
     <div id="stagebar" class="ui"><div class="sb-scenes" title="이 마을의 장면 (← →)"></div><div class="sb-sub"><button class="sb-up" title="위 판으로 (Backspace)">⤴ 위로</button><div class="sb-kids"></div></div></div>
     <div id="flappanel" class="ui"><button class="fp-back">‹ 판으로</button><div class="flap"></div></div>
     <div id="ptools" class="ui"><b>배치 고치기</b><span class="tip">그림을 끌어 옮기기 · 오른쪽에서 기호를 골라 더 놓기</span><span class="pt-sel">고른 그림 없음</span><button class="pt-small" disabled>－</button><button class="pt-big" disabled>＋</button><button class="pt-del" disabled>지우기</button><span class="pt-board"><label>바닥 <select class="pt-floor"></select></label><button class="pt-narrow" title="판을 좁게">판 －</button><button class="pt-wide" title="판을 넓게">판 ＋</button></span><button class="pt-done go">다 했어요</button></div>
@@ -643,7 +694,8 @@
     <div id="recpanel" class="ui"><div class="rp-head"><span class="rp-kind"></span><input class="rp-title" placeholder="제목"><span class="rp-date"></span></div><textarea class="rp-body" placeholder="여기에 길게 적어요…"></textarea><div class="rp-foot"><span class="rp-path"></span><span class="rp-saved"></span><button class="rp-open">옵시디언에서 열기</button><button class="rp-close go">닫기</button></div></div>
   </div>
   <div id="card"></div>
-  <div id="tools" class="ui"><button data-p="ledger" title="마을 명부">명부</button><button data-p="finder" title="찾기 (Ctrl+K)">찾기</button><button data-p="graph" title="관계도">관계도</button></div>
+  <div id="scenepanel"><button class="x" title="닫기">×</button><div class="shead"><div class="sk"></div><div class="snm"></div><div class="swhere"></div><div class="orn"><i></i></div></div><div class="tabs"><button data-t="l">장 소 · 지 도</button><button data-t="r">기 록</button></div><div class="body"></div></div>
+  <div id="tools" class="ui"><button id="tb-scene" title="이 장면의 장소 · 기록 (S)">장소 · 기록</button><button data-p="ledger" title="마을 명부">명부</button><button data-p="finder" title="찾기 (Ctrl+K)">찾기</button><button data-p="graph" title="관계도">관계도</button></div>
   <div id="ledger" class="panel"><div class="pp paper"></div></div>
   <div id="finder" class="panel"><div class="pp paper"></div></div>
   <div id="graph" class="panel"><div class="pp paper"></div></div>
@@ -946,11 +998,15 @@ function standT(e) {
   // 판에서 털끝만큼 띄움: 발치가 판과 딱 닿아 있으면 크롬 3D 정렬이 각도에 따라 판을 앞에 그려서 그림이 통째로 사라졌다 나타남
   return `translateX(${dx}px) translateZ(${up ? 0.8 : 0.3}px) rotateX(${up ? -90 : 0}deg) scale(${sc})`;
 }
-function bookT(o, left) {
-  const kc = left ? Math.min(1, (innerWidth - 430) / (innerWidth - 40)) : 1; // 카드 자리만큼 작게
+function bookT(o) {
+  // 오른쪽 카드 · 왼쪽 장면 패널이 열린 만큼 남은 자리 가운데로, 작게 (둘 다 열리면 더 작게)
+  const R = document.getElementById('card').classList.contains('is-open') ? 370 : 0;
+  const L = document.getElementById('scenepanel').classList.contains('is-open') ? 380 : 0;
+  const side = L || R;
+  const kc = side ? Math.min(1, (innerWidth - L - R - 60) / (innerWidth - 40)) : 1;
   const F = focusOf(o);
-  const cy = F.sy ?? o.cy; // 양옆 면·구역 나누기는 위에서 내려다보므로 화면 한가운데에
-  return BT(left ? (innerWidth - 370) / 2 + 40 : o.cx, left ? cy - (1 - kc) * 60 : cy, o.w, o.h, o.s * VIEW.zoom * kc * F.k, VIEW.tilt, VIEW.yaw, 0, F.fx, F.fy);
+  const cy = F.sy ?? o.cy; // 배치 고치기는 위에서 내려다보므로 화면 한가운데에
+  return BT(side ? L + (innerWidth - L - R) / 2 + (R && !L ? 40 : 0) : o.cx, side ? cy - (1 - kc) * 60 : cy, o.w, o.h, o.s * VIEW.zoom * kc * F.k, VIEW.tilt, VIEW.yaw, 0, F.fx, F.fy);
 }
 function applyView(animated) {
   const o = openState;
@@ -1217,8 +1273,7 @@ function boardState(V, parts) {
     ...parts, tall: Math.max(tall, 130), focus: null };
   // 덮개 안쪽 면 = 양옆 면 (왼쪽 장소 목차 · 오른쪽 기록). 누르면 카메라가 그 면을 내려다봄
   for (const d of o.doors) {
-    const f = el('flap', d.cb);
-    f.onclick = () => { if (!drag?.moved) lookFlap(d.s); };
+    const f = el('endpaper ' + d.s, d.cb);
     o[d.s === 'l' ? 'flapL' : 'flapR'] = f;
   }
   return o;
@@ -1389,6 +1444,7 @@ async function closeBlock() {
   if (!scene.classList.contains('is-ready')) { openState.closeAsap = true; return; } // 아직 펼치는 중: 예약된 동작과 엉키지 않게 다 펼쳐진 뒤 덮음
   hideCard();
   closeRecord();
+  scenePanel.classList.remove('is-open');
   // 배치 고치기 · 양옆 면 보기 중이면 그냥 접음 (장소 판도 지역 가운데 자리에 놓여 있어서 그대로 지도 자리로 덮임)
   if (openState.placing) endPlace(true);
   flappanel.classList.remove('on');
@@ -1527,22 +1583,51 @@ async function travelTo(b) {
 }
 stagebar.querySelector('.sb-up').onclick = () => leaveStage();
 function fillFlaps(o) {
-  if (o.flapL) fillFlap(o.flapL, 'l', o, false);
-  if (o.flapR) fillFlap(o.flapR, 'r', o, false);
+  drawEndpapers(o);
+  refreshScenePanel();
+}
+// ---------- 양옆 면: 꾸밈 면지 (마블 무늬 바탕 · 가운데 장식 액자) — 기능 없이 보기만 ----------
+const ROSE = '<svg viewBox="0 0 120 120" class="ep-rose"><g fill="none" stroke="#7a5a34" stroke-width="1"><circle cx="60" cy="60" r="52"/><circle cx="60" cy="60" r="46" stroke-dasharray="2 3"/><circle cx="60" cy="60" r="20"/></g>'
+  + '<g stroke="#7a5a34" stroke-width=".8">' + Array.from({ length: 32 }, (_, i) => { const a = (i / 32) * Math.PI * 2, r1 = i % 4 ? 49 : 44; return `<line x1="${60 + Math.cos(a) * r1}" y1="${60 + Math.sin(a) * r1}" x2="${60 + Math.cos(a) * 52}" y2="${60 + Math.sin(a) * 52}"/>`; }).join('') + '</g>'
+  + '<g><path d="M60 8 L67 60 L60 112 L53 60Z" fill="#a8482f"/><path d="M60 8 L67 60 L60 60Z" fill="#7a2e1c"/><path d="M8 60 L60 53 L112 60 L60 67Z" fill="#b89a6c"/><path d="M8 60 L60 53 L60 60Z" fill="#8a6a44"/>'
+  + '<path d="M60 60 L84 36 L64 64Z M60 60 L36 84 L56 56Z" fill="#c9b285"/><path d="M60 60 L84 84 L56 64Z M60 60 L36 36 L64 56Z" fill="#a8916a"/><circle cx="60" cy="60" r="4" fill="#e2c27e" stroke="#7a5a34"/></g>'
+  + '<text x="60" y="6" text-anchor="middle" font-size="9" fill="#7a2e1c" font-family="Gungsuh, Batang">북</text></svg>';
+function drawEndpapers(o) {
+  const order = town.blocks.indexOf(o.root) + 1;
+  const trail = o.stage ? lineage(o.root, o.stage).map(placeName) : [];
+  for (const [f, side] of [[o.flapL, 'l'], [o.flapR, 'r']]) {
+    if (!f) continue;
+    f.innerHTML = '';
+    const c = el('ep-cart', f);
+    if (side === 'l') {
+      el('ep-town', c).textContent = '펼 쳐 지 는  마 을';
+      el('ep-orn', c);
+      el('ep-name', c).textContent = o.root.name;
+      if (trail.length) el('ep-sub', c).textContent = trail.join(' › ');
+    } else {
+      c.insertAdjacentHTML('beforeend', ROSE);
+      el('ep-chap', c).textContent = `제 ${order} 장`;
+      el('ep-sub', c).textContent = trail.length ? trail[trail.length - 1] : o.root.name;
+    }
+  }
 }
 
 /** 양옆 면의 내용: 왼쪽 = 마을 지도 + 이 판 안의 장소 목차, 오른쪽 = 이 판의 기록 (노트). 3D 면(보기용)과 내려다볼 때 겹치는 판(live, 쓰기용)이 같은 모양 */
-function fillFlap(box, side, o, live) {
+/** 패널 안에서 누른 것 실행 (예전 면 보기 중이면 돌아오며) */
+const flapGo = (fn) => (openState?.look ? leaveFlap(fn) : fn());
+function fillFlap(box, side, o, live, panel = true) {
   box.innerHTML = '';
   const CW = o.w + 2 * PAD, CH = o.h + 2 * PAD;
-  el('lab', box).textContent = side === 'l' ? '장 소' : '기 록';
-  el('nm', box).textContent = o.stage ? placeName(o.stage) : o.root.name;
-  el('', el('orn', box), 'i');
+  if (!panel) {
+    el('lab', box).textContent = side === 'l' ? '장 소' : '기 록';
+    el('nm', box).textContent = o.stage ? placeName(o.stage) : o.root.name;
+    el('', el('orn', box), 'i');
+  }
   if (side === 'l') {
     const kids = childStages(o.root, o.stage);
     // 마을 지도: 이 마을의 장면들 (지금 장면은 붉게, 누르면 그 장면으로 날아감). 목차가 다 들어가고 남는 높이만큼만
     const room = CH - 62 - 82 - (kids.length + (o.stage ? 1 : 0)) * 30 - (live ? 2 : 1) * 34 - 18;
-    const mw0 = CW / 2 - 64, mh = Math.min(room, (mw0 * MAPH) / MAPW);
+    const mw0 = panel ? 286 : CW / 2 - 64, mh = panel ? (mw0 * MAPH) / MAPW : Math.min(room, (mw0 * MAPH) / MAPW);
     const mini = el('mini', box);
     Object.assign(mini.style, { width: (mh * MAPW) / MAPH + 'px', height: mh + 'px', display: mh < 46 ? 'none' : '' });
     const im = el('', mini, 'img');
@@ -1561,7 +1646,7 @@ function fillFlap(box, side, o, live) {
       const t = document.createElementNS(NS, 'title');
       t.textContent = b.name;
       pg.appendChild(t);
-      if (live && !on) pg.addEventListener('click', () => leaveFlap(() => travelTo(b)));
+      if (live && !on) pg.addEventListener('click', () => flapGo(() => travelTo(b)));
       svg.appendChild(pg);
     }
     // 이 판 안의 장소: 누르면 그 장소의 새 판으로. 쓰기용 판에서는 이름 고치기 · 지우기 · 새 장소 만들기
@@ -1570,7 +1655,7 @@ function fillFlap(box, side, o, live) {
       const li = el('', ol, 'li');
       el('no', li, 'span').textContent = '⤴';
       el('', li, 'span').textContent = (o.stage.parent ? placeName(stageById(o.root, o.stage.parent)) : o.root.name) + ' (위 판)';
-      if (live) li.onclick = () => leaveFlap(() => leaveStage());
+      if (live) li.onclick = () => flapGo(() => leaveStage());
     }
     kids.forEach((s, i) => {
       const li = el('place', ol, 'li');
@@ -1578,7 +1663,7 @@ function fillFlap(box, side, o, live) {
       const nm = el('pn', li, 'span');
       nm.textContent = placeName(s);
       if (!live) return;
-      li.onclick = (e) => { if (!e.target.closest('button, input')) leaveFlap(() => enterStage(s)); };
+      li.onclick = (e) => { if (!e.target.closest('button, input')) flapGo(() => enterStage(s)); };
       const ren = el('pb', li, 'button');
       ren.textContent = '✎';
       ren.title = '이름 고치기';
@@ -1588,8 +1673,8 @@ function fillFlap(box, side, o, live) {
         nm.replaceWith(inp);
         inp.focus();
         inp.select();
-        const done = () => { const v = inp.value.trim(); if (v && v !== s.name) { s.name = v; saveSoon(); } drawStageUI(o); fillFlap(box, 'l', o, true); };
-        inp.onkeydown = (e) => { if (e.key === 'Enter') done(); if (e.key === 'Escape') { e.stopPropagation(); fillFlap(box, 'l', o, true); } };
+        const done = () => { const v = inp.value.trim(); if (v && v !== s.name) { s.name = v; saveSoon(); } drawStageUI(o); fillFlap(box, 'l', o, true, panel); };
+        inp.onkeydown = (e) => { if (e.key === 'Enter') done(); if (e.key === 'Escape') { e.stopPropagation(); fillFlap(box, 'l', o, true, panel); } };
         inp.onblur = done;
       };
       const del = el('pb', li, 'button');
@@ -1603,7 +1688,7 @@ function fillFlap(box, side, o, live) {
         for (const x of all) st.splice(st.indexOf(x), 1);
         saveSoon();
         drawStageUI(o);
-        fillFlap(box, 'l', o, true);
+        fillFlap(box, 'l', o, true, panel);
       };
     });
     if (!kids.length) el('empty', box).textContent = live ? '아직 이 판 안의 장소가 없어요. 아래에 이름을 써서 만들어요 (예: 골목길 1, 배지야의 거리).' : '이 판 안의 장소 (골목길 · 거리 …) — 눌러서 만들어요.';
@@ -1622,7 +1707,7 @@ function fillFlap(box, side, o, live) {
         saveSoon();
         title.value = '';
         drawStageUI(o);
-        fillFlap(box, 'l', o, true);
+        fillFlap(box, 'l', o, true, panel);
       };
       title.onkeydown = (e) => { if (e.key === 'Enter') go.click(); };
     }
@@ -1666,14 +1751,43 @@ function fillFlap(box, side, o, live) {
         const path = await newRecord(o, kind, t);
         go.disabled = false;
         title.value = '';
-        fillFlap(o.flapR, 'r', o, false);
-        fillFlap(box, 'r', o, true);
+        fillFlap(box, 'r', o, true, panel);
         if (path) openRecord(path);
       };
       title.onkeydown = (e) => { if (e.key === 'Enter') go.click(); };
     }
   }
 }
+// ---------- 장면 패널 (왼쪽 장서표): 이 판의 장소 · 기록 · 마을 지도 · 배치 고치기 ----------
+const scenePanel = document.getElementById('scenepanel');
+let sceneTab = 'l';
+const sceneOpen = () => scenePanel.classList.contains('is-open');
+function openScenePanel(tab) {
+  if (!openState || openState.placing) return;
+  if (tab) sceneTab = tab;
+  scenePanel.classList.add('is-open');
+  refreshScenePanel();
+  shiftBook();
+}
+function closeScenePanel() {
+  if (!sceneOpen()) return;
+  scenePanel.classList.remove('is-open');
+  shiftBook();
+}
+function refreshScenePanel() {
+  const o = openState;
+  if (!sceneOpen() || !o) return;
+  scenePanel.querySelector('.sk').textContent = o.stage ? '장 소' : '장 면';
+  scenePanel.querySelector('.snm').textContent = o.stage ? placeName(o.stage) : o.root.name;
+  scenePanel.querySelector('.swhere').textContent = o.stage ? o.name : `펼쳐지는 마을 · 제 ${town.blocks.indexOf(o.root) + 1} 장`;
+  scenePanel.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === sceneTab));
+  const body = scenePanel.querySelector('.body');
+  body.innerHTML = '';
+  fillFlap(el('flap inpanel', body), sceneTab, o, true, true);
+}
+scenePanel.querySelector('.x').onclick = closeScenePanel;
+scenePanel.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => { sceneTab = b.dataset.t; refreshScenePanel(); }));
+document.getElementById('tb-scene').onclick = () => (sceneOpen() ? closeScenePanel() : openScenePanel());
 /** 양옆 면을 보는 카메라: 위에서 내려다보며 그 면이 화면에 꽉 차게 (글을 읽고 쓰기 좋게) */
 function flapFocus(o, side) {
   const CW = o.w + 2 * PAD, CH = o.h + 2 * PAD;
@@ -1748,6 +1862,7 @@ async function startPlace() {
   clearTimeout(o.lookTimer);
   scene.classList.remove('look-l', 'look-r');
   o.look = null;
+  scenePanel.classList.remove('is-open');
   o.placing = { sel: null };
   const CW = o.w + 2 * PAD, CH = o.h + 2 * PAD;
   o.focus = { kind: 'edit', cx: o.w / 2, cy: o.h / 2, k: Math.min((innerWidth - 300) * 0.86 / CW, (innerHeight * 0.76) / CH) / o.s, sy: innerHeight * 0.53 };
@@ -2003,7 +2118,7 @@ function saveRecordSoon() {
     if (r.fm['분류'] === '기록') r.fm['제목'] = title;
     const ok = await writeNote(r.path, fmText(r.fm) + `# ${title || r.fm['이름'] || ''}\n\n` + recpanel.querySelector('.rp-body').value);
     if (rec === r) recpanel.querySelector('.rp-saved').textContent = ok ? '저장됨 · ' + new Date().toLocaleTimeString('ko-KR') : '저장하지 못했어요';
-    if (openState?.flapR) fillFlap(openState.flapR, 'r', openState, false);
+    refreshScenePanel();
   }, 700);
 }
 recpanel.querySelector('.rp-body').oninput = saveRecordSoon;
@@ -2022,6 +2137,7 @@ addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && typing) { e.target.blur(); return; } // 쓰던 칸에서 Esc 는 칸만 빠져나옴 (책을 덮지 않게)
   if (typing) return;
   if (e.key === 'l' || e.key === 'L') { app.classList.toggle('no-fx'); return; }
+  if ((e.key === 's' || e.key === 'S') && o && scene.classList.contains('is-ready') && !o.placing) { sceneOpen() ? closeScenePanel() : openScenePanel(); return; }
   if (e.key === 'Backspace' && o?.stage && !o.look && !o.editing && !o.placing) { leaveStage(); return; }
   // ← → 이 마을의 앞 · 다음 장면으로
   if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && o && !o.look && !o.editing && !o.placing) {
@@ -2034,6 +2150,7 @@ addEventListener('keydown', (e) => {
   else if (o?.placing) endPlace();
   else if (o?.look) leaveFlap();
   else if (card.classList.contains('is-open')) hideCard();
+  else if (sceneOpen()) closeScenePanel();
   else if (o?.stage) leaveStage();
   else closeBlock();
 });
@@ -2529,7 +2646,7 @@ function openPanel(name) {
   panels[name].classList.add('on');
   ({ ledger: drawLedger, finder: openFinder, graph: drawGraph })[name]?.();
 }
-document.querySelectorAll('#tools button').forEach((b) => (b.onclick = () => openPanel(b.dataset.p)));
+document.querySelectorAll('#tools button[data-p]').forEach((b) => (b.onclick = () => openPanel(b.dataset.p)));
 for (const id of ['ledger', 'finder', 'graph', 'spread']) {
   panels[id] = document.getElementById(id);
   panels[id].addEventListener('pointerdown', (e) => { if (e.target === panels[id]) closePanels(); }); // 바깥(어두운 곳)을 누르면 닫힘
