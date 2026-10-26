@@ -96,7 +96,10 @@
   .stand { position: absolute; transform-origin: 50% 100%; -webkit-user-drag: none; user-select: none; }
   /* 평소엔 거름(filter)을 걸지 않음: 입체 속 그림에 거름을 걸면 크롬이 그 그림을 낮은 해상도로 따로 그려서 인물 둘레가 뿌옇게 번졌음.
      고를 때만 빛남 (--k: 그림을 k배 크게 깔고 줄여 보이므로 빛 번짐도 k배) */
-  .piece { cursor: pointer; transition: transform 0.75s cubic-bezier(.34,1.5,.64,1), filter 0.2s; }
+  .piece { cursor: pointer; transition: transform 0.75s cubic-bezier(.34,1.5,.64,1), filter 0.2s, opacity 0.45s; }
+  /* 들여다보기: 눈과 보여 줄 그림 사이를 가리는 그림은 잠깐 옅게 (카메라가 옆으로 돌아가지 않게) */
+  .stand.fp-ghost { opacity: 0.12 !important; pointer-events: none; transition: opacity 0.45s; }
+  .glow.fp-ghost { opacity: 0 !important; }
   .piece:hover { filter: drop-shadow(0 0 calc(5px * var(--k, 1)) rgba(255,214,150,0.9)); }
   .piece.is-sel { filter: drop-shadow(0 0 calc(1.2px * var(--k, 1)) rgba(255,248,225,1)) drop-shadow(0 0 calc(7px * var(--k, 1)) rgba(255,186,96,0.95)); }
   /* 서 있는 그림은 판에 수직으로 서 있으므로, 들썩임은 판의 법선(z) 방향으로 */
@@ -797,15 +800,16 @@
 
   /* ---------- 1인칭: 펼친 판 위에 내려서서 눈높이로 둘러보고 걸음 ---------- */
   /* 그림이 나를 보도록 돌아서는 건 바로바로 (늦게 따라오면 출렁여 보임) */
-  #scene.is-fp .piece { transition: filter 0.2s; }
+  #scene.is-fp .piece { transition: filter 0.2s, opacity 0.45s; }
   #scene.is-fp .glow.is-up { transition: opacity 0.8s; }
   /* 눈높이에서는 발치 종이 받침이 바닥에 뜬 회색 판처럼 보이고, 비스듬한 그림자는 앞으로 길게 번져 보여서 */
   #scene.is-fp .tab.ptab { opacity: 0; }
   /* 1인칭에선 화면 전체에 거는 빛 보정(뒤를 읽어 거르는 필터)을 끔: 고개를 돌릴 때마다 온 화면을 다시 걸러서 장면이 가끔 끊겼음 */
   #scene.is-fp .fx-bloom, #scene.is-fp .fx-tone { display: none; }
-  /* 고정 그림의 앞면은 앞에서만, 뒤로 돌아가면 그림이 흐릿하게 비치는 종이 뒷면 */
+  /* 고정 그림의 앞면은 앞에서만, 뒤로 돌아가면 같은 그림을 뒤에도 찍은 양면 그림 (흐린 종이 뒷면은 뒤에서 잘 안 보여 싫다고 했음) */
   #scene.is-fp .piece.fixed { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
-  .piece-back { pointer-events: none; -webkit-backface-visibility: hidden; backface-visibility: hidden; filter: grayscale(1) sepia(0.65) contrast(0.32) brightness(1.32); }
+  .piece-back { pointer-events: none; -webkit-backface-visibility: hidden; backface-visibility: hidden; transition: opacity 0.45s, filter 0.2s; }
+  .piece-back.is-aim { filter: drop-shadow(0 0 calc(5px * var(--k, 1)) rgba(255,214,150,0.95)); }
   .piece-x { pointer-events: none; }
   /* 1인칭 하늘: 화면에 붙은 구름 · 해 · 달 · 새는 고개를 돌려도 덜 돌아서 감추고, 판 속(3D)에 멀리 매단 종이 구름 · 해로 바꿈 */
   .sky-cloud { transition: filter 2.2s, opacity 1.2s; }
@@ -2742,6 +2746,12 @@ async function leaveFP(o, sec = 1.8) {
   FPV.glide = null;
   FPV.keys.clear();
   if (!o || openState !== o) return;
+  if (o.eye && Math.abs(o.eye.yaw) > 180) { // 걸으며 여러 바퀴 돈 고개를 같은 방향의 −180~180° 로 (떠오르며 몇 바퀴씩 되감지 않게)
+    o.eye.yaw = wrap180(o.eye.yaw);
+    book.style.transition = 'none';
+    book.style.transform = fpT(o);
+    void book.offsetWidth;
+  }
   VIEW.tilt = INIT_VIEW.tilt;
   VIEW.yaw = 0;
   VIEW.zoom = 1;
@@ -2757,34 +2767,48 @@ function toggleFP() {
 }
 // ---------- 들여다보기: 건물 · 사람을 누르면 카메라가 그 앞 눈높이로 와서 보여 줌 (오른쪽에 카드) ----------
 // 마음대로 걷는 1인칭은 조작이 번거롭고, 오림 그림의 옆 · 뒤가 보여 어색했음. 오림 그림은 정면이 가장 예쁘니 늘 좋은 자리로 데려감
-/** 그 그림을 보여 줄 자리: 정면 쪽에서 그림이 화면 높이의 약 60%가 되는 거리, 판 안이면서 앞을 다른 그림이 가리지 않는 곳 */
-function fpShot(o, p) {
+const wrap180 = (a) => ((((a + 180) % 360) + 360) % 360) - 180;
+const pieceH = (q) => (q.im.naturalWidth ? (q.im.naturalHeight * q.it.w) / q.im.naturalWidth : q.it.w) * (q.it.kind === 'person' ? FP_PS : 1);
+/** 그 그림을 보여 줄 자리: 지금 보던 쪽에서 그대로 다가가 그림이 화면 높이의 약 60%가 되는 거리.
+ *  예전엔 앞이 막히면 옆으로 최대 60°까지 돌아가 찍어서, 카메라가 크게 돌며 다른 그림들의 종이 뒷면이 보였음 → 돌지 않고, 가리는 그림은 옅게 (fpGhost).
+ *  보는 쪽: 위에서 볼 때 · 들여다보는 중이면 지금 보던 방향 그대로(옮겨 갈 땐 옆으로 미끄러질 뿐 돌지 않음),
+ *  걷던 중이면 나에게서 그 그림 쪽. 건물 · 소품은 앞면만 그림이라 정면 쪽 ±35° 안에서만 (걷다 누른 사람은 어느 쪽이든 — 사람이 나를 돌아봄) */
+function fpShot(o, p, from) {
   const px = p.it.x - o.ox, py = p.it.y - o.oy, person = p.it.kind === 'person';
-  const H = (p.im.naturalWidth ? (p.im.naturalHeight * p.it.w) / p.im.naturalWidth : p.it.w) * (person ? FP_PS : 1);
-  const eh = eyeHeight(o), d0 = clamp2(H * 1.7, 58, 330);
-  // 카메라는 걷는 범위와 달리 판 앞 가장자리 바로 바깥(둘레 나무 안쪽)까지 나갈 수 있음 — 맨 앞줄에 선 사람은 앞에 자리가 없어
-  // 대신 고른 자리가 판 안쪽으로 끌려 들어가며 그림 뒤쪽에서 찍혔음
+  const H = pieceH(p), eh = eyeHeight(o), d0 = clamp2(H * 1.7, 58, 330);
+  // 카메라는 걷는 범위와 달리 판 앞 가장자리 바로 바깥(둘레 나무 안쪽)까지 나갈 수 있음 (맨 앞줄에 선 사람은 앞에 자리가 없음)
   const X0 = 16, X1 = o.w - 16, Y0 = 24, Y1 = o.h + 22;
-  let best = null;
-  for (const a of [0, 15, -15, 30, -30, 45, -45, 60, -60]) for (const k of [1, 0.82, 0.66, 0.52]) {
-    const d = d0 * k, r = (a * Math.PI) / 180, ex = px + Math.sin(r) * d, ey = py + Math.cos(r) * d;
-    if (ex < X0 || ex > X1 || ey < Y0 || ey > Y1) continue;
-    let block = 0; // 눈과 그림 사이를 가리는 다른 그림 (낮은 벤치는 조금만)
-    for (const q of o.pieces) {
-      if (q === p) continue;
-      const qx = q.it.x - o.ox - ex, qy = q.it.y - o.oy - ey, bx = px - ex, by = py - ey, L2 = bx * bx + by * by, t = (qx * bx + qy * by) / L2;
-      if (t < 0.04 || t > 0.94) continue;
-      const qh = q.im.naturalWidth ? ((q.im.naturalHeight * q.it.w) / q.im.naturalWidth) * (q.it.kind === 'person' ? FP_PS : 1) : q.it.w;
-      // 카메라에 가까울수록(t 작을수록) 화면을 넓게 가리므로 더 넓게 봄 (학당 거리에서 앞줄 사람이 건물을 크게 가렸음)
-      if (Math.hypot(qx - bx * t, qy - by * t) < Math.max(10, q.it.w * (q.it.kind === 'person' ? FP_PS : 1) * 0.45) + (1 - t) * 16) block += Math.min(1, qh / eh);
-    }
-    const score = -Math.abs(a) * 0.09 - (1 - k) * 3 - block * 3.5; // 정면을 가장 앞세움 (조금 가려도 옆으로 돌기보다 낫게)
-    if (!best || score > best.score) best = { ex, ey, d, score };
+  const lim = person && from.walk ? 180 : 35;
+  const a = clamp2(wrap180(from.walk ? (Math.atan2(-(px - from.x), -(py - from.y)) * 180) / Math.PI : from.yaw), -lim, lim);
+  const sx = Math.sin((a * Math.PI) / 180), sy = Math.cos((a * Math.PI) / 180);
+  let ex = 0, ey = 0;
+  for (const k of [1, 0.86, 0.74, 0.62, 0.52]) {
+    ex = px + sx * d0 * k;
+    ey = py + sy * d0 * k;
+    if (ex >= X0 && ex <= X1 && ey >= Y0 && ey <= Y1) break;
   }
-  if (!best) { const ey = clamp2(py + d0, py + 30, Y1); best = { ex: clamp2(px, X0, X1), ey, d: ey - py }; } // 어떤 경우에도 그림 앞쪽
-  const yaw = (Math.atan2(-(px - best.ex), -(py - best.ey)) * 180) / Math.PI;
-  const aimZ = person ? H * 0.62 : Math.min(H * 0.45, eh + best.d * 0.35); // 사람은 가슴께, 건물은 허리께를 봄
-  return { x: best.ex, y: best.ey, yaw, pitch: clamp2((Math.atan2(eh - aimZ, best.d) * 180) / Math.PI, -14, 30), h: eh };
+  ex = clamp2(ex, X0, X1); // 판 끝이라 물러설 자리가 없으면 끝에 섬 (방향은 거의 그대로)
+  ey = clamp2(ey, Y0, Y1);
+  const d = Math.max(20, Math.hypot(px - ex, py - ey)), yaw = (Math.atan2(-(px - ex), -(py - ey)) * 180) / Math.PI;
+  const aimZ = person ? H * 0.62 : Math.min(H * 0.45, eh + d * 0.35); // 사람은 가슴께, 건물은 허리께를 봄
+  return { x: ex, y: ey, yaw, pitch: clamp2((Math.atan2(eh - aimZ, d) * 180) / Math.PI, -14, 30), h: eh };
+}
+/** 눈과 보여 줄 그림 사이를 가리는 그림 · 카메라에 닿을 만큼 가까운 그림은 잠깐 옅게 (p 가 없으면 모두 되돌림) */
+function fpGhost(o, p) {
+  if (!o?.pieces) return;
+  const e = o.eye, px = p ? p.it.x - o.ox : 0, py = p ? p.it.y - o.oy : 0;
+  for (const q of o.pieces) {
+    let g = false;
+    if (p && q !== p && e) {
+      const qx = q.it.x - o.ox - e.x, qy = q.it.y - o.oy - e.y, bx = px - e.x, by = py - e.y, L2 = bx * bx + by * by || 1, t = (qx * bx + qy * by) / L2;
+      const half = (q.it.w * (q.it.kind === 'person' ? FP_PS : 1)) / 2;
+      // 카메라에 가까울수록(t 작을수록) 화면을 넓게 가리므로 더 넓게 봄
+      if (t > -0.08 && t < 0.97 && Math.hypot(qx - bx * t, qy - by * t) < Math.max(8, half * 0.9) + (1 - t) * 18 && pieceH(q) > 5) g = true;
+    }
+    if (!!q.ghost === g) continue;
+    q.ghost = g;
+    for (const d of [q.im, q.ex, q.glow]) d?.classList.toggle('fp-ghost', g);
+  }
 }
 /** 사람이 나를 돌아봄 */
 function fpFaceMe(o, p) {
@@ -2804,9 +2828,11 @@ async function fpShowPiece(p) {
   void p.im.offsetWidth;
   p.im.classList.add('hop');
   showCard(p.it, p.im); // 카드를 먼저 열어야 화면 가운데가 카드 왼쪽으로 옮겨진 자리로 구도를 잡음
-  const shot = fpShot(o, p), was = fpOn(o);
-  if (was) shot.yaw = o.eye.yaw + ((((shot.yaw - o.eye.yaw) % 360) + 540) % 360) - 180; // 짧은 쪽으로 돎
+  const was = fpOn(o), from = !was ? { yaw: VIEW.yaw } : FPV.guided ? { yaw: o.eye.yaw } : { x: o.eye.x, y: o.eye.y, walk: true };
+  const shot = fpShot(o, p, from), cur = was ? o.eye.yaw : VIEW.yaw;
+  shot.yaw = cur + wrap180(shot.yaw - cur); // 짧은 쪽으로 돎
   o.eye = Object.assign(o.eye || {}, shot, { bob: 0 });
+  fpGhost(o, p);
   if (!was) { await enterFP(o, 2.0, true); fpFaceMe(o, p); return; }
   FPV.guided = true;
   o.faceAt = null;
@@ -2903,7 +2929,7 @@ function fpPickPiece(o, sx, sy) {
   const e = o.eye, ez = e.h + (e.bob || 0), [rx, ry, rz] = fpRay(o, sx, sy);
   let best = null;
   for (const p of o.pieces) {
-    if (!p.im.naturalWidth) continue;
+    if (!p.im.naturalWidth || p.ghost) continue; // 옅게 비켜 둔 그림은 너머를 누를 수 있게
     const px = p.it.x - o.ox, py = p.it.y - o.oy;
     const sc = p.it.kind === 'person' ? FP_PS : 1, W = p.it.w * sc, H = ((p.im.naturalHeight * p.it.w) / p.im.naturalWidth) * sc;
     const angs = p.it.kind === 'person' ? [p.im._phi ?? (Math.atan2(-(e.x - px), e.y - py) * 180) / Math.PI] : p.planes || [0];
@@ -2955,6 +2981,7 @@ function fpUI(o) {
   bar.querySelector('.fp-go').textContent = FPV.on ? '⌂ 위에서 보기' : '걸어 다니기';
   bar.querySelector('.fp-time').textContent = '때 · ' + TIMES[timeIdx()][1];
   document.getElementById('view-hint').textContent = fpOn(o) ? (FPV.guided ? FP_GUIDE_HINT : FPLOOK.on ? FP_LOOK_HINT : FP_HINT) : OV_HINT;
+  if (!(FPV.guided && fpOn(o))) fpGhost(o, null); // 들여다보기가 끝나면 옅게 비켜 둔 그림을 되돌림
 }
 document.querySelector('#fpbar .fp-go').onclick = () => toggleFP();
 document.querySelector('#fpbar .fp-time').onclick = () => cycleTime();
@@ -3001,9 +3028,9 @@ function fpAimCheck() {
 }
 function fpAim(p) {
   if (FPLOOK.aim === p) return;
-  FPLOOK.aim?.im.classList.remove('is-aim');
+  for (const d of [FPLOOK.aim?.im, FPLOOK.aim?.ex]) d?.classList.remove('is-aim');
   FPLOOK.aim = p;
-  p?.im.classList.add('is-aim');
+  for (const d of [p?.im, p?.ex]) d?.classList.add('is-aim'); // 뒤에서 겨눠도 뒷면이 빛남
   fpAimEl.querySelector('.nm').textContent = p ? p.it.name || p.it.asset.split('/').pop().replace(/^\d+\s*|\.png$/g, '') : '';
   fpAimEl.classList.toggle('on', !!p);
   scene.classList.toggle('fp-over', !!p);
@@ -3092,7 +3119,7 @@ function setWall(bd, up) {
   else bd._t = setTimeout(() => { bd.style.transition = bd.classList.contains('fp-sun') ? 'opacity 0.4s, transform 2.2s ease-in-out' : 'opacity 0.4s, background-color 2.2s'; }, 1300); // 해는 때를 바꾸면 천천히 뜨고 짐
 }
 /** 1인칭에서 그림이 서는 방식 — 늘 나를 향해 미끄러지듯 돌면 어색해서 종류마다 진짜 팝업북처럼:
- *  · 건물 · 분수 · 천막 · 벤치 · 가로등: 돌지 않음. 뒤로 돌아가면 그림이 비치는 종이 뒷면 (fpExtras)
+ *  · 건물 · 분수 · 천막 · 벤치 · 가로등: 돌지 않음. 뒤로 돌아가면 뒷면에도 같은 그림 (fpExtras)
  *  · 나무 · 덤불: 종이 두 장을 엇갈려 끼운 열십자 (어느 쪽에서 봐도 나무, 돌지 않음)
  *  · 사람: 가만히 있다가 내가 옆으로 많이 돌아가면(62° 넘게) 휙 돌아 나를 봄 (페이퍼 마리오처럼)
  *  · 판 둘레 꾸밈도 사람처럼 (너무 비스듬해질 때만 돌아섬), 멀리 매단 구름 · 해만 늘 나를 봄 */
@@ -3125,7 +3152,7 @@ function fpTurn(e) {
   clearTimeout(e._ft);
   e._ft = setTimeout(() => { e.style.transition = ''; }, 420);
 }
-/** 1인칭 전용 덧종이: 고정 그림의 종이 뒷면 · 나무의 엇갈린 둘째 장 (처음 내려설 때 만들고, 위에서 볼 땐 감춤) */
+/** 1인칭 전용 덧종이: 고정 그림의 뒷면 · 나무의 엇갈린 둘째 장 (처음 내려설 때 만들고, 위에서 볼 땐 감춤) */
 function fpExtras(o, on) {
   if (on && !o.extras) {
     o.extras = [];
@@ -3138,10 +3165,12 @@ function fpExtras(o, on) {
       Object.assign(e.dataset, { w: p.it.w, cx: p.it.x - o.ox, by: p.it.y - o.oy, up: '1' });
       layBottom(e);
       if (!(e.complete && e.naturalWidth)) e.addEventListener('load', () => layBottom(e), { once: true });
-      // 뒷면: 같은 자리에 법선만 뒤집어(scaleZ(-1)) 뒤에서만 보이게 · 둘째 장: 90° 돌려 끼움
-      e.style.transform = tree ? standT(e).replace('rotateX', 'rotateZ(90deg) rotateX') : standT(e) + ' scaleZ(-1)';
+      // 뒷면: 같은 자리에서 세로축으로 반 바퀴 돌려(rotateY(180°)) 뒤에서만 보이게 — 뒤에서 봐도 그림이 뒤집히지 않고 앞과 같게 · 둘째 장: 90° 돌려 끼움
+      e.style.transform = tree ? standT(e).replace('rotateX', 'rotateZ(90deg) rotateX') : standT(e) + ' rotateY(180deg)';
       p.im.classList.toggle('fixed', !tree);
       p.planes = tree ? [0, 90] : [0];
+      p.ex = e;
+      if (p.ghost) e.classList.add('fp-ghost'); // 처음 내려설 때 이미 옅게 비켜 둔 그림이면 덧종이도 같이
       o.extras.push(e);
     }
   }
