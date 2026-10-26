@@ -28,7 +28,7 @@ def mirror_ok(raw):
     name = raw[len(ARCH):]
     if not name or '/' in name or '\\' in name or '..' in name or name in PROTECT:
         return False
-    return name.endswith(('.지형.json', '.영역.json', '.jpg', '.스케치.png', '.마을.json'))
+    return name.endswith(('.지형.json', '.영역.json', '.jpg', '.스케치.png', '.마을.json', '.조직도.json'))
 
 
 def codex_exe():

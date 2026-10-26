@@ -1,0 +1,533 @@
+{
+ "version": 1,
+ "types": [
+  {
+   "name": "다스림",
+   "color": "#2f4f86"
+  },
+  {
+   "name": "대표",
+   "color": "#1f7a78"
+  },
+  {
+   "name": "존중",
+   "color": "#3d8a4f"
+  },
+  {
+   "name": "권속",
+   "color": "#b5651d"
+  },
+  {
+   "name": "산하",
+   "color": "#7a5230"
+  },
+  {
+   "name": "휘하",
+   "color": "#c47f17"
+  },
+  {
+   "name": "소속",
+   "color": "#5d6b7a"
+  },
+  {
+   "name": "처형",
+   "color": "#a8322d"
+  },
+  {
+   "name": "심판",
+   "color": "#8e3a6e"
+  },
+  {
+   "name": "감시",
+   "color": "#4b4fa8"
+  },
+  {
+   "name": "협력",
+   "color": "#2e7fb8"
+  },
+  {
+   "name": "적대",
+   "color": "#6b1f1f"
+  },
+  {
+   "name": "묵인",
+   "color": "#8a8178"
+  },
+  {
+   "name": "상부",
+   "color": "#6a7f2a"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "three",
+   "name": "위대한 3인 / 라하니아 중심",
+   "role": "라하니아를 다스림",
+   "status": "작가 확정",
+   "memo": "작가 확정: 라하니아를 다스림. 처음 무리를 이끈 세 성인이 세운 나라(건국은 고대전쟁보다 훨씬 전). 채택한 방향: \"결코 하나가 정하지 않는다\".",
+   "x": -43,
+   "y": -130
+  },
+  {
+   "id": "groupA",
+   "name": "파클레니아",
+   "role": "부가 그룹들 위",
+   "status": "원문 조각",
+   "memo": "원문 「라하니아 구조중」: \"노츠아클, 제테니프와 같은 부가 그룹, 그 위에 A라는 그룹\". 하는 일은 기록 없음.",
+   "x": 45,
+   "y": 302
+  },
+  {
+   "id": "notz",
+   "name": "노츠아클",
+   "role": "부가 그룹",
+   "status": "원문 조각",
+   "memo": "원문 「라하니아 구조중」. 이름만 있음.",
+   "x": -209,
+   "y": 298
+  },
+  {
+   "id": "zete",
+   "name": "제테니프",
+   "role": "파클레니아 여섯 의당중 하나",
+   "status": "원문 조각",
+   "memo": "\"파클레니아의 여섯 의당 제테니프\". 사당에서 관로하는 일, 반역하면 \"제테니프의 적\". 인물: 큐나. (큐나 · 니네와 디렌의 만남)",
+   "x": -48,
+   "y": 432
+  },
+  {
+   "id": "ilmyeong",
+   "name": "일명",
+   "role": "내부 심판 · 반발 처형",
+   "status": "원문 조각",
+   "memo": "원문 「라하니아 - 일명」: 내부 심판자, 반발에 대한 내부 처형자. 페이온 · 에페리온도 한 번 흠칫하게 함.",
+   "x": -222,
+   "y": 169
+  },
+  {
+   "id": "keishon",
+   "name": "케이숑의 기사",
+   "role": "설계 중 · 약 10명",
+   "status": "회의 중",
+   "memo": "「케이숑의 기사 (설계 회의)」 노트. 작가 확정: 하나의 명사, 약 10명, 구속 · 이송 · 처형, 심판대 느낌, 뒷배는 나라.",
+   "x": 291,
+   "y": 271
+  },
+  {
+   "id": "resdel",
+   "name": "레스델니온 (여덟 왕)",
+   "role": "라하니아를 대표",
+   "status": "작가 확정",
+   "memo": "작가 확정: 라하니아를 대표하는 대표인들. 명실상부한 중심, 격외적. 3인과 비슷한 격이지만 3인을 존중. 기둥 소속 아님, 평범하게 돌아다님. 원문: \"측위의 신위자\", 소피셰이넬을 뺀 여덟.",
+   "x": 196,
+   "y": -46
+  },
+  {
+   "id": "peion",
+   "name": "페이온",
+   "role": "치안 제압대",
+   "status": "원문 조각",
+   "memo": "원문: 치안 제압대. 레스델니온의 권속(\"자유 이방 소속인\"). 대대번장 유화. 인물: 엔 페트라, 아이루, 레키, 무나.",
+   "x": 331,
+   "y": 175
+  },
+  {
+   "id": "reten",
+   "name": "레텐",
+   "role": "비밀조직 · 초유물 회수",
+   "status": "원문 조각",
+   "memo": "원문 · 노션: 레스델니온 휘하 비밀조직. 초유물 회수 · 정보 알선. 인물: 스트림.",
+   "x": 130,
+   "y": 117
+  },
+  {
+   "id": "ripi",
+   "name": "리피가드",
+   "role": "치안을 돕는 하위 부서",
+   "status": "원문 조각",
+   "memo": "원문: 페이온 같은 치안 단속대의 하위 부서. 잡일 · 치안을 조금 도움.",
+   "x": 59,
+   "y": 549
+  },
+  {
+   "id": "sophie",
+   "name": "소피셰이넬",
+   "role": "레스델니온의 처형인",
+   "status": "원문 조각",
+   "memo": "원문: 레스델니온을 처형하는 처형인. 국가 소속은 표면적, 법에 거의 묶이지 않음. 작가 확정: 라하니아에만 국한되지 않음.",
+   "x": 438,
+   "y": -147
+  },
+  {
+   "id": "hwamyeong",
+   "name": "화명단죄부",
+   "role": "에프시 부서",
+   "status": "원문 조각",
+   "memo": "원문: 에프시 부서. 인물: 화야.",
+   "x": -103,
+   "y": 552
+  },
+  {
+   "id": "teimaz",
+   "name": "테이마즈",
+   "role": "에프시 부서 · 요식사냥꾼",
+   "status": "원문 조각",
+   "memo": "원문: 에프시 부서. 최상의 음식 맛을 위해 헌팅하는 존재들. 인물: 미에플, 이로.",
+   "x": -404,
+   "y": 495
+  },
+  {
+   "id": "noble",
+   "name": "귀족",
+   "role": "",
+   "status": "원문 조각",
+   "memo": "원문: 크리니알 / 황실 본부(에크렐라) / 루비 / 롤 웰론시아 / 십계 / 유론. 이름만 있음.",
+   "x": -630,
+   "y": 229
+  },
+  {
+   "id": "gogwi",
+   "name": "고귀인",
+   "role": "명성 · 지휘로 받는 지위",
+   "status": "원문 조각",
+   "memo": "원문: 국가 지휘 · 경제시장에서 높은 직위와 국가 단위 지원. 품위를 지키기 어려움.",
+   "x": -445,
+   "y": 123
+  },
+  {
+   "id": "yeolbang",
+   "name": "열방 수호자",
+   "role": "나라가 묵인한 무리",
+   "status": "원문 조각",
+   "memo": "원문: 일부가 라하니아 구성원. \"처리할 수 있지만 처리할 수 없는 상태\"(아지아의 백음). 뒤에 유화가 해산 · 재구성.",
+   "x": -38,
+   "y": 120
+  },
+  {
+   "id": "shelon",
+   "name": "쉘론",
+   "role": "길드",
+   "status": "원문 조각",
+   "memo": "원문: 길드. 인물: 시키마렐 외.",
+   "x": -572,
+   "y": 497
+  },
+  {
+   "id": "eperion",
+   "name": "에페리온",
+   "role": "국제 치안 단속단 · 부서 13",
+   "status": "원문 조각",
+   "memo": "원문: 국제적 법칙 및 법외적 치안 단속단, 입단 기준 종격외. 라하니아 소속이라는 문장은 없음. 부서: 낙성화 · 은각 · 슈마니 · 애도 · 칠각검 · 백전 · 일선 · 혼음 · 교해 · 무각 · 유리 · 관명 · 수풍.",
+   "x": 435,
+   "y": 54
+  },
+  {
+   "id": "baekgwan",
+   "name": "백관",
+   "role": "세계종 소속 · 세계질서",
+   "status": "원문 조각",
+   "memo": "원문: 메러노더 세계종 소속, 세계질서 명목. 하얀별 · 금색별, 하부 부대 크리나드. 라하니아 기관 아님.",
+   "x": -313,
+   "y": -150
+  },
+  {
+   "id": "nmvotgxt7zxv",
+   "name": "새 조직",
+   "role": "",
+   "status": "미정",
+   "memo": "",
+   "x": 223,
+   "y": 442
+  },
+  {
+   "id": "nmvotkodgz19",
+   "name": "피나시즘",
+   "role": "종족 의지의 집합",
+   "status": "미정",
+   "memo": "",
+   "x": -430,
+   "y": -14
+  },
+  {
+   "id": "nmvou61wkcug",
+   "name": "크리니알",
+   "role": "",
+   "status": "미정",
+   "memo": "",
+   "x": -703,
+   "y": 316
+  },
+  {
+   "id": "nmvou8yviglk",
+   "name": "에크렐라",
+   "role": "크리니알 소속 귀족",
+   "status": "미정",
+   "memo": "",
+   "x": -791,
+   "y": 391
+  }
+ ],
+ "edges": [
+  {
+   "id": "emvotgsszxrc",
+   "from": "groupA",
+   "to": "zete",
+   "type": "산하",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotgxt7x68",
+   "from": "groupA",
+   "to": "nmvotgxt7zxv",
+   "type": "산하",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotjhy5sgd",
+   "from": "three",
+   "to": "resdel",
+   "type": "존중",
+   "status": "미정",
+   "memo": "",
+   "both": true
+  },
+  {
+   "id": "emvotjtwekhk",
+   "from": "resdel",
+   "to": "sophie",
+   "type": "존중",
+   "status": "미정",
+   "memo": "",
+   "both": true
+  },
+  {
+   "id": "emvotk02m8ir",
+   "from": "sophie",
+   "to": "three",
+   "type": "존중",
+   "status": "미정",
+   "memo": "",
+   "both": true
+  },
+  {
+   "id": "emvotlvso4yb",
+   "from": "nmvotkodgz19",
+   "to": "three",
+   "type": "감시",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotm9o8apo",
+   "from": "three",
+   "to": "nmvotkodgz19",
+   "type": "존중",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotri6dczr",
+   "from": "zete",
+   "to": "ripi",
+   "type": "산하",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotsxwwwxe",
+   "from": "resdel",
+   "to": "eperion",
+   "type": "산하",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotta4wc3w",
+   "from": "resdel",
+   "to": "peion",
+   "type": "산하",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotujhkqr3",
+   "from": "three",
+   "to": "reten",
+   "type": "휘하",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotuqocgcz",
+   "from": "resdel",
+   "to": "reten",
+   "type": "다스림",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotwtgeb2e",
+   "from": "baekgwan",
+   "to": "three",
+   "type": "감시",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotyt2dn8c",
+   "from": "three",
+   "to": "ilmyeong",
+   "type": "산하",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotz47xun5",
+   "from": "notz",
+   "to": "groupA",
+   "type": "협력",
+   "status": "미정",
+   "memo": "",
+   "both": true
+  },
+  {
+   "id": "emvotzarpiae",
+   "from": "notz",
+   "to": "zete",
+   "type": "감시",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotzgro44r",
+   "from": "zete",
+   "to": "notz",
+   "type": "상부",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvotzya4v7d",
+   "from": "zete",
+   "to": "groupA",
+   "type": "상부",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvou0q0oxb4",
+   "from": "nmvotkodgz19",
+   "to": "gogwi",
+   "type": "권속",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvou14aguht",
+   "from": "three",
+   "to": "gogwi",
+   "type": "존중",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvou19xfs17",
+   "from": "resdel",
+   "to": "gogwi",
+   "type": "존중",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvou1rax4eb",
+   "from": "ilmyeong",
+   "to": "notz",
+   "type": "감시",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvou1unvo6l",
+   "from": "ilmyeong",
+   "to": "groupA",
+   "type": "감시",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvou66es627",
+   "from": "noble",
+   "to": "nmvou61wkcug",
+   "type": "휘하",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvou7854rai",
+   "from": "three",
+   "to": "yeolbang",
+   "type": "묵인",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvou7oxvgfc",
+   "from": "zete",
+   "to": "hwamyeong",
+   "type": "산하",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvou97o694j",
+   "from": "nmvou61wkcug",
+   "to": "nmvou8yviglk",
+   "type": "소속",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvoudfmk26h",
+   "from": "eperion",
+   "to": "peion",
+   "type": "감시",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  },
+  {
+   "id": "emvoudjq0iw0",
+   "from": "eperion",
+   "to": "peion",
+   "type": "존중",
+   "status": "미정",
+   "memo": "",
+   "both": false
+  }
+ ]
+}

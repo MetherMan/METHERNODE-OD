@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>라하니아 조직도</title>
+<style>
+  :root {
+    --ink: #4a3020; --ink-soft: #7a5a3c; --accent: #a8482f; --paper: #fbf4e2;
+    --serif: 'Batang', '바탕', 'Noto Serif KR', serif;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: var(--serif); color: var(--ink); background: #2a1b10; }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  /* 판: 책상 위에 펼친 넓은 종이 한 장 */
+  #board { position: absolute; left: 0; top: 0; right: 320px; bottom: 0; overflow: hidden; cursor: grab; touch-action: none;
+    background: radial-gradient(ellipse 80% 70% at 45% 45%, #f4e9cf, #e8d8b4 70%, #dcc69c);
+  }
+  #board::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(120,85,50,0.035) 0 1px, transparent 1px 28px), repeating-linear-gradient(90deg, rgba(120,85,50,0.035) 0 1px, transparent 1px 28px); }
+  #board.panning { cursor: grabbing; }
+  #board.linking, #board.linking * { cursor: crosshair !important; }
+  /* 돋보기: 좌우로 끌어 확대 · 축소 (포토샵처럼) */
+  #board.zoomtool, #board.zoomtool * { cursor: zoom-in !important; }
+  #board.zoomtool.alt, #board.zoomtool.alt * { cursor: zoom-out !important; }
+  #board.scrub, #board.scrub * { cursor: ew-resize !important; }
+  #world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  #lines { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
+  #lines .hit { stroke: transparent; stroke-width: 16; fill: none; cursor: pointer; pointer-events: stroke; }
+  #lines .ln { fill: none; stroke-linecap: round; pointer-events: none; transition: opacity 0.15s; }
+  #lines .ah { pointer-events: none; transition: opacity 0.15s; }
+  #lines .ln.sel { stroke-width: 4.5 !important; }
+  #lines .dim { opacity: 0.12; }
+  #lines .temp { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 7 6; pointer-events: none; }
+  /* 조직 카드: 왼쪽 띠 색 = 상태 */
+  .node { position: absolute; width: max-content; min-width: 140px; max-width: 250px; padding: 8px 16px 9px 19px; box-sizing: border-box; background: var(--paper);
+    border: 1.5px solid rgba(110,78,48,0.5); border-radius: 6px; cursor: move; user-select: none; transition: opacity 0.15s, box-shadow 0.15s;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.7) inset, 0 3px 10px rgba(60,35,15,0.16); }
+  .node::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; border-radius: 5px 0 0 5px; background: var(--st); }
+  .node .nm { font-weight: bold; font-size: 15.5px; line-height: 1.3; }
+  .node .rl { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; line-height: 1.35; }
+  .node.sel { box-shadow: 0 0 0 2.5px var(--accent), 0 3px 12px rgba(60,35,15,0.25); }
+  .node.target { box-shadow: 0 0 0 3.5px rgba(168,72,47,0.6), 0 3px 12px rgba(60,35,15,0.25); }
+  .node.dim { opacity: 0.32; }
+  /* 잇기 고리: 끌어서 다른 카드에 놓으면 선이 이어짐 */
+  .knob { position: absolute; right: -10px; top: 50%; width: 18px; height: 18px; margin-top: -9px; border-radius: 50%; box-sizing: border-box;
+    background: var(--paper); border: 2px solid var(--accent); cursor: crosshair; opacity: 0; transition: opacity 0.15s, transform 0.15s; }
+  .knob::after { content: ''; position: absolute; left: 4px; top: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .node:hover .knob, .node.sel .knob { opacity: 1; }
+  .knob:hover { transform: scale(1.25); }
+  /* 선 이름표 */
+  .tag { position: absolute; transform: translate(-50%, -50%); padding: 1px 9px 2px; border-radius: 11px; background: var(--paper); white-space: nowrap;
+    border: 1.5px solid var(--c); color: var(--c); font-size: 12.5px; cursor: pointer; user-select: none; transition: opacity 0.15s; z-index: 2; }
+  .tag b { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--st); margin-right: 5px; vertical-align: 1px; }
+  .tag.sel { background: var(--c); color: #fff8ea; }
+  .tag.dim { opacity: 0.12; }
+  .tag.none { border-style: dashed; }
+  #nodes { position: absolute; left: 0; top: 0; z-index: 1; }
+  #tags { position: absolute; left: 0; top: 0; z-index: 2; }
+
+  /* 위 왼쪽 도구 */
+  #bar { position: absolute; left: 14px; top: 12px; z-index: 5; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; max-width: calc(100% - 360px); }
+  #bar h1 { margin: 0 8px 0 2px; font-size: 19px; letter-spacing: 0.08em; color: var(--ink); text-shadow: 0 1px 0 rgba(255,255,255,0.6); }
+  .btn { border: 1.5px solid rgba(110,78,48,0.55); background: rgba(251,244,226,0.95); border-radius: 15px; padding: 3px 12px 4px; font-size: 13.5px; cursor: pointer; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.main { background: var(--accent); color: #fff8ea; border-color: var(--accent); }
+  .btn.main:hover { color: #fff; filter: brightness(1.08); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn.on { background: var(--ink); color: #fff8ea; border-color: var(--ink); }
+  .btn.on:hover { color: #fff; }
+  .zoomset { display: inline-flex; align-items: center; gap: 2px; }
+  .zoomset .btn { padding: 3px 9px 4px; }
+  #zoompct { font-size: 12.5px; color: var(--ink-soft); min-width: 40px; text-align: center; cursor: pointer; }
+  #saved { font-size: 12.5px; color: var(--ink-soft); margin-left: 4px; }
+  #hint { position: absolute; left: 14px; bottom: 10px; right: 334px; z-index: 5; font-size: 12.5px; color: var(--ink-soft); pointer-events: none; text-shadow: 0 1px 0 rgba(255,255,255,0.6); }
+
+  /* 오른쪽: 관계 종류 · 고른 것 */
+  #side { position: absolute; right: 0; top: 0; bottom: 0; width: 320px; box-sizing: border-box; overflow: auto; padding: 14px 16px 20px; z-index: 6;
+    background: linear-gradient(90deg, #e2d1ab, #efe3c6 8%, #f3e9d1); border-left: 2px solid rgba(110,78,48,0.45); box-shadow: -6px 0 18px rgba(0,0,0,0.25); }
+  #side h2 { margin: 6px 0 8px; font-size: 13px; letter-spacing: 0.25em; color: #8a6440; font-weight: normal; border-bottom: 1.5px solid rgba(140,100,60,0.45); padding-bottom: 5px; }
+  .types { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+  .ty { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 5px; cursor: pointer; font-size: 14px; }
+  .ty:hover { background: rgba(255,250,235,0.7); }
+  .ty.on { background: #fffaf0; box-shadow: 0 0 0 1.5px var(--accent) inset; }
+  .ty .sw { position: relative; width: 22px; height: 6px; border-radius: 3px; background: var(--c); flex: none; }
+  .ty .sw input { position: absolute; inset: -8px -2px; opacity: 0; cursor: pointer; }
+  .ty .n { flex: 1; }
+  .ty .k { font-size: 12px; color: var(--ink-soft); }
+  .ty .x { border: 0; background: none; color: #a0846a; cursor: pointer; padding: 0 2px; visibility: hidden; }
+  .ty:hover .x { visibility: visible; }
+  .addty { display: flex; gap: 6px; margin: 4px 0 6px; }
+  .addty input { flex: 1; min-width: 0; padding: 3px 7px; border: 1px solid rgba(110,78,48,0.45); border-radius: 4px; background: #fffaf0; font-size: 13.5px; }
+  .muted { font-size: 13px; color: var(--ink-soft); line-height: 1.55; }
+  .ed label { display: block; font-size: 12px; letter-spacing: 0.12em; color: #8a6440; margin: 10px 0 3px; }
+  .ed input[type=text], .ed textarea { width: 100%; box-sizing: border-box; padding: 5px 8px; border: 1px solid rgba(110,78,48,0.45); border-radius: 4px; background: #fffaf0; font-size: 14px; }
+  .ed textarea { min-height: 84px; resize: vertical; line-height: 1.5; }
+  .ed .who { font-size: 15px; font-weight: bold; margin: 2px 0 2px; line-height: 1.4; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip { border: 1.5px solid var(--c, rgba(110,78,48,0.5)); color: var(--c, var(--ink)); background: #fffaf0; border-radius: 13px; padding: 1px 10px 2px; font-size: 13px; cursor: pointer; }
+  .chip.on { background: var(--c, var(--accent)); color: #fff8ea; border-color: var(--c, var(--accent)); }
+  .row { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  .del { margin-left: auto; color: #a8322d; border-color: rgba(168,50,45,0.5); }
+
+  /* 잇자마자 뜨는 종류 고르기 */
+  #pick { position: absolute; z-index: 8; display: none; width: 280px; padding: 10px 12px 12px; background: #fbf4e2; border: 1.5px solid rgba(110,78,48,0.6);
+    border-radius: 8px; box-shadow: 0 10px 28px rgba(40,22,8,0.35); }
+  #pick.on { display: block; }
+  #pick .t { font-size: 13px; color: #8a6440; margin-bottom: 7px; }
+  #toast { position: absolute; left: calc((100% - 320px) / 2); bottom: 46px; transform: translate(-50%, 12px); z-index: 9; display: flex; align-items: center; gap: 12px;
+    padding: 7px 8px 7px 16px; background: rgba(58,38,24,0.94); color: #fbf0d8; border-radius: 20px; font-size: 14px; box-shadow: 0 8px 22px rgba(30,16,6,0.35);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  #toast .btn { padding: 2px 11px 3px; font-size: 13px; }
+  /* 우클릭 메뉴 */
+  #ctx { position: absolute; z-index: 10; display: none; min-width: 285px; max-width: 320px; padding: 4px 0 5px; background: #fbf4e2; border: 1.5px solid rgba(110,78,48,0.6);
+    border-radius: 7px; box-shadow: 0 10px 26px rgba(40,22,8,0.35); font-size: 14px; }
+  #ctx.on { display: block; }
+  .cx-h { padding: 5px 14px 6px; margin-bottom: 3px; font-size: 12.5px; color: #8a6440; border-bottom: 1px solid rgba(140,100,60,0.3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cx-i { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 14px; cursor: pointer; }
+  .cx-i:hover { background: rgba(168,72,47,0.12); }
+  .cx-i.danger { color: #a8322d; }
+  .cx-s { height: 1px; background: rgba(140,100,60,0.3); margin: 4px 0; }
+  .cx-st { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 5px 14px 6px; }
+  .cx-st span { font-size: 12px; color: #8a6440; margin-right: 4px; }
+  .cx-st .chip { font-size: 12px; padding: 0 8px 1px; }
+  #pick input { width: 100%; box-sizing: border-box; margin-top: 8px; padding: 4px 8px; border: 1px solid rgba(110,78,48,0.45); border-radius: 4px; background: #fffaf0; font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div id="board">
+  <div id="world"><svg id="lines"></svg><div id="nodes"></div><div id="tags"></div></div>
+</div>
+<div id="bar">
+  <h1>라하니아 조직도</h1>
+  <button class="btn" id="b-add" title="새 조직 카드 (빈 곳을 두 번 눌러도 돼요)">＋ 조직</button>
+  <button class="btn" id="b-src" title="원문 조각 · 작가 확정에 적힌 연결을 아직 없는 것만 더해요">자료에 있는 연결 불러오기</button>
+  <span class="zoomset">
+    <button class="btn" id="b-zoom" title="돋보기 (Z) — 좌우로 끌면 확대 · 축소, 누르면 확대, Alt 누르고 누르면 축소">돋보기</button>
+    <button class="btn" id="b-zout" title="작게 (−)">−</button>
+    <span id="zoompct" title="눌러서 100%로">100%</span>
+    <button class="btn" id="b-zin" title="크게 (+)">＋</button>
+  </span>
+  <button class="btn" id="b-fit" title="전체 보기 (0)">전체 보기</button>
+  <button class="btn" id="b-undo" title="Ctrl+Z">↶</button>
+  <button class="btn" id="b-redo" title="Ctrl+Shift+Z">↷</button>
+  <button class="btn main" id="b-note" title="이은 관계를 「라하니아 조직 정리」 노트로 써요 (라하니아 정보로 옮길 때 씀)">노트로 정리</button>
+  <span id="saved"></span>
+</div>
+<div id="hint">카드를 끌면 옮겨요 · 카드 오른쪽 <b>고리</b>를 끌어 다른 카드에 놓으면 선이 이어지고 종류를 골라요 (빈 곳에 놓으면 새 조직과 이어요) · 선이나 이름표를 누르면 고쳐요 · 빈 곳 두 번 누르기: 새 조직 · 빈 곳 끌기: 화면 옮기기 · <b>오른쪽 단추 누른 채 좌우</b>: 확대 · 축소 (돋보기 Z, + − 0 글쇠도) · <b>카드 · 선 · 빈 곳 우클릭</b>: 메뉴 (지우기 · 잇기 · 상태 …) · Delete 지우기 · Ctrl+Z 되돌리기</div>
+<div id="side">
+  <h2>관계 종류</h2>
+  <div class="types" id="types"></div>
+  <div class="addty"><input id="newty" placeholder="새 종류 이름 (예: 감독)"><button class="btn" id="b-ty">더하기</button></div>
+  <div class="muted">종류를 누르면 그 관계만 또렷해져요. 색 띠를 누르면 색을 바꿔요.</div>
+  <h2 style="margin-top:18px">고른 것</h2>
+  <div class="ed" id="ed"></div>
+</div>
+<div id="pick"><div class="t"></div><div class="chips"></div><input placeholder="직접 적기 — Enter"></div>
+<div id="toast"><span></span><button class="btn" id="b-toast-undo">되돌리기</button></div>
+<div id="ctx"></div>
+<script>
+// 라하니아 조직도: 작가가 조직 카드를 놓고 선으로 이어 관계 종류를 정리하는 판.
+// 저장본(.조직도.json)은 조직 · 관계 · 종류가 나뉜 데이터라, 「노트로 정리」로 라하니아 정보 노트에 그대로 옮겨 쓸 수 있음.
+// 두 곳에서 열림: 세계판 창(serve3.py, http) · 옵시디언 플러그인 「조직도」(이 글을 액자 srcdoc 으로 넣고 MN_OBS 를 붙임)
+const VERSION = 1;
+const Q = new URLSearchParams(location.search);
+const OBS = Q.get('obs') === '1' || window.MN_OBS === true;
+// 시험할 땐 세계판 창에서 ?test=1 — 작가가 옵시디언에서 쓰는 진짜 저장본 · 정리 노트를 건드리지 않음
+const TEST = !OBS && Q.get('test') === '1';
+const SAVE = TEST ? 'The Archive - 자료/시험.조직도.json' : 'The Archive - 자료/라하니아.조직도.json';
+const NOTE = TEST ? 'The Main - 지리/라하니아/시험 조직 정리.md' : 'The Main - 지리/라하니아/라하니아 조직 정리.md';
+const vurl = (p) => '/vault/' + p.split('/').map(encodeURIComponent).join('/');
+const $ = (s, r = document) => r.querySelector(s);
+function el(tag, cls, parent, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// ---------- 보관소 읽기 · 쓰기 (옵시디언에서는 플러그인에 부탁) ----------
+const asks = new Map();
+let askN = 0;
+addEventListener('message', (e) => {
+  const m = e.data || {};
+  if ((m.mn === 'read' || m.mn === 'note') && asks.has(m.id)) { asks.get(m.id)(m.mn === 'read' ? m.text : m.ok); asks.delete(m.id); }
+});
+function askVault(msg) {
+  return new Promise((res) => {
+    const id = ++askN;
+    asks.set(id, res);
+    parent.postMessage({ ...msg, id }, '*');
+    setTimeout(() => { if (asks.has(id)) { asks.delete(id); res(null); } }, 5000);
+  });
+}
+async function readVault(p) {
+  if (OBS) return askVault({ mn: 'read', path: p });
+  try {
+    const r = await fetch(vurl(p) + '?t=' + Date.now());
+    return r.ok ? await r.text() : null;
+  } catch (e) {
+    return null;
+  }
+}
+async function writeVault(p, text, note = false) {
+  if (OBS) {
+    if (note) return !!(await askVault({ mn: 'note', path: p, text }));
+    parent.postMessage({ mn: 'save', path: p, text }, '*');
+    return true;
+  }
+  try {
+    return (await fetch('/save?name=' + encodeURIComponent(p), { method: 'POST', body: text })).ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+// ---------- 상태 · 관계 종류 ----------
+const STATUS = [['작가 확정', '#3d8a4f'], ['원문 조각', '#c9962a'], ['회의 중', '#8a63c9'], ['미정', '#9a9088']];
+const stColor = (s) => (STATUS.find((x) => x[0] === s) || STATUS[3])[1];
+// 선 모양 = 상태 (색은 관계 종류가 씀)
+const DASH = { '작가 확정': '', '원문 조각': '', '회의 중': '9 6', '미정': '2.5 5.5' };
+const WIDTH = { '작가 확정': 3, '원문 조각': 2.3, '회의 중': 2.3, '미정': 2.1 };
+const PRESET = [
+  ['다스림', '#2f4f86'], ['대표', '#1f7a78'], ['존중', '#3d8a4f'], ['권속', '#b5651d'], ['산하', '#7a5230'], ['휘하', '#c47f17'],
+  ['소속', '#5d6b7a'], ['처형', '#a8322d'], ['심판', '#8e3a6e'], ['감시', '#4b4fa8'], ['협력', '#2e7fb8'], ['적대', '#6b1f1f'], ['묵인', '#8a8178'],
+];
+const PALETTE = ['#6a7f2a', '#b0476e', '#3f6f5a', '#9a5b12', '#5a4a9e', '#2f7f9a', '#8c3f2a', '#55606e'];
+const NONE = '#9a9088'; // 종류를 아직 안 고른 선
+
+// ---------- 처음 판: 자료에 있는 조직 (카드만. 선은 작가가 잇거나 「자료에 있는 연결 불러오기」) ----------
+const SEED = [
+  ['proxy', '세 사람의 대리인', '머리 자리 · 의견 정리', '원문 조각', '원문 「라하니아 구조중」: "가장 머리가 되는 곳에 세 사람의 대리인". A · B · C 그룹의 의견을 모아 정리하는 역할에 가까움.', 0, 0],
+  ['three', '위대한 3인', '라하니아를 다스림', '작가 확정', '작가 확정: 라하니아를 다스림. 처음 무리를 이끈 세 성인이 세운 나라(건국은 고대전쟁보다 훨씬 전). 채택한 방향: "결코 하나가 정하지 않는다".', 330, 0],
+  ['groupA', 'A 그룹 (B · C …)', '부가 그룹들 위', '원문 조각', '원문 「라하니아 구조중」: "노츠아클, 제테니프와 같은 부가 그룹, 그 위에 A라는 그룹". 하는 일은 기록 없음.', 0, 150],
+  ['notz', '노츠아클', '부가 그룹', '원문 조각', '원문 「라하니아 구조중」. 이름만 있음.', 0, 300],
+  ['zete', '제테니프', '부가 그룹 · 여섯 의당', '원문 조각', '"파클레니아의 여섯 의당 제테니프". 사당에서 관로하는 일, 반역하면 "제테니프의 적". 인물: 큐나. (큐나 · 니네와 디렌의 만남)', 280, 300],
+  ['ilmyeong', '일명', '내부 심판 · 반발 처형', '원문 조각', '원문 「라하니아 - 일명」: 내부 심판자, 반발에 대한 내부 처형자. 페이온 · 에페리온도 한 번 흠칫하게 함.', 640, 150],
+  ['keishon', '케이숑의 기사', '설계 중 · 약 10명', '회의 중', '「케이숑의 기사 (설계 회의)」 노트. 작가 확정: 하나의 명사, 약 10명, 구속 · 이송 · 처형, 심판대 느낌, 뒷배는 나라.', 640, 300],
+  ['resdel', '레스델니온 (여덟 왕)', '라하니아를 대표', '작가 확정', '작가 확정: 라하니아를 대표하는 대표인들. 명실상부한 중심, 격외적. 3인과 비슷한 격이지만 3인을 존중. 기둥 소속 아님, 평범하게 돌아다님. 원문: "측위의 신위자", 소피셰이넬을 뺀 여덟.', 1000, 0],
+  ['peion', '페이온', '치안 제압대', '원문 조각', '원문: 치안 제압대. 레스델니온의 권속("자유 이방 소속인"). 대대번장 유화. 인물: 엔 페트라, 아이루, 레키, 무나.', 1000, 150],
+  ['reten', '레텐', '비밀조직 · 초유물 회수', '원문 조각', '원문 · 노션: 레스델니온 휘하 비밀조직. 초유물 회수 · 정보 알선. 인물: 스트림.', 1280, 150],
+  ['ripi', '리피가드', '치안을 돕는 하위 부서', '원문 조각', '원문: 페이온 같은 치안 단속대의 하위 부서. 잡일 · 치안을 조금 도움.', 1000, 300],
+  ['sophie', '소피셰이넬', '레스델니온의 처형인', '원문 조각', '원문: 레스델니온을 처형하는 처형인. 국가 소속은 표면적, 법에 거의 묶이지 않음. 작가 확정: 라하니아에만 국한되지 않음.', 1560, 0],
+  ['efsi', '에프시', '랭커를 부르는 말', '원문 조각', '원문: 스퍼릴에서 랭커를 부르는 말. 정리본은 "에프시 부서"로 묶음. 무소속 에프시는 마을 의뢰를 받음.', 0, 520],
+  ['hwamyeong', '화명단죄부', '에프시 부서', '원문 조각', '원문: 에프시 부서. 인물: 화야.', 0, 670],
+  ['teimaz', '테이마즈', '에프시 부서 · 요식사냥꾼', '원문 조각', '원문: 에프시 부서. 최상의 음식 맛을 위해 헌팅하는 존재들. 인물: 미에플, 이로.', 280, 670],
+  ['noble', '황실 · 귀족 가문', '크리니알 · 십계 …', '원문 조각', '원문: 크리니알 / 황실 본부(에크렐라) / 루비 / 롤 웰론시아 / 십계 / 유론. 이름만 있음.', 640, 520],
+  ['gogwi', '고귀인', '명성 · 지휘로 받는 지위', '원문 조각', '원문: 국가 지휘 · 경제시장에서 높은 직위와 국가 단위 지원. 품위를 지키기 어려움.', 920, 520],
+  ['yeolbang', '열방 수호자', '나라가 묵인한 무리', '원문 조각', '원문: 일부가 라하니아 구성원. "처리할 수 있지만 처리할 수 없는 상태"(아지아의 백음). 뒤에 유화가 해산 · 재구성.', 640, 670],
+  ['shelon', '쉘론', '길드', '원문 조각', '원문: 길드. 인물: 시키마렐 외.', 920, 670],
+  ['eperion', '에페리온', '국제 치안 단속단 · 부서 13', '원문 조각', '원문: 국제적 법칙 및 법외적 치안 단속단, 입단 기준 종격외. 라하니아 소속이라는 문장은 없음. 부서: 낙성화 · 은각 · 슈마니 · 애도 · 칠각검 · 백전 · 일선 · 혼음 · 교해 · 무각 · 유리 · 관명 · 수풍.', 1280, 520],
+  ['baekgwan', '백관', '세계종 소속 · 세계질서', '원문 조각', '원문: 메러노더 세계종 소속, 세계질서 명목. 하얀별 · 금색별, 하부 부대 크리나드. 라하니아 기관 아님.', 1560, 520],
+];
+// 자료에 적힌 연결 (불러오기 단추로만 더함)
+const SOURCE_EDGES = [
+  ['resdel', 'three', '존중', '작가 확정', '작가 확정 (2026-10-21)'],
+  ['proxy', 'three', '같은 자리?', '미정', '세 대리인이 위대한 3인인지 기록 없음'],
+  ['groupA', 'proxy', '의견을 모음', '원문 조각', '대리인이 A · B · C 그룹의 의견을 모아 정리'],
+  ['groupA', 'notz', '산하', '원문 조각', '"부가 그룹, 그 위에 A라는 그룹"'],
+  ['groupA', 'zete', '산하', '원문 조각', '"부가 그룹, 그 위에 A라는 그룹"'],
+  ['resdel', 'peion', '권속', '원문 조각', '페이온은 레스델니온의 권속'],
+  ['resdel', 'reten', '휘하', '원문 조각', '레스델니온 휘하 비밀조직'],
+  ['peion', 'ripi', '산하', '원문 조각', '페이온 같은 치안 단속대의 하위 부서'],
+  ['sophie', 'resdel', '처형', '원문 조각', '레스델니온을 처형하는 처형인'],
+  ['efsi', 'hwamyeong', '산하', '원문 조각', '에프시 부서'],
+  ['efsi', 'teimaz', '산하', '원문 조각', '에프시 부서'],
+  ['eperion', 'keishon', '저항하지 않음', '작가 확정', '일부 에페리온은 기사 개인보다 강할 수 있지만 저항하지 않음'],
+  ['keishon', 'three', '이송', '회의 중', '판결은 3인 앞에서, 기사는 이송 (회의 제안)'],
+];
+
+let D = null; // { version, types: [{ name, color }], nodes: [{ id, name, role, status, memo, x, y }], edges: [{ id, from, to, type, status, memo, both }] }
+let sel = null; // { kind: 'node' | 'edge', id }
+let filter = null; // 또렷하게 볼 관계 종류
+let hover = null; // 마우스를 올린 조직
+const view = { x: 40, y: 80, k: 1 };
+const hist = [], redoS = [];
+const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+const nodeById = (id) => D.nodes.find((n) => n.id === id);
+const edgeById = (id) => D.edges.find((e) => e.id === id);
+const typeOf = (name) => D.types.find((t) => t.name === name);
+
+function seed() {
+  return {
+    version: VERSION,
+    types: PRESET.map(([name, color]) => ({ name, color })),
+    nodes: SEED.map(([id, name, role, status, memo, x, y]) => ({ id, name, role, status, memo, x, y })),
+    edges: [],
+  };
+}
+/** 선에 쓰인 종류가 종류 목록에 없으면 더함 */
+function ensureType(name) {
+  if (!name || typeOf(name)) return;
+  const used = new Set(D.types.map((t) => t.color));
+  D.types.push({ name, color: PALETTE.find((c) => !used.has(c)) || PALETTE[D.types.length % PALETTE.length] });
+}
+
+// ---------- 저장 · 되돌리기 ----------
+// 두 창(옵시디언 탭 · 세계판 창)이 같은 저장본을 고쳐도 서로 덮어쓰지 않게 (한쪽이 통째로 덮어써 작업이 날아간 일이 있었음):
+// 저장할 때 지난번 저장 뒤로 바뀐 조직 · 선 · 종류에 고친 시각(t)을, 지운 것은 지운 시각(gone)을 적어 두고,
+// 저장본을 다시 읽어 다른 창이 그 사이 고쳤으면 하나씩 더 늦게 고친 쪽으로 합쳐서 씀. 가만히 있을 땐 몇 초마다 다른 창 것을 받아 옴
+let saveT = 0, dirty = false, saving = false, savedAt = 0;
+let lastDisk = null; // 이 창이 마지막으로 읽거나 쓴 저장본 글 (무엇을 고쳤는지 견주는 바탕)
+const mine = new Set(); // 이 창이 쓴 글 (늦게 읽힌 내 저장을 다른 창 것으로 착각하지 않게)
+const LISTS = [['nodes', 'id', ''], ['edges', 'id', ''], ['types', 'name', 'ty:']]; // 목록 · 열쇠 · 지운 기록 머리
+function saveSoon() {
+  dirty = true;
+  $('#saved').textContent = '저장 중…';
+  clearTimeout(saveT);
+  saveT = setTimeout(syncSave, 500);
+}
+const strip = (x) => { const { t, ...r } = x; return JSON.stringify(r); };
+/** 차례와 상관없이 같은 내용인지 견줄 글 (차례만 다른 걸 서로 다시 써 주고받지 않게) */
+function canon(d) {
+  const o = { gone: Object.keys(d.gone || {}).sort().map((k) => [k, d.gone[k]]) };
+  for (const [list, key] of LISTS) o[list] = [...(d[list] || [])].sort((a, b) => String(a[key]).localeCompare(String(b[key]))).map((x) => JSON.stringify(x));
+  return JSON.stringify(o);
+}
+/** 바탕(base) 뒤로 이 창에서 바뀐 것에 고친 시각, 없어진 것에 지운 시각 */
+function stamp(base) {
+  const now = Date.now();
+  D.gone ||= {};
+  for (const [list, key, px] of LISTS) {
+    const B = new Map((base?.[list] || []).map((x) => [x[key], x])), cur = new Set();
+    for (const x of D[list]) {
+      cur.add(x[key]);
+      const b = B.get(x[key]);
+      if (!b || strip(b) !== strip(x)) x.t = now;
+    }
+    for (const k of B.keys()) if (!cur.has(k)) D.gone[px + k] = now;
+  }
+}
+/** 두 판을 하나로: 하나하나 더 늦게 고친 쪽, 그보다 늦게 지웠으면 지움 */
+function mergeT(theirs, ours) {
+  const gone = { ...(theirs.gone || {}) };
+  for (const [k, v] of Object.entries(ours.gone || {})) gone[k] = Math.max(gone[k] || 0, v);
+  const m = { version: VERSION, gone };
+  for (const [list, key, px] of LISTS) {
+    const T = new Map((theirs[list] || []).map((x) => [x[key], x])), O = new Map((ours[list] || []).map((x) => [x[key], x]));
+    m[list] = [];
+    for (const k of new Set([...O.keys(), ...T.keys()])) {
+      const o = O.get(k), t = T.get(k);
+      const win = !t ? o : !o ? t : (o.t || 0) >= (t.t || 0) ? o : t;
+      if (gone[px + k] && gone[px + k] >= (win.t || 0)) continue;
+      m[list].push(win);
+    }
+  }
+  const ids = new Set(m.nodes.map((n) => n.id));
+  m.edges = m.edges.filter((e) => ids.has(e.from) && ids.has(e.to));
+  return m;
+}
+function keepMine(text) {
+  lastDisk = text;
+  mine.add(text);
+  if (mine.size > 30) mine.delete(mine.values().next().value);
+}
+async function syncSave() {
+  if (saving) { saveT = setTimeout(syncSave, 300); return; }
+  saving = true;
+  dirty = false;
+  let merged = false;
+  try { stamp(lastDisk ? JSON.parse(lastDisk) : null); } catch (e) { stamp(null); }
+  try {
+    const disk = await readVault(SAVE);
+    if (disk && disk !== lastDisk && !mine.has(disk)) {
+      const theirs = JSON.parse(disk);
+      if (theirs.version === VERSION) {
+        const before = JSON.stringify(D);
+        D = mergeT(theirs, D);
+        merged = JSON.stringify(D) !== before;
+      }
+    }
+  } catch (e) {}
+  const text = JSON.stringify(D, null, 1);
+  const ok = await writeVault(SAVE, text);
+  keepMine(text);
+  savedAt = Date.now();
+  saving = false;
+  $('#saved').textContent = ok ? '저장됨 · ' + new Date().toLocaleTimeString('ko-KR') : '저장하지 못했어요';
+  if (merged) { afterOutside(); toast('다른 창에서 고친 것과 합쳐서 저장했어요', false); }
+}
+/** 다른 창의 것이 들어온 뒤 화면을 다시 맞춤 (고르던 게 없어졌으면 풀고, 글을 쓰는 중이면 오른쪽 칸은 그대로) */
+function afterOutside() {
+  for (const e of D.edges) ensureType(e.type);
+  if (sel && !(sel.kind === 'node' ? nodeById(sel.id) : edgeById(sel.id))) sel = null;
+  draw();
+  if (!document.activeElement?.closest?.('#side')) drawSide();
+}
+setInterval(async () => {
+  if (!D || dirty || saving || drag || link || Date.now() - savedAt < 2500) return;
+  const disk = await readVault(SAVE);
+  if (!disk || disk === lastDisk || mine.has(disk) || dirty || saving || drag || link) return;
+  try {
+    const theirs = JSON.parse(disk);
+    if (theirs.version !== VERSION) return;
+    D = mergeT(theirs, D);
+    lastDisk = disk;
+    afterOutside();
+    toast('다른 창에서 고친 게 들어왔어요', false);
+    // 동시에 저장해 이 창에서 고친 게 그쪽 저장에 덮였으면, 합친 것을 다시 써서 양쪽이 같아지게
+    if (canon(D) !== canon(theirs)) saveSoon();
+  } catch (e) {}
+}, 3000);
+/** 바꾸기 전에 불러서 되돌릴 자리를 남김 */
+function remember() {
+  hist.push(JSON.stringify(D));
+  if (hist.length > 200) hist.shift();
+  redoS.length = 0;
+  undoUI();
+}
+function changed() {
+  saveSoon();
+  draw();
+}
+function undo(back = true) {
+  const from = back ? hist : redoS, to = back ? redoS : hist;
+  if (!from.length) return;
+  to.push(JSON.stringify(D));
+  D = JSON.parse(from.pop());
+  if (sel && !(sel.kind === 'node' ? nodeById(sel.id) : edgeById(sel.id))) sel = null;
+  undoUI();
+  changed();
+  drawSide();
+}
+function undoUI() {
+  $('#b-undo').disabled = !hist.length;
+  $('#b-redo').disabled = !redoS.length;
+}
+
+// ---------- 그리기 ----------
+const board = $('#board'), world = $('#world'), svg = $('#lines'), nodesEl = $('#nodes'), tagsEl = $('#tags');
+const nodeEls = new Map();
+function applyView() {
+  world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`;
+  $('#zoompct').textContent = Math.round(view.k * 100) + '%';
+}
+const ZMIN = 0.2, ZMAX = 3;
+/** 화면의 한 점 (판 기준 sx, sy) 을 그대로 둔 채 배율을 k 로 */
+function zoomAt(k, sx = board.clientWidth / 2, sy = board.clientHeight / 2) {
+  k = Math.max(ZMIN, Math.min(ZMAX, k));
+  view.x = sx - ((sx - view.x) * k) / view.k;
+  view.y = sy - ((sy - view.y) * k) / view.k;
+  view.k = k;
+  applyView();
+}
+// 도구: 고르기(카드 옮기기 · 잇기) / 돋보기 (휠이 없어도 확대 · 축소)
+let tool = 'select';
+function setTool(t) {
+  tool = t;
+  board.classList.toggle('zoomtool', t === 'zoom');
+  $('#b-zoom').classList.toggle('on', t === 'zoom');
+}
+/** 조직 · 관계 중 지금 또렷하게 볼 것 (종류를 골랐거나 조직에 마우스를 올렸을 때) */
+function lit() {
+  if (filter) {
+    const es = D.edges.filter((e) => (e.type || '') === filter);
+    return { edges: new Set(es.map((e) => e.id)), nodes: new Set(es.flatMap((e) => [e.from, e.to])) };
+  }
+  if (hover) {
+    const es = D.edges.filter((e) => e.from === hover || e.to === hover);
+    if (!es.length) return null; // 이어진 게 없는 카드에 올렸을 땐 판을 흐리지 않음
+    return { edges: new Set(es.map((e) => e.id)), nodes: new Set([hover, ...es.flatMap((e) => [e.from, e.to])]) };
+  }
+  return null;
+}
+function draw() {
+  // 조직 카드 (있던 카드는 그대로 두고 글 · 자리만 맞춤)
+  const keep = new Set(D.nodes.map((n) => n.id));
+  for (const [id, e] of nodeEls) if (!keep.has(id)) { e.remove(); nodeEls.delete(id); }
+  for (const n of D.nodes) {
+    let e = nodeEls.get(n.id);
+    if (!e) {
+      e = el('div', 'node', nodesEl);
+      el('div', 'nm', e);
+      el('div', 'rl', e);
+      el('div', 'knob', e).title = '끌어서 다른 조직에 놓으면 이어져요';
+      e.dataset.id = n.id;
+      nodeEls.set(n.id, e);
+    }
+    e.querySelector('.nm').textContent = n.name || '이름 없는 조직';
+    e.querySelector('.rl').textContent = n.role || '';
+    e.querySelector('.rl').style.display = n.role ? '' : 'none';
+    e.style.setProperty('--st', stColor(n.status));
+    e.style.left = n.x + 'px';
+    e.style.top = n.y + 'px';
+    e.title = n.memo || '';
+    e.classList.toggle('sel', sel?.kind === 'node' && sel.id === n.id);
+  }
+  drawEdges();
+  drawTypes();
+}
+/** 상자 가운데 (cx, cy) 에서 (tx, ty) 쪽으로 나가다 상자 테두리와 만나는 곳 */
+function exitPoint(b, tx, ty) {
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2, dx = tx - cx, dy = ty - cy;
+  const s = Math.min(dx ? (b.w / 2 + 5) / Math.abs(dx) : 1e9, dy ? (b.h / 2 + 5) / Math.abs(dy) : 1e9);
+  return [cx + dx * s, cy + dy * s];
+}
+function boxOf(n) {
+  const e = nodeEls.get(n.id);
+  return { x: n.x, y: n.y, w: e ? e.offsetWidth : 160, h: e ? e.offsetHeight : 50 };
+}
+function arrowHead(p, from, color) {
+  const dx = p[0] - from[0], dy = p[1] - from[1], L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, s = 11;
+  return `<path class="ah" fill="${color}" d="M${p[0]},${p[1]} L${p[0] - ux * s - uy * s * 0.5},${p[1] - uy * s + ux * s * 0.5} L${p[0] - ux * s + uy * s * 0.5},${p[1] - uy * s - ux * s * 0.5}Z"/>`;
+}
+function drawEdges() {
+  const L = lit();
+  // 같은 두 조직 사이의 선이 여럿이면 활처럼 벌려 겹치지 않게
+  const pairs = new Map();
+  for (const e of D.edges) {
+    const k = [e.from, e.to].sort().join('|');
+    if (!pairs.has(k)) pairs.set(k, []);
+    pairs.get(k).push(e);
+  }
+  let html = '';
+  tagsEl.innerHTML = '';
+  for (const e of D.edges) {
+    const A = nodeById(e.from), B = nodeById(e.to);
+    if (!A || !B) continue;
+    const a = boxOf(A), b = boxOf(B);
+    const ac = [a.x + a.w / 2, a.y + a.h / 2], bc = [b.x + b.w / 2, b.y + b.h / 2];
+    const grp = pairs.get([e.from, e.to].sort().join('|')), i = grp.indexOf(e);
+    // 활의 휨: 정렬한 순서 기준의 법선 쪽으로 (방향이 달라도 같은 쪽으로 셈)
+    const [P, R] = e.from < e.to ? [ac, bc] : [bc, ac];
+    const dx = R[0] - P[0], dy = R[1] - P[1], len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+    const off = (i - (grp.length - 1) / 2) * 52;
+    const c = [(ac[0] + bc[0]) / 2 + nx * off, (ac[1] + bc[1]) / 2 + ny * off];
+    const p0 = exitPoint(a, c[0], c[1]), p1 = exitPoint(b, c[0], c[1]);
+    const ty = typeOf(e.type), color = ty ? ty.color : NONE;
+    const shorten = (p, toward, d) => { const vx = toward[0] - p[0], vy = toward[1] - p[1], l = Math.hypot(vx, vy) || 1; return [p[0] + (vx / l) * d, p[1] + (vy / l) * d]; };
+    const q1 = shorten(p1, c, 9), q0 = e.both ? shorten(p0, c, 9) : p0;
+    const d = `M${q0[0]},${q0[1]} Q${c[0]},${c[1]} ${q1[0]},${q1[1]}`;
+    const dim = L && !L.edges.has(e.id) ? ' dim' : '', isSel = sel?.kind === 'edge' && sel.id === e.id;
+    html += `<path class="hit" data-e="${e.id}" d="${d}"/>`;
+    html += `<path class="ln${dim}${isSel ? ' sel' : ''}" d="${d}" stroke="${color}" stroke-width="${WIDTH[e.status] || 2.3}" stroke-dasharray="${DASH[e.status] || ''}"/>`;
+    html += `<g class="${dim}">${arrowHead(p1, c, color)}${e.both ? arrowHead(p0, c, color) : ''}</g>`;
+    // 이름표: 휜 선의 한가운데
+    const mx = 0.25 * p0[0] + 0.5 * c[0] + 0.25 * p1[0], my = 0.25 * p0[1] + 0.5 * c[1] + 0.25 * p1[1];
+    const t = el('div', 'tag' + dim + (isSel ? ' sel' : '') + (e.type ? '' : ' none'), tagsEl);
+    t.innerHTML = '<b></b>';
+    t.appendChild(document.createTextNode(e.type || '종류?'));
+    t.style.setProperty('--c', color);
+    t.style.setProperty('--st', stColor(e.status));
+    t.style.left = mx + 'px';
+    t.style.top = my + 'px';
+    t.dataset.e = e.id;
+    t.title = `${A.name} → ${B.name}${e.memo ? '\n' + e.memo : ''}`;
+  }
+  svg.innerHTML = html + (link ? `<path class="temp" d="M${link.p0[0]},${link.p0[1]} L${link.p1[0]},${link.p1[1]}"/>` : '');
+  for (const [id, e] of nodeEls) e.classList.toggle('dim', !!L && !L.nodes.has(id));
+}
+function drawTypes() {
+  const box = $('#types');
+  box.innerHTML = '';
+  const count = (name) => D.edges.filter((e) => (e.type || '') === name).length;
+  const rows = [...D.types.map((t) => [t.name, t.color, true])];
+  if (D.edges.some((e) => !e.type)) rows.push(['', NONE, false]);
+  for (const [name, color, editable] of rows) {
+    const r = el('div', 'ty' + (filter === name ? ' on' : ''), box);
+    r.style.setProperty('--c', color);
+    const sw = el('span', 'sw', r);
+    if (editable) {
+      const inp = el('input', '', sw);
+      inp.type = 'color';
+      inp.value = color;
+      inp.onclick = (ev) => ev.stopPropagation();
+      inp.onchange = () => { remember(); typeOf(name).color = inp.value; changed(); drawSide(); };
+    }
+    el('span', 'n', r, name || '종류를 안 고른 선');
+    el('span', 'k', r, String(count(name)));
+    if (editable && !PRESET.some((p) => p[0] === name) && !count(name)) {
+      const x = el('button', 'x', r, '×');
+      x.title = '이 종류 지우기';
+      x.onclick = (ev) => { ev.stopPropagation(); remember(); D.types = D.types.filter((t) => t.name !== name); if (filter === name) filter = null; changed(); };
+    }
+    r.onclick = () => { filter = filter === name ? null : name; draw(); };
+  }
+}
+
+// ---------- 오른쪽: 고른 것 고치기 ----------
+function chips(parent, items, cur, onPick, colorOf) {
+  const box = el('div', 'chips', parent);
+  for (const it of items) {
+    const c = el('button', 'chip' + (it === cur ? ' on' : ''), box, it);
+    if (colorOf) c.style.setProperty('--c', colorOf(it));
+    c.onclick = () => onPick(it);
+  }
+  return box;
+}
+function field(parent, label, value, onInput, area = false) {
+  el('label', '', parent, label);
+  const f = el(area ? 'textarea' : 'input', '', parent);
+  if (!area) f.type = 'text';
+  f.value = value || '';
+  let first = true;
+  f.oninput = () => { if (first) { remember(); first = false; } onInput(f.value); saveSoon(); draw(); };
+  return f;
+}
+function drawSide() {
+  const ed = $('#ed');
+  ed.innerHTML = '';
+  if (!sel) {
+    el('div', 'muted', ed).innerHTML = '조직 카드나 선(이름표)을 누르면 여기서 이름 · 종류 · 상태 · 메모를 고쳐요.<br><br>' +
+      '<b>상태</b>: 카드 왼쪽 띠 · 이름표 점 색 — 초록 작가 확정 · 노랑 원문 조각 · 보라 회의 중 · 회색 미정.<br>' +
+      '선 모양도 상태를 따라요(회의 중은 긴 점선, 미정은 잔 점선).';
+    return;
+  }
+  if (sel.kind === 'node') {
+    const n = nodeById(sel.id);
+    const nm = field(ed, '이름', n.name, (v) => { n.name = v; });
+    field(ed, '한 줄 역할', n.role, (v) => { n.role = v; });
+    el('label', '', ed, '상태');
+    chips(ed, STATUS.map((s) => s[0]), n.status, (s) => { remember(); n.status = s; changed(); drawSide(); }, stColor);
+    field(ed, '메모 · 출처', n.memo, (v) => { n.memo = v; }, true);
+    const links = D.edges.filter((e) => e.from === n.id || e.to === n.id);
+    el('label', '', ed, `이어진 관계 ${links.length}`);
+    const ul = el('div', 'muted', ed);
+    for (const e of links) {
+      const other = nodeById(e.from === n.id ? e.to : e.from);
+      const row = el('div', '', ul, `${e.from === n.id ? '→' : '←'} ${e.type || '종류?'} · ${other?.name || ''}`);
+      row.style.cursor = 'pointer';
+      row.onclick = () => select({ kind: 'edge', id: e.id });
+    }
+    const row = el('div', 'row', ed);
+    const del = el('button', 'btn del', row, '조직 지우기');
+    del.onclick = () => removeSel();
+    if (sel.fresh) { nm.focus(); nm.select(); sel.fresh = false; }
+    return;
+  }
+  const e = edgeById(sel.id), A = nodeById(e.from), B = nodeById(e.to);
+  el('div', 'who', ed, `${A.name} ${e.both ? '↔' : '→'} ${B.name}`);
+  el('label', '', ed, '관계 종류');
+  chips(ed, D.types.map((t) => t.name), e.type, (t) => { remember(); e.type = t; changed(); drawSide(); }, (t) => typeOf(t).color);
+  const other = el('input', '', ed);
+  other.type = 'text';
+  other.placeholder = '직접 적기 — Enter';
+  other.style.marginTop = '6px';
+  other.onkeydown = (ev) => {
+    if (ev.key !== 'Enter' || !other.value.trim()) return;
+    remember();
+    e.type = other.value.trim();
+    ensureType(e.type);
+    changed();
+    drawSide();
+  };
+  el('label', '', ed, '상태');
+  chips(ed, STATUS.map((s) => s[0]), e.status, (s) => { remember(); e.status = s; changed(); drawSide(); }, stColor);
+  field(ed, '메모 · 출처', e.memo, (v) => { e.memo = v; }, true);
+  const row = el('div', 'row', ed);
+  el('button', 'btn', row, '방향 바꾸기').onclick = () => { remember(); [e.from, e.to] = [e.to, e.from]; changed(); drawSide(); };
+  el('button', 'btn', row, e.both ? '한쪽 화살표' : '양쪽 화살표').onclick = () => { remember(); e.both = !e.both; changed(); drawSide(); };
+  el('button', 'btn del', row, '선 지우기').onclick = () => removeSel();
+}
+function select(s) {
+  sel = s;
+  closePick();
+  draw();
+  drawSide();
+}
+function removeSel() {
+  if (sel) sel.kind === 'node' ? removeNode(sel.id) : removeEdge(sel.id);
+}
+function removeNode(id) {
+  const n = nodeById(id);
+  if (!n) return;
+  remember();
+  const k = D.edges.filter((e) => e.from === id || e.to === id).length;
+  D.nodes = D.nodes.filter((x) => x.id !== id);
+  D.edges = D.edges.filter((e) => e.from !== id && e.to !== id);
+  afterRemove(`「${n.name || '이름 없는 조직'}」을 지웠어요${k ? ` (이어진 선 ${k}개도)` : ''}`);
+}
+function removeEdge(id) {
+  const e = edgeById(id);
+  if (!e) return;
+  remember();
+  D.edges = D.edges.filter((x) => x.id !== id);
+  afterRemove(`${nodeById(e.from)?.name} → ${nodeById(e.to)?.name} 선(${e.type || '종류?'})을 지웠어요`);
+}
+function afterRemove(msg) {
+  if (sel && !(sel.kind === 'node' ? nodeById(sel.id) : edgeById(sel.id))) sel = null;
+  hover = null;
+  closePick();
+  changed();
+  drawSide();
+  toast(msg);
+}
+/** 아래 가운데에 잠깐 뜨는 알림 (지운 뒤엔 바로 되돌릴 수 있게 되돌리기 단추도) */
+let toastT = 0;
+function toast(msg, undoable = true) {
+  const t = $('#toast');
+  t.querySelector('span').textContent = msg;
+  t.querySelector('button').hidden = !undoable;
+  t.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('on'), 4500);
+}
+
+// ---------- 우클릭 메뉴: 카드 · 선 · 빈 곳마다 할 수 있는 것 ----------
+const ctx = $('#ctx');
+const ctxOn = () => ctx.classList.contains('on');
+function closeCtx() { ctx.classList.remove('on'); }
+function openCtx(cx, cy, d) {
+  closePick();
+  ctx.innerHTML = '';
+  const item = (label, act, cls = '') => { const b = el('button', 'cx-i ' + cls, ctx, label); b.onclick = () => { closeCtx(); act(); }; };
+  const statusRow = (cur, set) => {
+    const r = el('div', 'cx-st', ctx);
+    el('span', '', r, '상태');
+    for (const [s, c] of STATUS) {
+      const b = el('button', 'chip' + (s === cur ? ' on' : ''), r, s);
+      b.style.setProperty('--c', c);
+      b.onclick = () => { closeCtx(); remember(); set(s); changed(); drawSide(); };
+    }
+  };
+  const n = d.node && nodeById(d.node), e = !n && d.edge && edgeById(d.edge);
+  if (n) {
+    const k = D.edges.filter((x) => x.from === n.id || x.to === n.id).length;
+    el('div', 'cx-h', ctx, n.name || '이름 없는 조직');
+    item('이름 · 역할 고치기', () => { sel = { kind: 'node', id: n.id, fresh: true }; draw(); drawSide(); });
+    item('다른 조직과 잇기', () => startClickLink(n.id, cx, cy));
+    statusRow(n.status, (s) => { n.status = s; });
+    item('복제', () => { remember(); const c = { ...n, id: uid('n'), name: n.name + ' (사본)', x: n.x + 30, y: n.y + 30 }; D.nodes.push(c); changed(); select({ kind: 'node', id: c.id }); });
+    el('div', 'cx-s', ctx);
+    item(k ? `지우기 (이어진 선 ${k}개도)` : '지우기', () => removeNode(n.id), 'danger');
+  } else if (e) {
+    el('div', 'cx-h', ctx, `${nodeById(e.from)?.name} ${e.both ? '↔' : '→'} ${nodeById(e.to)?.name} · ${e.type || '종류?'}`);
+    item('종류 바꾸기…', () => { sel = { kind: 'edge', id: e.id }; draw(); drawSide(); openPick(e); });
+    statusRow(e.status, (s) => { e.status = s; });
+    item('방향 바꾸기', () => { remember(); [e.from, e.to] = [e.to, e.from]; changed(); drawSide(); });
+    item(e.both ? '한쪽 화살표로' : '양쪽 화살표로', () => { remember(); e.both = !e.both; changed(); drawSide(); });
+    item('메모 쓰기', () => { select({ kind: 'edge', id: e.id }); $('#ed textarea')?.focus(); });
+    el('div', 'cx-s', ctx);
+    item('선 지우기', () => removeEdge(e.id), 'danger');
+  } else {
+    const at = toWorld(cx, cy), r = board.getBoundingClientRect();
+    el('div', 'cx-h', ctx, '판');
+    item('여기에 새 조직', () => addNode(at[0], at[1]));
+    item('자료에 있는 연결 불러오기', () => $('#b-src').click());
+    item('전체 보기', fit);
+    item('100%로 보기', () => zoomAt(1, cx - r.left, cy - r.top));
+  }
+  ctx.classList.add('on'); // 먼저 보여야 크기를 잼
+  ctx.style.left = Math.max(4, Math.min(cx + 2, innerWidth - ctx.offsetWidth - 8)) + 'px';
+  ctx.style.top = Math.max(4, Math.min(cy + 2, innerHeight - ctx.offsetHeight - 8)) + 'px';
+}
+/** 메뉴의 「다른 조직과 잇기」: 선이 마우스를 따라오고, 누른 조직과 이어짐 (빈 곳이면 새 조직) */
+function startClickLink(id, cx, cy) {
+  const n = nodeById(id), b = boxOf(n);
+  link = { from: id, p0: [b.x + b.w / 2, b.y + b.h / 2], p1: toWorld(cx, cy) };
+  drag = { mode: 'link', click: true };
+  board.classList.add('linking');
+  drawEdges();
+  toast('이을 조직을 누르세요 · 빈 곳을 누르면 새 조직과 이어요 · Esc 그만두기', false);
+}
+addEventListener('pointerdown', (ev) => { if (ctxOn() && !ev.target.closest('#ctx, #board')) closeCtx(); });
+addEventListener('blur', closeCtx);
+
+// ---------- 잇자마자 종류 고르기 ----------
+const pick = $('#pick');
+function openPick(e) {
+  const t = tagsEl.querySelector(`[data-e="${e.id}"]`);
+  const r = (t || board).getBoundingClientRect();
+  pick.querySelector('.t').textContent = `${nodeById(e.from).name} → ${nodeById(e.to).name} : 어떤 관계인가요?`;
+  const box = pick.querySelector('.chips');
+  box.innerHTML = '';
+  for (const ty of D.types) {
+    const c = el('button', 'chip', box, ty.name);
+    c.style.setProperty('--c', ty.color);
+    c.onclick = () => { e.type = ty.name; changed(); closePick(); select({ kind: 'edge', id: e.id }); };
+  }
+  const inp = pick.querySelector('input');
+  inp.value = '';
+  inp.onkeydown = (ev) => {
+    if (ev.key === 'Enter' && inp.value.trim()) { e.type = inp.value.trim(); ensureType(e.type); changed(); closePick(); select({ kind: 'edge', id: e.id }); }
+    if (ev.key === 'Escape') { closePick(); select({ kind: 'edge', id: e.id }); }
+  };
+  pick.classList.add('on'); // 먼저 보여야 높이를 잴 수 있음
+  const bw = board.clientWidth, bh = board.clientHeight;
+  pick.style.left = Math.max(8, Math.min(bw - 296, r.left + r.width / 2 - 140)) + 'px';
+  pick.style.top = (r.bottom + 10 + pick.offsetHeight < bh ? r.bottom + 10 : Math.max(8, r.top - 10 - pick.offsetHeight)) + 'px';
+  setTimeout(() => inp.focus(), 0);
+}
+function closePick() { pick.classList.remove('on'); }
+
+// ---------- 끌기: 카드 옮기기 · 잇기 · 화면 옮기기 ----------
+let drag = null; // { mode: 'move' | 'pan' | 'link', ... }
+let link = null; // 잇는 중인 선 { from, p0, p1 }
+const toWorld = (cx, cy) => { const r = board.getBoundingClientRect(); return [(cx - r.left - view.x) / view.k, (cy - r.top - view.y) / view.k]; };
+function nodeAt(cx, cy) {
+  const hit = document.elementFromPoint(cx, cy)?.closest?.('.node');
+  return hit ? hit.dataset.id : null;
+}
+board.addEventListener('contextmenu', (ev) => ev.preventDefault()); // 오른쪽 단추는 확대 · 축소에 씀
+board.addEventListener('pointerdown', (ev) => {
+  const knob = ev.target.closest('.knob'), card = ev.target.closest('.node'), edgeHit = ev.target.closest('[data-e]');
+  if (ctxOn()) { closeCtx(); if (ev.button === 0) return; } // 메뉴가 떠 있을 때 왼쪽으로 누르면 메뉴만 닫힘
+  if (drag?.click) { // 메뉴의 「다른 조직과 잇기」 중: 왼쪽으로 누른 곳에서 마침, 오른쪽은 그만두기
+    if (ev.button === 0) finishLink(ev.clientX, ev.clientY);
+    else cancelLink();
+    return;
+  }
+  if (ev.button === 2) { // 오른쪽 단추: 누른 채 좌우로 끌면 확대 · 축소 (휠 대신), 끌지 않고 떼면 그 자리 메뉴
+    closePick();
+    try { board.setPointerCapture(ev.pointerId); } catch (e) {}
+    const r = board.getBoundingClientRect();
+    drag = { mode: 'zoom', right: true, sx: ev.clientX, ax: ev.clientX - r.left, ay: ev.clientY - r.top, k: view.k, moved: false,
+      node: card?.dataset.id, edge: card ? null : edgeHit?.dataset.e };
+    return;
+  }
+  if (ev.button !== 0) return;
+  closePick();
+  try { board.setPointerCapture(ev.pointerId); } catch (e) {} // 판 밖으로 끌고 나가도 끝까지 따라감
+  if (tool === 'zoom') { // 돋보기: 누른 자리를 가운데로 두고 좌우로 끈 만큼 확대 · 축소
+    const r = board.getBoundingClientRect();
+    drag = { mode: 'zoom', sx: ev.clientX, ax: ev.clientX - r.left, ay: ev.clientY - r.top, k: view.k, alt: ev.altKey, moved: false };
+    return;
+  }
+  if (knob || (card && (ev.shiftKey || ev.altKey))) {
+    const n = nodeById(card.dataset.id), b = boxOf(n);
+    link = { from: n.id, p0: [b.x + b.w / 2, b.y + b.h / 2], p1: toWorld(ev.clientX, ev.clientY) };
+    drag = { mode: 'link' };
+    board.classList.add('linking');
+    drawEdges();
+    return;
+  }
+  if (card) {
+    const n = nodeById(card.dataset.id);
+    drag = { mode: 'move', id: n.id, sx: ev.clientX, sy: ev.clientY, x: n.x, y: n.y, moved: false };
+    return;
+  }
+  if (edgeHit) { select({ kind: 'edge', id: edgeHit.dataset.e }); return; }
+  drag = { mode: 'pan', sx: ev.clientX, sy: ev.clientY, x: view.x, y: view.y, moved: false };
+});
+board.addEventListener('pointermove', (ev) => {
+  if (!drag) {
+    const id = tool === 'zoom' ? null : nodeAt(ev.clientX, ev.clientY);
+    if (id !== hover) { hover = id; drawEdges(); }
+    return;
+  }
+  if (drag.mode === 'zoom') { // 오른쪽으로 끌면 크게, 왼쪽으로 끌면 작게 (끈 거리만큼 부드럽게)
+    const dx = ev.clientX - drag.sx;
+    if (!drag.moved && Math.abs(dx) < 3) return;
+    drag.moved = true;
+    board.classList.add('scrub');
+    zoomAt(drag.k * Math.exp(dx * 0.006), drag.ax, drag.ay);
+    return;
+  }
+  if (drag.mode === 'link') {
+    link.p1 = toWorld(ev.clientX, ev.clientY);
+    const t = nodeAt(ev.clientX, ev.clientY);
+    for (const [id, e] of nodeEls) e.classList.toggle('target', id === t && id !== link.from);
+    drawEdges();
+    return;
+  }
+  const dx = ev.clientX - drag.sx, dy = ev.clientY - drag.sy;
+  if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+  if (!drag.moved && drag.mode === 'move') remember();
+  drag.moved = true;
+  if (drag.mode === 'move') {
+    const n = nodeById(drag.id);
+    n.x = Math.round(drag.x + dx / view.k);
+    n.y = Math.round(drag.y + dy / view.k);
+    const e = nodeEls.get(n.id);
+    e.style.left = n.x + 'px';
+    e.style.top = n.y + 'px';
+    drawEdges();
+  } else {
+    board.classList.add('panning');
+    view.x = drag.x + dx;
+    view.y = drag.y + dy;
+    applyView();
+  }
+});
+/** 잇던 선을 (cx, cy) 에서 마침: 카드 위면 그 조직과, 빈 곳이면 그 자리에 새 조직을 만들고 이음 */
+function finishLink(cx, cy) {
+  const to = nodeAt(cx, cy), from = link.from;
+  link.p1 = toWorld(cx, cy);
+  const at = link.p1;
+  link = null;
+  drag = null;
+  board.classList.remove('linking');
+  for (const e of nodeEls.values()) e.classList.remove('target');
+  if (to === from) { drawEdges(); return; }
+  remember();
+  let target = to;
+  if (!target) {
+    const n = { id: uid('n'), name: '새 조직', role: '', status: '미정', memo: '', x: Math.round(at[0] - 70), y: Math.round(at[1] - 22) };
+    D.nodes.push(n);
+    target = n.id;
+  }
+  const e = { id: uid('e'), from, to: target, type: null, status: '미정', memo: '', both: false };
+  D.edges.push(e);
+  sel = { kind: 'edge', id: e.id };
+  changed();
+  drawSide();
+  openPick(e);
+}
+function cancelLink() {
+  if (!link) return;
+  link = null;
+  drag = null;
+  board.classList.remove('linking');
+  for (const e of nodeEls.values()) e.classList.remove('target');
+  drawEdges();
+}
+board.addEventListener('pointerup', (ev) => {
+  const d = drag;
+  if (d?.click) return; // 메뉴의 「다른 조직과 잇기」: 눌러서 마침 (pointerdown 에서)
+  drag = null;
+  board.classList.remove('panning', 'linking', 'scrub');
+  if (!d) return;
+  if (d.mode === 'zoom') {
+    if (d.moved) return;
+    if (!d.right) zoomAt(view.k * (d.alt || ev.altKey ? 1 / 1.6 : 1.6), d.ax, d.ay); // 돋보기로 누르기만: 한 단계 (Alt: 작게)
+    else openCtx(ev.clientX, ev.clientY, d); // 끌지 않은 우클릭: 그 자리 메뉴
+    return;
+  }
+  if (d.mode === 'link') { finishLink(ev.clientX, ev.clientY); return; }
+  if (d.mode === 'move') {
+    if (d.moved) saveSoon();
+    else select({ kind: 'node', id: d.id });
+    return;
+  }
+  if (d.mode === 'pan' && !d.moved) select(null);
+});
+board.addEventListener('pointerleave', () => { if (!drag && hover) { hover = null; drawEdges(); } });
+board.addEventListener('dblclick', (ev) => {
+  if (tool === 'zoom') return;
+  // 끄는 동안 판이 포인터를 붙잡아서 ev.target 은 늘 판이므로, 실제로 누른 자리를 다시 봄
+  if (document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.node, .tag, [data-e]')) return;
+  addNode(...toWorld(ev.clientX, ev.clientY));
+});
+board.addEventListener('wheel', (ev) => {
+  ev.preventDefault();
+  closeCtx();
+  const r = board.getBoundingClientRect();
+  zoomAt(view.k * Math.exp(-ev.deltaY * 0.0015), ev.clientX - r.left, ev.clientY - r.top);
+}, { passive: false });
+function addNode(x, y) {
+  remember();
+  const n = { id: uid('n'), name: '새 조직', role: '', status: '미정', memo: '', x: Math.round(x - 70), y: Math.round(y - 22) };
+  D.nodes.push(n);
+  changed();
+  sel = { kind: 'node', id: n.id, fresh: true };
+  draw();
+  drawSide();
+}
+function fit() {
+  if (!D.nodes.length) return;
+  const bs = D.nodes.map(boxOf);
+  const x0 = Math.min(...bs.map((b) => b.x)) - 40, y0 = Math.min(...bs.map((b) => b.y)) - 40;
+  const x1 = Math.max(...bs.map((b) => b.x + b.w)) + 40, y1 = Math.max(...bs.map((b) => b.y + b.h)) + 40;
+  const W = board.clientWidth, H = board.clientHeight - 70; // 위 도구 · 아래 도움말 자리
+  view.k = Math.max(ZMIN, Math.min(1.4, W / (x1 - x0), H / (y1 - y0)));
+  view.x = (W - (x1 - x0) * view.k) / 2 - x0 * view.k;
+  view.y = 50 + (H - (y1 - y0) * view.k) / 2 - y0 * view.k;
+  applyView();
+}
+
+// ---------- 단추 · 글쇠 ----------
+$('#b-add').onclick = () => { const [x, y] = toWorld(board.getBoundingClientRect().left + board.clientWidth / 2, board.getBoundingClientRect().top + board.clientHeight / 2); addNode(x, y); };
+$('#b-fit').onclick = fit;
+$('#b-zoom').onclick = () => setTool(tool === 'zoom' ? 'select' : 'zoom');
+$('#b-zin').onclick = () => zoomAt(view.k * 1.25);
+$('#b-zout').onclick = () => zoomAt(view.k / 1.25);
+$('#zoompct').onclick = () => zoomAt(1);
+$('#b-undo').onclick = () => undo(true);
+$('#b-toast-undo').onclick = () => { undo(true); $('#toast').classList.remove('on'); };
+$('#b-redo').onclick = () => undo(false);
+$('#b-src').onclick = () => {
+  const have = new Set(D.edges.map((e) => `${e.from}|${e.to}|${e.type}`));
+  const add = SOURCE_EDGES.filter(([f, t, ty]) => nodeById(f) && nodeById(t) && !have.has(`${f}|${t}|${ty}`));
+  if (!add.length) { $('#saved').textContent = '더할 연결이 없어요 (이미 있거나 그 조직을 지웠어요)'; return; }
+  remember();
+  for (const [from, to, type, status, memo] of add) {
+    ensureType(type);
+    D.edges.push({ id: uid('e'), from, to, type, status, memo, both: false });
+  }
+  changed();
+  $('#saved').textContent = `자료에 있는 연결 ${add.length}개를 더했어요`;
+};
+$('#b-ty').onclick = () => {
+  const inp = $('#newty'), name = inp.value.trim();
+  if (!name || typeOf(name)) return;
+  remember();
+  ensureType(name);
+  inp.value = '';
+  changed();
+  if (sel?.kind === 'edge') drawSide();
+};
+$('#newty').onkeydown = (ev) => { if (ev.key === 'Enter') $('#b-ty').click(); };
+addEventListener('keydown', (ev) => {
+  if (ev.target.closest?.('input, textarea')) return;
+  const mod = ev.ctrlKey || ev.metaKey;
+  if (mod && ev.key.toLowerCase() === 'z') { ev.preventDefault(); undo(!ev.shiftKey); return; }
+  if (mod && ev.key.toLowerCase() === 'y') { ev.preventDefault(); undo(false); return; }
+  if (ev.key === 'Alt') board.classList.add('alt');
+  if (mod) return;
+  if (ev.code === 'KeyZ') { setTool(tool === 'zoom' ? 'select' : 'zoom'); return; } // 포토샵처럼 Z = 돋보기
+  if (ev.key === '+' || ev.key === '=') { zoomAt(view.k * 1.25); return; }
+  if (ev.key === '-' || ev.key === '_') { zoomAt(view.k / 1.25); return; }
+  if (ev.key === '0') { fit(); return; }
+  if (ev.key === 'Delete') { ev.preventDefault(); removeSel(); return; }
+  if (ev.key === 'Escape') { if (ctxOn()) { closeCtx(); return; } if (link) { cancelLink(); return; } closePick(); filter = null; setTool('select'); select(null); }
+});
+addEventListener('keyup', (ev) => { if (ev.key === 'Alt') board.classList.remove('alt'); });
+addEventListener('blur', () => board.classList.remove('alt'));
+
+// ---------- 노트로 정리: 라하니아 정보로 옮겨 쓸 글 ----------
+function noteText() {
+  const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const name = (id) => nodeById(id)?.name || '?';
+  const fm = `---\n분류: 자료 정리\n대상: 라하니아\n상태: 조직도에서 만듦\n공개: 작가\n만든날: ${today}\n---\n`;
+  let s = fm + '# 라하니아 조직 정리\n\n';
+  s += '> [!info] 「라하니아 조직도」 화면에서 놓고 이은 것을 그대로 옮긴 글이에요. 화면에서 고친 뒤 **노트로 정리**를 다시 누르면 새로 써져요(이 노트를 직접 고치면 그때 덮여요).\n';
+  s += '> 상태: 작가 확정 · 원문 조각 · 회의 중 · 미정. 화살표는 화면의 선 방향 그대로예요.\n\n';
+  s += '## 조직\n';
+  for (const n of [...D.nodes].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    s += `\n### ${n.name || '이름 없는 조직'}\n- 상태: ${n.status || '미정'}\n`;
+    if (n.role) s += `- 역할: ${n.role}\n`;
+    const out = D.edges.filter((e) => e.from === n.id), inn = D.edges.filter((e) => e.to === n.id);
+    if (out.length || inn.length) {
+      s += '- 관계\n';
+      for (const e of out) s += `  - ${e.both ? '↔' : '→'} ${name(e.to)} : ${e.type || '종류 미정'} (${e.status})${e.memo ? ' — ' + e.memo : ''}\n`;
+      for (const e of inn) s += `  - ${e.both ? '↔' : '←'} ${name(e.from)} : ${e.type || '종류 미정'} (${e.status})${e.memo ? ' — ' + e.memo : ''}\n`;
+    }
+    if (n.memo) s += `- 메모: ${n.memo.replace(/\n+/g, ' ')}\n`;
+  }
+  s += '\n## 관계 종류별\n';
+  const types = [...D.types.map((t) => t.name), ''];
+  for (const t of types) {
+    const es = D.edges.filter((e) => (e.type || '') === t);
+    if (!es.length) continue;
+    s += `\n### ${t || '종류를 아직 안 고른 연결'}\n`;
+    for (const e of es) s += `- ${name(e.from)} ${e.both ? '↔' : '→'} ${name(e.to)} (${e.status})${e.memo ? ' — ' + e.memo : ''}\n`;
+  }
+  const lone = D.nodes.filter((n) => !D.edges.some((e) => e.from === n.id || e.to === n.id));
+  if (lone.length) s += `\n## 아직 이어지지 않은 조직\n${lone.map((n) => `- ${n.name}`).join('\n')}\n`;
+  return s;
+}
+$('#b-note').onclick = async () => {
+  const ok = await writeVault(NOTE, noteText(), true);
+  $('#saved').textContent = ok ? `「${NOTE.split('/').pop().replace(/\.md$/, '')}」 노트에 정리했어요` : '노트를 쓰지 못했어요';
+  if (ok && OBS) parent.postMessage({ mn: 'open', path: NOTE }, '*');
+};
+
+// ---------- 열기 ----------
+(async () => {
+  try {
+    const t = await readVault(SAVE);
+    const j = t && JSON.parse(t);
+    if (j && j.version === VERSION) { D = j; lastDisk = t; }
+  } catch (e) {}
+  if (!D) D = seed();
+  for (const e of D.edges) ensureType(e.type);
+  applyView();
+  draw();
+  drawSide();
+  undoUI();
+  setTimeout(() => { draw(); fit(); }, 30); // rAF 는 가려진 창에서 멈춰서 타이머로
+  // 옵시디언 액자가 처음엔 크기 0 으로 열릴 때가 있어서, 판 크기가 처음 잡히면 다시 맞춤
+  let fitted = board.clientWidth > 0;
+  new ResizeObserver(() => { if (!fitted && board.clientWidth > 0) { fitted = true; draw(); fit(); } }).observe(board);
+})();
+</script>
+</body>
+</html>

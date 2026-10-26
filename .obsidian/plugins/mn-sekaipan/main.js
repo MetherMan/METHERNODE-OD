@@ -15,6 +15,10 @@ const STORY_PAGE = '.도구/창/popup/index.html'; // 세계판 창과 같은 �
 const STORY_READ = /^(The Archive - 자료\/[^/]+\.마을\.json|\.도구\/창\/popup\/layout\.json|The Archive - 자료\/기호\/배치 목록\.json)$/; // 그림책이 읽을 수 있는 파일
 const STORY_WRITE = /^The Archive - 자료\/[^/]+\.마을\.json$/; // 그림책이 쓸 수 있는 파일 (마을 저장본)
 const STORY_NOTES = /^(The Main - 지리|The Main - 인물|The Rule - TRPG\/기록)\/.+\.md$/; // 그림책이 읽고 쓰는 노트 (기록 · 인물·장소·기관 노트)
+const ORG_TYPE = 'mn-orgchart'; // 조직도 (조직을 놓고 선으로 이어 관계 종류를 정리)
+const ORG_PAGE = '.도구/창/org/index.html';
+const ORG_FILES = /^The Archive - 자료\/[^/]+\.조직도\.json$/; // 조직도 저장본
+const ORG_NOTES = /^The Main - 지리\/.+\.md$/; // 「노트로 정리」가 쓰는 노트
 /** 노트 맨 위 「키: 값」 속성만 빠르게 (방금 만든 노트는 옵시디언 속성 캐시가 아직 비어 있어서) */
 function quickFm(text) {
   const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text || '');
@@ -2023,10 +2027,13 @@ class SekaipanPlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULTS, saved);
     this.registerView(VIEW_TYPE, (leaf) => new SekaiView(leaf, this));
     this.registerView(STORY_TYPE, (leaf) => new StoryView(leaf, this));
+    this.registerView(ORG_TYPE, (leaf) => new OrgView(leaf, this));
     this.addRibbonIcon('map', '세계판 열기', () => this.openView());
     this.addRibbonIcon('book-open', '펼쳐지는 마을 열기', () => this.openView(STORY_TYPE));
+    this.addRibbonIcon('network', '라하니아 조직도 열기', () => this.openView(ORG_TYPE));
     this.addCommand({ id: 'open', name: '세계판 열기', callback: () => this.openView() });
     this.addCommand({ id: 'open-storybook', name: '펼쳐지는 마을 열기', callback: () => this.openView(STORY_TYPE) });
+    this.addCommand({ id: 'open-orgchart', name: '라하니아 조직도 열기', callback: () => this.openView(ORG_TYPE) });
     this.addSettingTab(new SekaiSettings(this.app, this));
   }
 
@@ -2165,6 +2172,11 @@ class StoryView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
+    this.title = '펼쳐지는 마을';
+    this.page = STORY_PAGE;
+    this.canRead = (p) => STORY_READ.test(p) || STORY_NOTES.test(p);
+    this.canSave = (p) => STORY_WRITE.test(p);
+    this.canNote = (p) => STORY_NOTES.test(p);
   }
 
   getViewType() {
@@ -2186,12 +2198,12 @@ class StoryView extends ItemView {
     const ad = this.app.vault.adapter;
     let html;
     try {
-      html = await ad.read(STORY_PAGE);
+      html = await ad.read(this.page);
     } catch (err) {
-      root.createDiv({ text: '그림책 페이지를 찾지 못했어요: ' + STORY_PAGE });
+      root.createDiv({ text: '페이지를 찾지 못했어요: ' + this.page });
       return;
     }
-    const base = ad.getResourcePath(STORY_PAGE).split('?')[0].replace(/[^/]*$/, ''); // 페이지가 있는 폴더 (그림은 여기서 상대 주소로)
+    const base = ad.getResourcePath(this.page).split('?')[0].replace(/[^/]*$/, ''); // 페이지가 있는 폴더 (그림은 여기서 상대 주소로)
     const head = `<head><base href="${base}"><script>window.MN_OBS = true;</` + 'script>';
     this.frame = root.createEl('iframe', { cls: 'mnsk-story-frame' });
     this.frame.srcdoc = html.replace(/<head>/i, head);
@@ -2203,16 +2215,16 @@ class StoryView extends ItemView {
       if (m.mn === 'read') {
         let text = null;
         try {
-          if ((STORY_READ.test(m.path) || STORY_NOTES.test(m.path)) && (await ad.exists(m.path))) text = await ad.read(m.path);
+          if (this.canRead(m.path) && (await ad.exists(m.path))) text = await ad.read(m.path);
         } catch (err) {
-          console.error('[펼쳐지는 마을] 읽기 실패', m.path, err);
+          console.error(`[${this.title}] 읽기 실패`, m.path, err);
         }
         reply({ mn: 'read', id: m.id, text });
       } else if (m.mn === 'list') {
         // 기록 · 그림 노트 목록 (속성 포함)
         const items = [];
         for (const f of vault.getMarkdownFiles()) {
-          if (!STORY_NOTES.test(f.path) || !(m.prefixes || []).some((px) => f.path.startsWith(px))) continue;
+          if (!this.canNote(f.path) || !(m.prefixes || []).some((px) => f.path.startsWith(px))) continue;
           let fm = this.app.metadataCache.getFileCache(f)?.frontmatter;
           if (!fm) { try { fm = quickFm(await vault.cachedRead(f)); } catch (err) { fm = {}; } }
           items.push({ path: f.path, fm: JSON.parse(JSON.stringify(fm || {})) });
@@ -2221,7 +2233,7 @@ class StoryView extends ItemView {
       } else if (m.mn === 'note') {
         // 노트 만들기 · 고쳐 쓰기 (정해 둔 폴더의 .md 만, 없는 폴더는 만듦)
         let ok = false;
-        if (STORY_NOTES.test(m.path) && typeof m.text === 'string') {
+        if (this.canNote(m.path) && typeof m.text === 'string') {
           try {
             const parts = m.path.split('/');
             for (let i = 1; i < parts.length; i++) {
@@ -2234,18 +2246,18 @@ class StoryView extends ItemView {
             else await vault.create(m.path, m.text);
             ok = true;
           } catch (err) {
-            new Notice('펼쳐지는 마을: 노트를 쓰지 못했어요 — ' + err.message);
+            new Notice(`${this.title}: 노트를 쓰지 못했어요 — ` + err.message);
           }
         }
         reply({ mn: 'note', id: m.id, ok });
       } else if (m.mn === 'open') {
-        if (STORY_NOTES.test(m.path)) this.app.workspace.openLinkText?.(m.path, '', 'tab');
+        if (this.canNote(m.path)) this.app.workspace.openLinkText?.(m.path, '', 'tab');
       } else if (m.mn === 'save') {
-        if (!STORY_WRITE.test(m.path) || typeof m.text !== 'string') return;
+        if (!this.canSave(m.path) || typeof m.text !== 'string') return;
         try {
           await ad.write(m.path, m.text);
         } catch (err) {
-          new Notice('펼쳐지는 마을: 저장하지 못했어요 — ' + err.message);
+          new Notice(`${this.title}: 저장하지 못했어요 — ` + err.message);
         }
       }
     });
@@ -2253,6 +2265,31 @@ class StoryView extends ItemView {
 
   async onClose() {
     this.frame = null;
+  }
+}
+
+/** 조직도: 그림책과 같은 방식으로 세계판 창의 조직도 페이지(.도구/창/org)를 액자로 띄움.
+ *  저장본(.조직도.json)과 「노트로 정리」가 쓰는 지리 노트만 읽고 씀 */
+class OrgView extends StoryView {
+  constructor(leaf, plugin) {
+    super(leaf, plugin);
+    this.title = '조직도';
+    this.page = ORG_PAGE;
+    this.canRead = (p) => ORG_FILES.test(p) || ORG_NOTES.test(p);
+    this.canSave = (p) => ORG_FILES.test(p);
+    this.canNote = (p) => ORG_NOTES.test(p);
+  }
+
+  getViewType() {
+    return ORG_TYPE;
+  }
+
+  getDisplayText() {
+    return '라하니아 조직도';
+  }
+
+  getIcon() {
+    return 'network';
   }
 }
 
