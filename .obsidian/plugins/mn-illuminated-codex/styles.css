@@ -7750,3 +7750,507 @@ body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__prose--pa
   padding-left:1.1cqi; border-left:2px solid #9aa6b8;
 }
 body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__prose--page:not(:has(.mn-codex__sheet, ul, ol)) > p:only-of-type { border-left-color:#8c97a8; }
+
+/* 책장 틀 (개요 · 능력 · 관계) — 장마다 다른 생김새. 실험실 추가 2026-10-27 -------------------------------
+   개요 = 표지 카드처럼 「큰 이름 + 큰 숫자 + 작은 표 + 칩」, 능력 = 종류 표식 + 이름 + 표식 고리, 관계 = 두 사람을 잇는 그림 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight { --mn-sk-rule:rgba(29,36,51,.16); }
+
+/* 공통: 작은 영문 머리 (PROFILE · AFFILIATION · ABILITY · RELATIONS) — 오른쪽으로 가는 가는 선 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-label {
+  display:flex; align-items:center; gap:.8cqi; margin:0 0 .7cqi; color:var(--mn-sk-mute);
+  font:700 clamp(8px,.56cqi,11px)/1 "Arial Narrow","Pretendard",sans-serif; letter-spacing:.3em;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-label::after { content:""; flex:1; border-top:1px solid var(--mn-sk-rule); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ov-label { color:#9fb2cc; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ov-label::after { border-top-color:rgba(159,178,204,.28); }
+
+/* ── 개요 ── */
+/* 장 제목은 작게(인물 이름이 주인공) */
+body .mn-codex.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-overview .mn-codex__title {
+  font-size:1.55cqi !important; font-weight:600 !important; letter-spacing:0 !important;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-overview { padding-bottom:1.9cqi !important; margin-bottom:1.5cqi !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-overview .mn-codex__title-row { display:inline-flex; align-items:baseline; }
+body .mn-codex.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-overview .mn-codex__subtitle { display:inline-block; margin-left:1.1cqi !important; }
+
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-hero { margin:0 0 1cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-alias {
+  display:flex; align-items:center; gap:.9cqi; color:#4e6382;
+  font:700 clamp(10px,.9cqi,15px)/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.32em;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-alias::before { content:""; width:2.4cqi; border-top:1px solid var(--mn-sk-silver); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-name {
+  margin-top:.5cqi; color:var(--mn-sk-ink); font:700 4.6cqi/1 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:-.04em;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__prose--page p.mn-codex__ov-lead {
+  margin:0 0 1.7cqi !important; padding-left:1cqi; border-left:2px solid var(--mn-sk-silver);
+  color:#273142 !important; font-size:1.06cqi !important; line-height:1.75 !important; max-width:30em;
+}
+
+/* 투력 · 항력: 큰 숫자 두 칸 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-stats {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(0,1fr)); margin:0 0 1.7cqi;
+  border-top:1px solid var(--mn-sk-ink); border-bottom:1px solid var(--mn-sk-rule);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-stat { padding:.9cqi 1.2cqi 1cqi 0; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-stat + .mn-codex__ov-stat { padding-left:1.4cqi; border-left:1px solid var(--mn-sk-rule); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-stat-key {
+  color:var(--mn-sk-mute); font:700 clamp(9px,.72cqi,13px)/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.2em;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-stat-key a.internal-link { color:inherit !important; text-decoration:none; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-stat-value {
+  margin-top:.55cqi; color:var(--mn-sk-ink); font:500 2.5cqi/1 "MN Bodoni Moda","Noto Serif KR",serif; letter-spacing:-.01em; font-variant-numeric:lining-nums;
+}
+
+/* 겉모습: 3칸 작은 표 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-profile { margin:0 0 1.5cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1cqi 1.4cqi; margin:0; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-grid > div { min-width:0; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-grid dt {
+  margin:0 0 .3cqi; color:var(--mn-sk-mute); font:700 clamp(9px,.68cqi,12px)/1.3 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.14em;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-grid dt a.internal-link { color:inherit !important; text-decoration:none; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-grid dd {
+  margin:0; color:var(--mn-sk-ink); font:600 clamp(12px,1.02cqi,17px)/1.45 "Pretendard","Noto Sans KR",sans-serif; word-break:keep-all;
+}
+
+/* 소속 · 능력: 칩 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-row { margin:0 0 1.2cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-chips { display:flex; flex-wrap:wrap; gap:.6cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-chip {
+  display:inline-flex; align-items:baseline; gap:.6cqi; padding:.45cqi .9cqi .5cqi; border:1px solid rgba(29,36,51,.28); border-radius:2px;
+  background:rgba(255,255,255,.55); color:var(--mn-sk-ink); font:600 clamp(11px,.95cqi,16px)/1.2 "Pretendard","Noto Sans KR",sans-serif; word-break:keep-all;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-chip a.internal-link { color:inherit !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-chip-key {
+  color:var(--mn-sk-mute); font:700 clamp(9px,.66cqi,12px)/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.14em;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-chip-key a.internal-link { color:inherit !important; text-decoration:none; }
+
+/* 개요 그림 쪽: 액자 오른쪽 위에 케이숑 메달(표지 왼쪽 위 메달과 같은 것) */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__figure--book::after {
+  content:"" !important; display:block !important; position:absolute !important; inset:auto !important; top:-3.2cqi !important; right:-2.2cqi !important;
+  width:5.4cqi !important; height:5.4cqi !important; z-index:9 !important; opacity:1 !important; transform:none !important; border:0 !important; box-shadow:none !important;
+  background:var(--mn-onal-keishon-medal,url("assets/onal-keishon-medal.png")) center / contain no-repeat !important;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.5));
+}
+
+/* ── 능력 ── */
+/* 장 첫 쪽 목록: 번호 · 종류 표식 · 이름 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__prose--page ul.mn-codex__ab-index li.mn-codex__ab-item {
+  display:flex; align-items:center; gap:1.1cqi; padding-top:1.25cqi !important; padding-bottom:1.25cqi !important;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-type {
+  flex:none; min-width:3.6em; padding:.35cqi .7cqi .4cqi; border:1px solid currentColor; border-radius:2px; text-align:center;
+  color:#4e6382; font:700 clamp(10px,.78cqi,14px)/1.1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.18em;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-item--untyped .mn-codex__ab-name { margin-left:calc(3.6em * .78 / 1.5 + 1.4cqi + 4.1em); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-index .mn-codex__ab-name {
+  color:var(--mn-sk-ink); font:600 1.5cqi/1.2 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:-.02em;
+}
+/* 하위 쪽: 종류 표식 → 큰 이름 → 오른쪽 위 표식 고리 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-type--head { display:inline-block; margin:.9cqi 0 .7cqi; }
+body .mn-codex.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-ability.mn-codex__heading--book-entry .mn-codex__title {
+  font-size:3cqi !important; font-weight:650 !important; letter-spacing:-.03em !important;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-ability.mn-codex__heading--book-entry { padding-right:11cqi !important; margin-bottom:2.4cqi !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-seal {
+  position:absolute; top:-.6cqi; right:0; width:8.6cqi; aspect-ratio:1; border-radius:50%; display:grid; place-items:center;
+  border:1px solid var(--mn-sk-silver); box-shadow:inset 0 0 0 .55cqi transparent, inset 0 0 0 calc(.55cqi + 1px) rgba(154,166,184,.55);
+  color:var(--mn-sk-ink); font:600 1.25cqi/1 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:.1em; pointer-events:none;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-seal::before {
+  content:""; position:absolute; inset:-.9cqi; border-radius:50%;
+  background:repeating-conic-gradient(from 0deg, var(--mn-sk-silver) 0 .5deg, transparent .5deg 7.5deg);
+  -webkit-mask:radial-gradient(circle, transparent calc(50% - .55cqi), #000 calc(50% - .5cqi) calc(50% - .05cqi), transparent 50%);
+  mask:radial-gradient(circle, transparent calc(50% - .55cqi), #000 calc(50% - .5cqi) calc(50% - .05cqi), transparent 50%);
+  opacity:.8;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-seal::after {
+  content:""; position:absolute; width:.55cqi; height:.55cqi; top:-.32cqi; left:calc(50% - .27cqi); transform:rotate(45deg); background:var(--mn-sk-silver);
+}
+/* 석판(왼쪽) 쪽일 때 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ab-type { color:#c9d4e3; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ab-seal { color:#e6eaf0; border-color:#9fb2cc; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ab-index .mn-codex__ab-name { color:var(--mn-sk-ivory); }
+
+/* ── 관계 ── */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-face {
+  flex:none; width:6.2cqi; aspect-ratio:1; border-radius:50%; box-sizing:border-box;
+  background:#1b2230 no-repeat; background-size:250%; border:1px solid var(--mn-sk-silver);
+  box-shadow:0 0 0 .45cqi var(--mn-sk-paper), 0 0 0 calc(.45cqi + 1px) rgba(154,166,184,.6);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-face--mono {
+  display:grid; place-items:center; color:#e6eaf0; font:600 2.3cqi/1 "Noto Serif KR","MN Bodoni Moda",serif;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-name {
+  color:var(--mn-sk-ink); font:600 1.05cqi/1.2 "Noto Serif KR",serif; letter-spacing:.06em; text-align:center;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-note {
+  color:#4e6382; font:700 clamp(10px,.8cqi,14px)/1.3 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.12em; word-break:keep-all;
+}
+/* 인물 쪽: 나 ── 관계 ── 그 사람 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-map {
+  display:flex; align-items:flex-start; gap:1.2cqi; margin:0 0 2.2cqi; padding:1.4cqi 0 1.5cqi;
+  border-top:1px solid var(--mn-sk-ink); border-bottom:1px solid var(--mn-sk-rule);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-map .mn-codex__rel-who { display:grid; justify-items:center; gap:.8cqi; flex:none; width:9cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-link {
+  position:relative; flex:1; align-self:flex-start; height:6.2cqi; display:flex; align-items:center; justify-content:center;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-link::before {
+  content:""; position:absolute; left:0; right:0; top:50%; border-top:1px solid var(--mn-sk-silver);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-link::after {
+  content:""; position:absolute; left:calc(50% - .4cqi); top:calc(50% - .4cqi); width:.8cqi; height:.8cqi; transform:rotate(45deg);
+  background:var(--mn-sk-paper); border:1px solid var(--mn-sk-silver);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-link .mn-codex__rel-note {
+  position:relative; z-index:1; margin-bottom:2.6cqi; padding:0 .8cqi; background:var(--mn-sk-paper);
+}
+/* 장 첫 쪽: 관계 인물 목록 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-roster { margin-top:2.4cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-who--row {
+  display:flex; align-items:center; gap:1.3cqi; padding:1cqi 0; border-bottom:1px solid var(--mn-sk-rule);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-who--row .mn-codex__rel-face { width:3.8cqi; box-shadow:none; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-who--row .mn-codex__rel-face--mono { font-size:1.5cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-who--row .mn-codex__rel-name { font-size:1.35cqi; text-align:left; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-who--row .mn-codex__rel-note { margin-left:auto; }
+/* 석판(왼쪽) 쪽일 때 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__rel-name { color:var(--mn-sk-ivory); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__rel-note { color:#9fb2cc; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__rel-who--row { border-bottom-color:rgba(159,178,204,.25); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__rel-face { border-color:#9fb2cc; box-shadow:0 0 0 .45cqi #252e3e, 0 0 0 calc(.45cqi + 1px) rgba(159,178,204,.45); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__rel-face--mono { background-color:#e6eaf0; color:#1f2735; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__rel-map { border-top-color:#9fb2cc; border-bottom-color:rgba(159,178,204,.25); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__rel-link::after { background:#252e3e; border-color:#9fb2cc; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__rel-link .mn-codex__rel-note { background:#252e3e; }
+/* 틀 다듬기: 개요 장 제목 축소는 장 첫 쪽에만 · 이명 자간 · 빈 종류 표식 자리 · 표식 고리 위치와 가운데 별 */
+body .mn-codex.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-overview.mn-codex__heading--book-entry .mn-codex__title { font-size:2.15cqi !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-overview.mn-codex__heading--book-entry .mn-codex__title-row { display:flex; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-overview.mn-codex__heading--book-entry { padding-bottom:0 !important; margin-bottom:2cqi !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-alias { letter-spacing:.16em; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-item--untyped .mn-codex__ab-name { margin-left:0; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-type--empty { visibility:hidden; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-seal { top:1.2cqi; width:7.6cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-star {
+  width:2.1cqi; aspect-ratio:1; background:var(--mn-sk-silver);
+  clip-path:polygon(50% 0, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0 50%, 42% 42%);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ab-star { background:#c9d4e3; }
+/* 틀 다듬기 2 (미술 검토 13차) ---------------------------------------------------------------
+   ① 개요 첫 쪽 머리글은 「SECTION 01 · 개요」 한 줄만(큰 이름이 바로 밑) ② 상반신 그림 아래 끝이 액자 안에 보이지 않게 살짝 키움
+   ③ 능력 목록 종류 표식 칸 폭 고정 ④ 관계 동그라미는 어느 쪽이든 같은 모양 · 그림 윗선은 은선 ⑤ 투력 칸 넓게, 낮은 창에서 캡션 · 큰 숫자 줄임 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-overview.mn-codex__heading--book-section .mn-codex__title-row,
+body .mn-codex.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-overview.mn-codex__heading--book-section .mn-codex__subtitle,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-overview.mn-codex__heading--book-section::after { display:none !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-overview.mn-codex__heading--book-section { padding-bottom:0 !important; margin-bottom:1.4cqi !important; }
+
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__figure--book .mn-codex__art img { transform:scale(1.045) !important; transform-origin:50% 0 !important; }
+
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-index .mn-codex__ab-type { width:4.8em; min-width:0; box-sizing:border-box; padding-left:0; padding-right:0; }
+
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-face--mono,
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__rel-face--mono {
+  background-color:#1f2735; color:#e6eaf0; border-color:#9aa6b8;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-map { border-top-color:var(--mn-sk-silver); }
+
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ov-stats { grid-template-columns:2fr 1fr; }
+@media (max-height:760px) {
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__figure--book figcaption { display:none !important; }
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page[data-mn-section]::after { font-size:7.5cqi !important; }
+}
+
+/* 책장 틀 2: 능력 그림 판 · 관계도(눌러서 불러오기). 실험실 추가 2026-10-27 ---------------------------------------- */
+
+/* ── 능력 그림 판: 작은 머리 → 넓은 그림 창(이중 은선) → 종류 표식 → 큰 이름 → 설명, 표식 고리는 창 오른쪽 아래에 걸침 ── */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--tpl-ability.mn-codex__heading--ab-visual { padding-right:0 !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-visual { position:relative; margin:1.1cqi 0 1.4cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-visual-frame {
+  position:relative; aspect-ratio:16 / 10; overflow:hidden; background:#1b2230;
+  border:1px solid rgba(201,209,220,.62); outline:1px solid rgba(201,209,220,.26); outline-offset:.45cqi;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-visual-frame img {
+  display:block; width:100% !important; height:100% !important; max-width:none !important; object-fit:cover; margin:0 !important;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-visual-frame::after {
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(180deg, transparent 62%, rgba(15,20,30,.38)); box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-visual .mn-codex__ab-seal {
+  top:auto; bottom:-3.6cqi; right:2cqi; width:7cqi; z-index:2; background:var(--mn-sk-paper);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ab-visual .mn-codex__ab-seal { background:#252e3e; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--ab-visual .mn-codex__ab-type--head { margin-top:.3cqi; }
+/* 목록 줄 끝의 작은 그림 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-thumb {
+  margin-left:auto; flex:none; width:6.4cqi; aspect-ratio:16 / 10; overflow:hidden; background:#1b2230;
+  border:1px solid rgba(29,36,51,.3); outline:1px solid rgba(29,36,51,.12); outline-offset:.25cqi;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-thumb img { display:block; width:100% !important; height:100% !important; max-width:none !important; object-fit:cover; margin:0 !important; }
+
+/* ── 관계도 (왼쪽 석판 쪽) ── */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page[data-mn-template="relation"]::after { display:none !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-label { margin-top:1.8cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit { position:relative; width:100%; aspect-ratio:1 / .84; margin:.6cqi 0 0; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-lines { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-ring { fill:none; stroke:rgba(159,178,204,.24); stroke-width:1; stroke-dasharray:2 5; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-line { stroke:rgba(159,178,204,.32); stroke-width:1; transition:stroke .2s; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-line.is-active { stroke:#e6eaf0; stroke-width:1.6; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node {
+  position:absolute; transform:translate(-50%, -50%); display:grid; justify-items:center; gap:.55cqi; z-index:2;
+  appearance:none; -webkit-appearance:none; width:auto !important; height:auto !important; min-height:0 !important; margin:0 !important; padding:0 !important;
+  background:none !important; border:0 !important; box-shadow:none !important; border-radius:0; color:inherit; font:inherit; cursor:pointer;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node:focus-visible { outline:1px dashed #9fb2cc; outline-offset:.5cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node .mn-codex__rel-face {
+  width:5.4cqi; border-color:#9fb2cc; box-shadow:0 0 0 .4cqi #252e3e, 0 0 0 calc(.4cqi + 1px) rgba(159,178,204,.35); transition:box-shadow .2s, border-color .2s;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node .mn-codex__rel-face--mono { font-size:2cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node:hover .mn-codex__rel-face { border-color:#e6eaf0; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node.is-active .mn-codex__rel-face {
+  border-color:#e6eaf0; box-shadow:0 0 0 .4cqi #252e3e, 0 0 0 calc(.4cqi + 1.5px) #e6eaf0, 0 0 2.4cqi rgba(230,234,240,.22);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node .mn-codex__rel-name { color:var(--mn-sk-ivory); font-size:1.08cqi; white-space:nowrap; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node.is-active .mn-codex__rel-name { color:#fff; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node .mn-codex__rel-note { max-width:11em; text-align:center; color:#9fb2cc; font-size:clamp(9px,.72cqi,12px); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node--self { cursor:default; pointer-events:none; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node--self .mn-codex__rel-face {
+  width:8cqi; background-size:240%; box-shadow:0 0 0 .55cqi #252e3e, 0 0 0 calc(.55cqi + 1px) rgba(230,234,240,.55), 0 0 0 calc(1.3cqi + 1px) rgba(159,178,204,.18);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node--self .mn-codex__rel-name { font-size:1.25cqi; letter-spacing:.12em; }
+/* 사람이 많으면(두 겹) 작게 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit--dense .mn-codex__orbit-node:not(.mn-codex__orbit-node--self) .mn-codex__rel-face { width:3.9cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit--dense .mn-codex__orbit-node:not(.mn-codex__orbit-node--self) .mn-codex__rel-face--mono { font-size:1.45cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit--dense .mn-codex__orbit-node .mn-codex__rel-name { font-size:.9cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit--dense .mn-codex__orbit-node .mn-codex__rel-note { display:none; }
+
+/* ── 고른 사람 (오른쪽 종이 쪽) ── */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-card[hidden] { display:none !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-card { animation:mnRelIn .28s ease-out; }
+@keyframes mnRelIn { from { opacity:0; transform:translateY(.6cqi); } to { opacity:1; transform:none; } }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-card-name {
+  margin:.7cqi 0 1.6cqi; color:var(--mn-sk-ink); font:650 3cqi/1.05 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:-.03em;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__rel-body { max-height:34cqi; overflow:auto; scrollbar-width:thin; padding-right:.6cqi; }
+/* 능력 목록: 그림이 있든 없든 줄 높이 같게, 작은 그림은 넘김 화살표와 안 닿게 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__prose--page ul.mn-codex__ab-index li.mn-codex__ab-item { min-height:6.6cqi; box-sizing:border-box; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-thumb { margin-right:2.4cqi; }
+/* 관계도 겹 다듬기: 여러 겹이면 판을 조금 더 세로로 · 가운데 얼굴 작게, 세 겹이면 더 작게 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit--dense { aspect-ratio:1 / .84; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit--dense .mn-codex__orbit-node--self .mn-codex__rel-face { width:6.2cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit--crowd .mn-codex__orbit-node:not(.mn-codex__orbit-node--self) .mn-codex__rel-face { width:3cqi; box-shadow:0 0 0 .25cqi #252e3e, 0 0 0 calc(.25cqi + 1px) rgba(159,178,204,.35); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit--crowd .mn-codex__orbit-node:not(.mn-codex__orbit-node--self) .mn-codex__rel-face--mono { font-size:1.1cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit--crowd .mn-codex__orbit-node .mn-codex__rel-name { font-size:.78cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit--crowd .mn-codex__orbit-node--self .mn-codex__rel-face { width:5cqi; }
+/* 미술 검토 14차 ---------------------------------------------------------------------------------
+   관계도: 선은 맨 아래, 이름표는 석판색 바탕 칩 / 능력 그림 창: 이중 테를 바깥 테 + 안쪽 8px 여백으로(오른쪽이 잘리지 않게)
+   능력 목록: 작은 그림은 줄 오른끝에, 그림 없는 줄은 같은 크기 빈 액자 + ◇ */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-lines { z-index:0; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node .mn-codex__rel-name {
+  position:relative; z-index:1; padding:1px 6px 2px; border-radius:2px; background:#1f2735; line-height:1.25;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node .mn-codex__rel-note { position:relative; z-index:1; padding:0 5px; background:#1f2735; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__orbit-node { gap:6px; }
+
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-visual-frame {
+  box-sizing:border-box; padding:.55cqi; outline:0 !important; background:transparent; border:1px solid rgba(201,209,220,.3);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-visual-frame img {
+  box-sizing:border-box; border:1px solid rgba(201,209,220,.62); background:#1b2230;
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-visual-frame::after { inset:.55cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--right .mn-codex__ab-visual-frame { border-color:rgba(29,36,51,.22); }
+
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-thumb { margin-right:0; width:6.8cqi; outline:0; padding:.3cqi; box-sizing:border-box; background:transparent; border:1px solid rgba(29,36,51,.22); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-thumb img { border:1px solid rgba(29,36,51,.35); box-sizing:border-box; background:#1b2230; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-thumb--empty { position:relative; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-thumb--empty::before {
+  content:""; position:absolute; inset:.3cqi; border:1px solid rgba(29,36,51,.18);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-thumb--empty::after {
+  content:""; position:absolute; left:calc(50% - .45cqi); top:calc(50% - .45cqi); width:.9cqi; height:.9cqi; transform:rotate(45deg); border:1px solid rgba(29,36,51,.35);
+}
+/* 능력 그림: 안쪽 창이 테 · 바탕 · 잘라내기를 맡음(그림만 확대) */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-visual-window {
+  position:relative; display:block; width:100%; height:100%; overflow:hidden; box-sizing:border-box;
+  background:#1b2230; border:1px solid rgba(201,209,220,.62);
+}
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-visual-window img { border:0 !important; background:none !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-thumb .mn-codex__ab-visual-window { border-color:rgba(29,36,51,.35); }
+/* 넘김 화살표의 가로선을 짧게(그림 창 · 목록 오른끝과 안 겹치게) */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__book-button--next::after { left:14px !important; width:14px !important; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__book-button--previous::after { left:auto !important; right:14px !important; width:14px !important; }
+
+/* 능력 하위 쪽: 왼쪽 쪽 그림 배경 (작가 고름 2026-10-27). 실험실 추가 ------------------------------------------------
+   새 펼침 왼쪽 쪽 전체에 능력 그림(오른쪽으로 치우쳐, 눈이 쪽 높이 30% 근처), 그 위 이름 자리에 번호 · 머리글 · 종류 · 큰 이름 · 분류,
+   아래 어둠 위에 설명. 넘치면 오른쪽 종이 쪽 → 다음 펼침(머리에 「능력 / 이름 · CONTINUED」).
+   짧은 설명은 인용처럼 크게, 긴 설명은 첫 문단만 조금 크게 + 이름 자리를 45% → 36%로. 능력 색인은 글 끝 종이 쪽에(자리가 남을 때만) */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--ab-band .mn-codex__page-frame--copy {
+  padding-top:calc(var(--mn-ab-band-h, 45%) + 3.2cqi) !important;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__book--ab-band .mn-codex__continuation { display:none !important; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__heading--ab-band { display:none !important; }
+/* 짧은 글이면 오른쪽 색인이 왼쪽 설명과 같은 높이에서 시작 (한 쪽씩 보는 좁은 창에선 맨 위부터) */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__book--ab-band .mn-codex__page--right .mn-codex__prose--page > .mn-codex__ab-roster:first-child {
+  margin-top:calc(var(--mn-ab-band-h) + 3.2cqi - clamp(3.3rem,4.8cqi,4.4rem));
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__reader--single .mn-codex__book--ab-band .mn-codex__page--right .mn-codex__prose--page > .mn-codex__ab-roster:first-child { margin-top:0; }
+
+/* 그림 바닥: 쪽 글 · 큰 장 번호 밑 */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-backdrop {
+  position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-backdrop .mn-codex__ab-visual-window {
+  position:absolute; top:-17%; bottom:17%; left:26%; right:0; width:auto; height:auto; border:0; background:none;
+  -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 34%), linear-gradient(180deg, #000 72%, transparent 100%);
+  -webkit-mask-composite:source-in;
+  mask-image:linear-gradient(90deg, transparent 0, #000 34%), linear-gradient(180deg, #000 72%, transparent 100%); mask-composite:intersect;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-backdrop img {
+  position:absolute; inset:0; display:block; width:100% !important; height:100% !important; max-width:none !important; margin:0 !important; object-fit:cover;
+}
+/* 위는 살짝, 이름 자리 아래(글 시작 전)부터 어둠이 깔림 · 왼쪽은 이름이 읽히게 조금 더 어둡게 */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-backdrop::after {
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(180deg, rgba(23,30,43,.45) 0, rgba(23,30,43,.06) 16%, rgba(23,30,43,.08) calc(var(--mn-ab-band-h) - 12cqi), rgba(23,30,43,.74) calc(var(--mn-ab-band-h) + 2cqi), rgba(23,30,43,.92) calc(var(--mn-ab-band-h) + 14cqi), rgba(23,30,43,.95) 100%),
+    linear-gradient(90deg, rgba(14,19,28,.62), rgba(14,19,28,.2) 40%, transparent 60%);
+}
+
+/* 이름 자리 (왼쪽 쪽 위) */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band {
+  position:absolute; left:0; right:0; top:0; height:var(--mn-ab-band-h, 45%); z-index:20; pointer-events:none; color:#fff;
+}
+/* 번호: 위, 윤곽 숫자 + 「/ 전체」 */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-no {
+  position:absolute; z-index:2; left:var(--mn-ab-band-inset, 12%); top:2.7cqi; display:flex; align-items:flex-end; gap:.7cqi;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-no b {
+  color:transparent; -webkit-text-stroke:1px rgba(201,212,227,.62); font:500 5cqi/.78 "MN Bodoni Moda",Didot,serif; letter-spacing:-.02em;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-no small {
+  padding-bottom:.2cqi; color:#9fb2cc; font:600 clamp(9px,.72cqi,13px)/1 "MN Bodoni Moda",Didot,serif; letter-spacing:.2em;
+}
+/* 이름 묶음: 이름 자리 아래쪽 */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-copy {
+  position:absolute; z-index:2; left:var(--mn-ab-band-inset, 12%); right:var(--mn-ab-band-inset, 12%); bottom:3.1cqi;
+  display:flex; flex-direction:column; align-items:flex-start;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-kicker {
+  display:flex; align-items:center; gap:.9cqi; color:#9fb2cc; font:700 clamp(9px,.62cqi,12px)/1 "Arial Narrow","Pretendard",sans-serif; letter-spacing:.3em;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-kicker::before {
+  content:""; width:2.5cqi; border-top:1px solid var(--mn-sk-silver);
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-type {
+  margin-top:1.6cqi; padding:.4cqi .8cqi .46cqi; border:1px solid rgba(201,212,227,.75); border-radius:2px; background:rgba(14,19,28,.35);
+  color:#dfe6f0; font:700 clamp(10px,.8cqi,14px)/1 "Noto Sans KR","Pretendard",sans-serif; letter-spacing:.2em;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-name {
+  margin-top:.9cqi; color:#fff; font:700 6.6cqi/1.04 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:-.05em;
+  text-shadow:0 .3cqi 1.6cqi rgba(0,0,0,.45); word-break:keep-all; overflow-wrap:break-word;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-name--long { font-size:5.1cqi; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-name--xlong { font-size:3.7cqi; line-height:1.12; letter-spacing:-.035em; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-name a { color:inherit !important; text-decoration:none !important; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-tags { display:flex; flex-wrap:wrap; gap:.6cqi; margin-top:1.5cqi; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-tag {
+  display:inline-flex; align-items:center; gap:.6cqi; padding:.46cqi .9cqi .52cqi; border:1px solid rgba(159,178,204,.55); background:rgba(14,19,28,.45);
+  color:var(--mn-sk-ivory); font:600 clamp(11px,.92cqi,15px)/1 "Noto Sans KR","Pretendard",sans-serif;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-tag::before {
+  content:""; flex:none; width:.45cqi; height:.45cqi; transform:rotate(45deg); border:1px solid #9fb2cc;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band-tag a { color:inherit !important; }
+/* 긴 설명: 이름 자리가 낮아지니 글자도 한 단계 */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band--compact .mn-codex__ab-band-copy { bottom:2.5cqi; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band--compact .mn-codex__ab-band-type { margin-top:1.1cqi; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band--compact .mn-codex__ab-band-name { font-size:5.2cqi; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band--compact .mn-codex__ab-band-name--long { font-size:4.2cqi; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band--compact .mn-codex__ab-band-name--xlong { font-size:3.2cqi; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band--compact .mn-codex__ab-band-tags { margin-top:1.1cqi; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band--compact .mn-codex__ab-band-no { top:2.2cqi; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band--compact .mn-codex__ab-band-no b { font-size:3.8cqi; }
+/* 그림 없는 능력: 석판 바탕 그대로, 오른쪽 위에 큰 윤곽 번호 */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band--bare .mn-codex__ab-band-no {
+  left:auto; right:var(--mn-ab-band-inset, 12%); top:2.4cqi;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band--bare .mn-codex__ab-band-no b {
+  font-size:12cqi; -webkit-text-stroke:1px rgba(159,178,204,.34);
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-band--bare .mn-codex__ab-band-no small { display:none; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--ab-bare[data-mn-section]::after { display:none !important; }
+
+/* 설명: 짧으면 인용처럼 크게(줄 길이 고르게) */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__prose--page > p.mn-codex__ab-quote {
+  margin:0 !important; padding:0 !important; border:0 !important; max-width:17.5em !important; text-wrap:balance;
+  font:500 1.62cqi/1.78 "Noto Serif KR","MN Bodoni Moda",serif !important; letter-spacing:-.02em;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__prose--page > p.mn-codex__ab-quote:not(.mn-codex__flow-fragment--tail)::before {
+  content:"\201C"; display:block; height:2.1cqi; margin-bottom:.5cqi; color:#9fb2cc; font:400 4.4cqi/1 "MN Bodoni Moda",Didot,serif;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--right .mn-codex__prose--page > p.mn-codex__ab-quote::before { color:var(--mn-sk-silver); }
+/* 길면 첫 문단만 조금 크게, 나머지는 본문 */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__prose--page > p.mn-codex__ab-lead {
+  margin:0 0 1.5cqi !important; padding:0 !important; border:0 !important; max-width:24em !important;
+  font:500 1.3cqi/1.8 "Noto Serif KR","MN Bodoni Moda",serif !important; letter-spacing:-.015em;
+}
+
+/* 능력 색인 (글 끝 종이 쪽, 누르면 그 능력으로) */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster { margin:0; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__prose--page > :not(.mn-codex__ab-roster) + .mn-codex__ab-roster { margin-top:2.6cqi; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-label {
+  display:flex; align-items:center; gap:.8cqi; margin:0 0 .6cqi; color:var(--mn-sk-mute);
+  font:700 clamp(8px,.56cqi,11px)/1 "Arial Narrow","Pretendard",sans-serif; letter-spacing:.32em;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-label::after { content:""; flex:1; border-top:1px solid rgba(29,36,51,.16); }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-list {
+  display:grid; grid-template-columns:minmax(0,1fr); border-top:1px solid rgba(29,36,51,.24);
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-list--many { grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:2.2cqi; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-row {
+  appearance:none; -webkit-appearance:none; box-sizing:border-box;
+  display:grid; grid-template-columns:2.6cqi 4.4em minmax(0,1fr) 1.2cqi; align-items:center; gap:1cqi;
+  width:100% !important; height:auto !important; min-height:0 !important; margin:0 !important; padding:.85cqi 0 !important;
+  background:none !important; border:0 !important; border-bottom:1px solid rgba(29,36,51,.12) !important; border-radius:0 !important; box-shadow:none !important;
+  color:#7c8698; font:600 clamp(12px,1.06cqi,18px)/1.25 "Noto Serif KR","MN Bodoni Moda",serif; text-align:left; cursor:default;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-row em {
+  font:500 clamp(12px,1.1cqi,18px)/1 "MN Bodoni Moda",Didot,serif; font-style:normal; color:var(--mn-sk-silver);
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-type {
+  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  color:#4e6382; font:700 clamp(9px,.66cqi,12px)/1 "Noto Sans KR","Pretendard",sans-serif; letter-spacing:.18em;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-row::after { content:""; justify-self:end; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-row.is-current,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-row.is-current em { color:var(--mn-sk-ink); }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-row.is-current::after {
+  width:.5cqi; height:.5cqi; border-radius:50%; background:var(--mn-sk-ink);
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight button.mn-codex__ab-roster-row { cursor:pointer; color:#3b4557; transition:color .15s, background-color .15s; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight button.mn-codex__ab-roster-row::after {
+  content:"\2192"; color:var(--mn-sk-silver); font:400 clamp(11px,.9cqi,15px)/1 "MN Bodoni Moda",Didot,serif; transition:transform .15s, color .15s;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight button.mn-codex__ab-roster-row:hover {
+  color:var(--mn-sk-ink); background:linear-gradient(90deg, rgba(78,99,130,.08), transparent 70%) !important;
+}
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight button.mn-codex__ab-roster-row:hover::after { color:var(--mn-sk-ink); transform:translateX(.25cqi); }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight button.mn-codex__ab-roster-row:focus-visible { outline:1px dashed #4e6382; outline-offset:2px; }
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-roster-row.is-plain { color:#98a1b0; }
+
+/* 장 첫 쪽 능력 목록: 하위 쪽이 있는 줄은 눌러서 그 펼침으로 · 6개가 넘으면 줄을 낮게 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-index li[data-mn-goto-page] { cursor:pointer; transition:background-color .15s; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-index li[data-mn-goto-page]:hover { background:linear-gradient(90deg, rgba(78,99,130,.07), transparent 70%); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ab-index li[data-mn-goto-page]:hover { background:linear-gradient(90deg, rgba(230,234,240,.07), transparent 70%); }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-index li[data-mn-goto-page]:focus-visible { outline:1px dashed #4e6382; outline-offset:2px; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__prose--page ul.mn-codex__ab-index--many li.mn-codex__ab-item { min-height:4.4cqi; padding-top:.7cqi !important; padding-bottom:.7cqi !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-index--many .mn-codex__ab-name { font-size:1.2cqi; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__ab-index--many .mn-codex__ab-thumb { width:4.6cqi; }
+
+/* 모든 쪽: 글이 쪽 아래까지 찬 쪽은 큰 장 번호 숨김 · 넘어간 쪽 머리줄은 석판 쪽에서도 읽히게 */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page[data-mn-page-full]::after { display:none !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__continuation { color:#9fb2cc; opacity:.85; }

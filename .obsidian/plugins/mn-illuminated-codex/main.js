@@ -806,7 +806,11 @@ class CodexEditModal extends Modal {
       this.tools(head, d.book_sections, si, rerender, "장");
       this.field(card, "장 제목", section.title, (v) => { section.title = v; });
       this.field(card, "작은 영문 머리", section.subtitle, (v) => { section.subtitle = v; });
+      this.field(card, "틀 (개요 · 능력 · 관계 · 기본)", section.template, (v) => { section.template = v.trim(); }, { placeholder: "비우면 장 제목으로 고름" });
       this.field(card, "글", section.content, (v) => { section.content = v; }, { area: true, rows: 6 });
+      const tpl = String(section.template || "").trim();
+      const isRelation = tpl ? /^(관계|relation)$/iu.test(tpl) : /관계|인연/u.test(String(section.title || ""));
+      const isAbility = tpl ? /^(능력|ability)$/iu.test(tpl) : /능력|기술|전투|스킬/u.test(String(section.title || ""));
       if (!Array.isArray(section.pages)) section.pages = [];
       section.pages.forEach((page, pi) => {
         const pc = card.createDiv({ cls: "mn-codex-editor__page" });
@@ -814,6 +818,15 @@ class CodexEditModal extends Modal {
         ph.createSpan({ text: `쪽 ${pi + 1}` });
         this.tools(ph, section.pages, pi, rerender, "쪽");
         this.field(pc, "쪽 제목", page.title, (v) => { page.title = v; });
+        if (isAbility) {
+          this.field(pc, "능력 그림", page.visual, (v) => { page.visual = v; }, { pick: true, placeholder: "왼쪽 쪽 전체에 배경으로 깔림 · 비우면 그림 없이" });
+          this.field(pc, "그림 초점 (가로% 세로%)", page.visual_focus, (v) => { page.visual_focus = v; }, { placeholder: "50% 30%" });
+          this.field(pc, "그림 확대 (1 = 그대로)", page.visual_scale, (v) => { page.visual_scale = v; }, { placeholder: "1" });
+        }
+        if (isRelation) {
+          this.field(pc, "관계 한 줄 (두 사람 사이에 뜸)", page.relation, (v) => { page.relation = v; });
+          this.field(pc, "그 사람 그림", page.portrait, (v) => { page.portrait = v; }, { pick: true, placeholder: "비우면 그 이름 인물 노트의 「초상」, 없으면 첫 글자" });
+        }
         this.field(pc, "글", page.content, (v) => { page.content = v; }, { area: true, rows: 5 });
       });
       const add = card.createEl("button", { cls: "mn-codex-editor__add", text: "＋ 쪽", attr: { type: "button" } });
@@ -848,7 +861,17 @@ class CodexEditModal extends Modal {
     out.book_sections = (out.book_sections || []).map((s) => {
       const sec = { ...s };
       if (!sec.subtitle) delete sec.subtitle;
-      sec.pages = (sec.pages || []).filter((p) => p && (p.title || p.content));
+      if (!sec.template) delete sec.template;
+      sec.pages = (sec.pages || []).filter((p) => p && (p.title || p.content)).map((p) => {
+        const page = { ...p };
+        for (const k of ["relation", "portrait", "visual", "visual_focus"]) if (!String(page[k] || "").trim()) delete page[k];
+        if (page.visual_scale !== undefined) {
+          const scale = Number(page.visual_scale);
+          if (!page.visual || !Number.isFinite(scale) || scale === 1 || String(page.visual_scale).trim() === "") delete page.visual_scale;
+          else page.visual_scale = scale;
+        }
+        return page;
+      });
       if (!sec.pages.length) delete sec.pages;
       return sec;
     });
@@ -1342,6 +1365,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       deck: false,
       auto_paginate: this.asBoolean(sourceData.auto_paginate, true),
       title: sourceData.book_title || sourceData.title,
+      _mnCharacterName: sourceData.title, // 관계 틀에서 「나」 이름으로 씀 (책 제목은 이명일 수 있음)
       eyebrow: Object.prototype.hasOwnProperty.call(sourceData, "book_eyebrow")
         ? sourceData.book_eyebrow
         : sourceData.eyebrow,
@@ -2001,6 +2025,13 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         _mnBookSectionIndex: Number.isInteger(meta.sectionIndex) ? meta.sectionIndex : -1,
         _mnBookSectionTitle: meta.sectionTitle || "",
         _mnBookEntryIndex: Number.isInteger(meta.entryIndex) ? meta.entryIndex : -1,
+        // 장마다 고르는 틀(개요 · 능력 · 관계)과 관계 쪽에만 쓰는 칸. 실험실 추가 2026-10-27
+        _mnBookTemplate: meta.template || "",
+        relation: hasOwn(page, "relation") ? this.asText(page.relation) : "",
+        portrait: hasOwn(page, "portrait") ? this.asText(page.portrait) : "",
+        visual: hasOwn(page, "visual") ? this.asText(page.visual) : "",
+        visual_focus: hasOwn(page, "visual_focus") ? this.asText(page.visual_focus) : "",
+        visual_scale: hasOwn(page, "visual_scale") ? Number(page.visual_scale) || 1 : 1,
       };
     };
 
@@ -2014,6 +2045,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
             ? entry
             : { title: entry };
           const sectionTitle = this.asText(section.title, `SECTION ${String(sectionIndex + 1).padStart(2, "0")}`);
+          const template = this.bookTemplateOf(section, data);
           normalized.push(normalizePage(section, normalized.length, {
             kind: "section",
             sectionIndex,
@@ -2021,9 +2053,25 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
             entryIndex: -1,
             fallbackTitle: sectionTitle,
             inheritSubtitle: sectionIndex === 0,
+            template,
           }));
 
           const entries = Array.isArray(section.pages) ? section.pages : [];
+          if (template === "relation") {
+            // 관계 틀: 사람마다 쪽을 만들지 않고, 장 첫 쪽(관계도)에서 눌러 그 사람 글을 불러옴
+            normalized[normalized.length - 1]._mnRelationPeople = entries
+              .filter((page) => page !== undefined && page !== null)
+              .map((page, entryIndex) => normalizePage(page, normalized.length, {
+                kind: "entry",
+                sectionIndex,
+                sectionTitle,
+                entryIndex,
+                fallbackTitle: `${sectionTitle} ${String(entryIndex + 1).padStart(2, "0")}`,
+                inheritSubtitle: false,
+                template,
+              }));
+            return;
+          }
           entries
             .filter((page) => page !== undefined && page !== null)
             .forEach((page, entryIndex) => {
@@ -2034,6 +2082,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
                 entryIndex,
                 fallbackTitle: `${sectionTitle} ${String(entryIndex + 1).padStart(2, "0")}`,
                 inheritSubtitle: false,
+                template,
               }));
             });
         });
@@ -2132,22 +2181,29 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const firstPageData = hasConfiguredPages ? configuredPages[0] : data;
     const firstCopy = copyFrame.createDiv({ cls: "mn-codex__copy" });
     const firstBody = firstCopy.createDiv({ cls: "mn-codex__prose mn-codex__prose--page" });
+    let firstHeading = null;
     if (hasConfiguredPages) {
-      prepareBookHeading(firstPageData, firstBody, 0);
+      firstHeading = prepareBookHeading(firstPageData, firstBody, 0);
     } else {
       this.createHeading(firstPageData, firstCopy);
     }
     this.createBookIllustration(firstPageData, firstBody, sourcePath, component);
     await this.renderMarkdownWithPageBreaks(firstPageData.content, firstBody, sourcePath, component);
+    if (firstHeading) await this.shapeBookTemplate(firstPageData, firstHeading, data, sourcePath, configuredPages, component);
     if (hasConfiguredPages) {
       for (let pageIndex = 1; pageIndex < configuredPages.length; pageIndex += 1) {
         const pageData = configuredPages[pageIndex];
         const entryBreak = firstBody.createDiv({ cls: "mn-codex__page-break-marker mn-codex__book-entry-break" });
         entryBreak.setAttr("data-mn-book-next-page-index", String(pageIndex));
         entryBreak.setAttr("data-mn-book-next-page-mode", pageData.page_mode || bookPageMode);
-        prepareBookHeading(pageData, firstBody, pageIndex);
+        // 관계도는 왼쪽(관계도) | 오른쪽(고른 사람 글)이 한 펼침이어야 해서 새 펼침의 왼쪽 쪽에서 시작
+        if (pageData._mnBookTemplate === "relation" && pageData._mnBookPageKind === "section") entryBreak.setAttr("data-mn-next-spread", "true");
+        // 능력 하위 쪽(전용 지면)은 그림 띠가 두 쪽 위를 가로질러서 역시 새 펼침의 왼쪽 쪽에서 시작
+        if (pageData._mnBookTemplate === "ability" && pageData._mnBookPageKind === "entry" && this.asText(data.layout_variant).trim()) entryBreak.setAttr("data-mn-next-spread", "true");
+        const heading = prepareBookHeading(pageData, firstBody, pageIndex);
         this.createBookIllustration(pageData, firstBody, sourcePath, component);
         await this.renderMarkdownWithPageBreaks(pageData.content, firstBody, sourcePath, component);
+        await this.shapeBookTemplate(pageData, heading, data, sourcePath, configuredPages, component);
       }
     }
     this.enhanceBookText(firstBody);
@@ -2262,6 +2318,19 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
           currentHasContent = true;
           return;
         }
+        // 관계도는 다음 쪽으로 밀기 전에 남은 자리에 맞춰 작게 해 봄 (다음 쪽은 고른 사람 글 자리라서). 실험실 추가 2026-10-27
+        if (remainder.nodeType === 1 && remainder.classList.contains("mn-codex__orbit")) {
+          for (const scale of [0.9, 0.8, 0.7, 0.6, 0.5]) {
+            remainder.style.width = `${scale * 100}%`;
+            remainder.style.marginInline = "auto";
+            if (!this.isPageOverflowing(currentPage.body)) {
+              currentHasContent = true;
+              return;
+            }
+          }
+          remainder.style.width = "";
+          remainder.style.marginInline = "";
+        }
 
         remainder.remove();
         const split = this.splitFlowNodeToFit(remainder, currentPage.body);
@@ -2304,6 +2373,16 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
 
     for (let nodeIndex = 0; nodeIndex < sourceNodes.length; nodeIndex += 1) {
       const node = sourceNodes[nodeIndex];
+      // 능력 색인은 종이(오른쪽) 쪽에: 설명이 왼쪽 쪽에서 끝났으면 오른쪽 쪽으로 넘김. 실험실 추가 2026-10-27
+      if (node.nodeType === 1 && node.classList.contains("mn-codex__ab-roster-break")) {
+        node.remove();
+        if (currentPage.side === "left") {
+          currentPage = nextPage();
+          applyConfiguredPageMode(currentPage, activeConfiguredPageIndex);
+          currentHasContent = false;
+        }
+        continue;
+      }
       if (node.nodeType === 1 && node.classList.contains("mn-codex__page-break-marker")) {
         const isBookEntryBreak = node.classList.contains("mn-codex__book-entry-break");
         const nextConfiguredPageIndex = Number(node.getAttribute("data-mn-book-next-page-index"));
@@ -2315,7 +2394,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
           return candidate.nodeType !== 3 || Boolean(String(candidate.textContent || "").trim());
         });
         if ((currentHasContent || hasConfiguredPages) && hasFollowingContent) {
-          currentPage = isBookEntryBreak && (currentConfiguredMode === "spread" || nextConfiguredMode === "spread")
+          currentPage = node.hasAttribute("data-mn-next-spread") || (isBookEntryBreak && (currentConfiguredMode === "spread" || nextConfiguredMode === "spread"))
             ? nextSpreadPage()
             : nextPage();
           if (Number.isInteger(nextConfiguredPageIndex)) {
@@ -2334,6 +2413,22 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
           activeConfiguredPageIndex = pageIndex;
           applyConfiguredPageMode(currentPage, pageIndex);
         }
+      }
+      // 능력 띠: 이 펼침 위에 그림 띠를 걸고 두 쪽 글자리를 띠 아래로 내림(꼭 빈 왼쪽 쪽에서). 실험실 추가 2026-10-27
+      if (node.nodeType === 1 && node._mnAbBand) {
+        if (currentPage.side !== "left" || currentHasContent) {
+          currentPage = nextSpreadPage();
+          applyConfiguredPageMode(currentPage, activeConfiguredPageIndex);
+          currentHasContent = false;
+        }
+        this.mountAbilityBand(node._mnAbBand, node._mnAbArt, currentPage.spread);
+      }
+      // 자리가 남을 때만 놓는 것(능력 색인): 이 쪽에 안 들어가면 다음 쪽으로 밀지 않고 뺌
+      if (node.nodeType === 1 && node.hasAttribute("data-mn-flow-optional")) {
+        currentPage.body.appendChild(node);
+        if (autoPaginate && this.isPageOverflowing(currentPage.body)) node.remove();
+        else currentHasContent = true;
+        continue;
       }
       appendFlowNode(node);
     }
@@ -2363,9 +2458,13 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         if (pageData._mnBookSectionIndex >= 0) {
           page.frame.setAttr("data-mn-book-section-index", String(pageData._mnBookSectionIndex));
           page.frame.setAttr("data-mn-book-section-title", this.asText(pageData._mnBookSectionTitle));
-          // 쪽에도 장 번호(01부터)를 달아 둠: 캐릭터 전용 지면(layout_variant)이 큰 장 번호 장식에 씀. 실험실 추가 2026-10-27
+          // 쪽에도 장 번호(01부터) · 틀 이름을 달아 둠: 캐릭터 전용 지면(layout_variant)이 큰 장 번호 장식 · 틀별 모양에 씀. 실험실 추가 2026-10-27
           const pageNode = typeof page.frame.closest === "function" ? page.frame.closest(".mn-codex__page") : null;
           if (pageNode) pageNode.setAttr("data-mn-section", String(pageData._mnBookSectionIndex + 1).padStart(2, "0"));
+          if (pageNode && pageData._mnBookTemplate) {
+            pageNode.setAttr("data-mn-template", pageData._mnBookTemplate);
+            pageNode.setAttr("data-mn-page-kind", kind);
+          }
         }
         page.frame.setAttr("data-mn-book-entry-index", String(pageData._mnBookEntryIndex));
         page.frame.setAttr("data-mn-book-persist-key", this.asText(pageData._mnBookPersistKey));
@@ -2399,6 +2498,19 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         }
         this.createBookStickers(pageData, page, sourcePath, component);
         placedPageImages.push(...this.createBookPageImages(pageData, page, sourcePath, component));
+      });
+      // 글이 쪽 높이 72% 아래까지 차면 큰 장 번호 장식은 숨김(글 뒤에 겹치지 않게). 실험실 추가 2026-10-27
+      contentPages.forEach((page) => {
+        const pageNode = typeof page.frame.closest === "function" ? page.frame.closest(".mn-codex__page") : null;
+        if (!pageNode || !pageNode.hasAttribute("data-mn-section")) return;
+        const pageRect = pageNode.getBoundingClientRect();
+        if (!pageRect.height) return;
+        let bottom = 0;
+        for (const child of Array.from(page.body.children)) {
+          const rect = child.getBoundingClientRect();
+          if (rect.height) bottom = Math.max(bottom, rect.bottom);
+        }
+        if (bottom && (bottom - pageRect.top) / pageRect.height > 0.72) pageNode.setAttr("data-mn-page-full", "true");
       });
       // 같은 장이 펼침 두 쪽에 걸치면 큰 장 번호 장식은 왼쪽 쪽에만. 실험실 추가 2026-10-27
       spreads.forEach((spread) => {
@@ -2748,6 +2860,20 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     on(pagePicker, "change", () => {
       const destination = pageDestinations.find((item) => item.pageIndex === Number(pagePicker.value));
       if (destination) jumpToSection(destination);
+    });
+
+    // 능력 목록 · 색인 줄을 누르면 그 능력의 펼침으로 (줄 안의 링크는 링크대로). 실험실 추가 2026-10-27
+    root.querySelectorAll("[data-mn-goto-page]").forEach((target) => {
+      const destination = pageDestinations.find((item) => item.pageIndex === Number(target.getAttribute("data-mn-goto-page")));
+      if (!destination) return;
+      const go = (event) => {
+        if (event.target && typeof event.target.closest === "function" && event.target.closest("a")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        jumpToSection(destination);
+      };
+      on(target, "click", go);
+      on(target, "keydown", (event) => { if (event.key === "Enter" || event.key === " ") go(event); });
     });
 
     const syncPicker = () => {
@@ -3386,6 +3512,12 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         const base = Number(element.getAttribute("start") || 1);
         list.setAttribute("start", String((Number.isFinite(base) ? base : 1) + start));
       }
+      // 번호 줄 목록(전용 지면의 CSS 카운터)도 넘어간 쪽에서 번호를 이어서. 실험실 추가 2026-10-27
+      if (list.tagName === "UL" && start > 0) {
+        const offset = (Number(element.getAttribute("data-mn-list-offset")) || 0) + start;
+        list.setAttribute("data-mn-list-offset", String(offset));
+        list.style.counterReset = `mnsk ${offset}`;
+      }
       return list;
     };
 
@@ -3405,6 +3537,9 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         high = middle - 1;
       }
     }
+    // 쪽 끝 · 다음 쪽 머리에 한 줄만 외톨이로 남기지 않음(앞뒤 모두 두 줄 이상, 안 되면 목록째 넘김). 실험실 추가 2026-10-27
+    if (items.length - bestCount < 2) bestCount = items.length - 2;
+    if (bestCount < 2) return null;
     if (!bestCount || bestCount >= items.length) return null;
     const head = buildList(0, bestCount);
     const tail = buildList(bestCount, items.length);
@@ -3557,6 +3692,650 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     });
     const body = details.createDiv({ cls: "mn-codex__spoiler-body" });
     await this.renderMarkdown(data.content || "숨겨진 내용을 입력하세요.", body, sourcePath, component);
+  }
+
+  // ---------- 장마다 다른 틀 (개요 · 능력 · 관계). 실험실 추가 2026-10-27 ----------
+  // 장에 `template: 개요 | 능력 | 관계 | 기본`을 적으면 그 틀, 안 적으면 캐릭터 전용 지면(layout_variant)일 때만 장 제목으로 고름.
+  // 글은 작가가 쓴 그대로 두고 놓는 모양만 바꿈 (「이름 : 값」 표를 인물 카드로, 「신탁 : 네이그림」을 종류 표식 + 이름으로, 관계 쪽은 두 사람을 잇는 그림).
+
+  bookTemplateOf(section, data) {
+    const names = { "개요": "overview", overview: "overview", "능력": "ability", ability: "ability", "관계": "relation", relation: "relation", "기본": "", plain: "", none: "" };
+    const raw = this.asText(section && (section.template ?? section["틀"])).trim().toLowerCase();
+    if (raw) return Object.prototype.hasOwnProperty.call(names, raw) ? names[raw] : "";
+    if (!this.asText(data && data.layout_variant).trim()) return "";
+    const title = this.asText(section && section.title);
+    if (/개요|소개|프로필|기본\s*정보/u.test(title)) return "overview";
+    if (/능력|기술|전투|스킬/u.test(title)) return "ability";
+    if (/관계|인연/u.test(title)) return "relation";
+    return "";
+  }
+
+  /** 제목 아래로 이 쪽에 렌더된 글 노드들(다음 쪽 나눔 표시 전까지) */
+  templateNodesAfter(heading) {
+    const nodes = [];
+    for (let node = heading.nextSibling; node; node = node.nextSibling) {
+      if (node.nodeType === 1 && node.classList.contains("mn-codex__book-entry-break")) break;
+      nodes.push(node);
+    }
+    return nodes;
+  }
+
+  /** 「종류 : 이름」을 첫 쌍점에서 둘로 (링크는 그대로 옮김). 쌍점이 없으면 null */
+  splitTypeName(container) {
+    const kids = Array.from(container.childNodes);
+    const at = kids.findIndex((node) => node.nodeType === 3 && /[:：]/u.test(node.textContent));
+    if (at < 0) return null;
+    const doc = container.ownerDocument;
+    const type = doc.createElement("span");
+    const name = doc.createElement("span");
+    kids.slice(0, at).forEach((node) => type.appendChild(node));
+    const [before, ...after] = kids[at].textContent.split(/[:：]/u);
+    if (before.trim()) type.appendChild(doc.createTextNode(before.trim()));
+    const rest = after.join(":").replace(/^\s+/u, "");
+    if (rest) name.appendChild(doc.createTextNode(rest));
+    kids.slice(at + 1).forEach((node) => name.appendChild(node));
+    kids[at].remove();
+    if (!type.textContent.trim() || !name.textContent.trim()) return null;
+    return { type, name };
+  }
+
+  /** 「A, B」 값을 칩 여러 개로 (쉼표가 글 노드 안에 있을 때만 자름, 링크는 통째로) */
+  valueChips(dd, doc) {
+    const chips = [];
+    let chip = doc.createElement("span");
+    const flush = () => { if (chip.textContent.trim()) { chip.className = "mn-codex__ov-chip"; chips.push(chip); } chip = doc.createElement("span"); };
+    for (const node of Array.from(dd.childNodes)) {
+      if (node.nodeType !== 3) { chip.appendChild(node); continue; }
+      const parts = node.textContent.split(/[,，、]/u);
+      parts.forEach((part, i) => {
+        if (i > 0) flush();
+        const text = i === 0 ? part.replace(/^\s+/u, "") : part.trim();
+        if (text) chip.appendChild(doc.createTextNode(text));
+      });
+    }
+    flush();
+    return chips;
+  }
+
+  async shapeBookTemplate(pageData, heading, data, sourcePath, configuredPages, component) {
+    const template = this.asText(pageData && pageData._mnBookTemplate);
+    if (!template || !heading) return;
+    const kind = this.asText(pageData._mnBookPageKind);
+    heading.classList.add(`mn-codex__heading--tpl-${template}`);
+    try {
+      if (template === "overview") this.shapeOverview(heading);
+      else if (template === "ability") this.shapeAbility(pageData, heading, kind, sourcePath, configuredPages, data);
+      else if (template === "relation") await this.shapeRelation(pageData, heading, kind, data, sourcePath, component);
+    } catch (error) {
+      console.warn("MN Codex: 틀을 입히지 못했어요", template, error);
+    }
+  }
+
+  /** 개요: 「이름 : 값」 표를 인물 카드로 — 이명 · 이름(큰 이름), 소개 한 줄, 투력 · 항력(큰 숫자), 겉모습(작은 표), 소속 · 능력(칩) */
+  shapeOverview(heading) {
+    // 장 첫 쪽은 머리글을 한 줄로: 「SECTION 01 · 개요」 (큰 장 제목 · 영문 부제 · 머리줄은 CSS 에서 숨김, 인물 이름이 주인공)
+    const index = heading.querySelector(".mn-codex__section-index");
+    const sectionTitle = heading.getAttribute("data-mn-book-section-title");
+    if (index && sectionTitle) index.textContent = `${index.textContent} · ${sectionTitle}`;
+    const nodes = this.templateNodesAfter(heading);
+    const dl = nodes.find((node) => node.nodeType === 1 && node.matches("dl.mn-codex__sheet"));
+    if (!dl) return;
+    const doc = dl.ownerDocument;
+    const pairs = [];
+    for (const dt of Array.from(dl.querySelectorAll("dt"))) {
+      const dd = dt.nextElementSibling;
+      if (!dd || dd.tagName !== "DD") continue;
+      pairs.push({ key: dt.textContent.replace(/[:：]\s*$/u, "").trim(), dt, dd });
+    }
+    const take = (keys) => keys.map((key) => {
+      const at = pairs.findIndex((pair) => pair.key === key);
+      return at < 0 ? null : pairs.splice(at, 1)[0];
+    }).filter(Boolean);
+    const [alias] = take(["이명"]);
+    const [name] = take(["이름"]);
+    const stats = take(["투력", "항력", "등위"]);
+    const affiliation = take(["소속"]);
+    const abilities = take(["신탁", "신기"]);
+    const profile = pairs;
+
+    const blocks = [];
+    const block = (cls) => { const div = doc.createElement("div"); div.className = cls; blocks.push(div); return div; };
+    const label = (parent, text) => { const div = doc.createElement("div"); div.className = "mn-codex__ov-label"; div.textContent = text; parent.appendChild(div); return div; };
+    if (alias || name) {
+      const hero = block("mn-codex__ov-hero");
+      if (alias) { const span = doc.createElement("div"); span.className = "mn-codex__ov-alias"; Array.from(alias.dd.childNodes).forEach((n) => span.appendChild(n)); hero.appendChild(span); }
+      if (name) { const span = doc.createElement("div"); span.className = "mn-codex__ov-name"; Array.from(name.dd.childNodes).forEach((n) => span.appendChild(n)); hero.appendChild(span); }
+    }
+    // 표 바로 뒤 첫 문단(소개 한 줄)을 이름 밑으로
+    const after = nodes.slice(nodes.indexOf(dl) + 1).find((node) => node.nodeType === 1);
+    if (after && after.tagName === "P") { after.classList.add("mn-codex__ov-lead"); blocks.push(after); }
+    if (stats.length) {
+      const row = block("mn-codex__ov-stats");
+      for (const stat of stats) {
+        const cell = doc.createElement("div");
+        cell.className = "mn-codex__ov-stat";
+        const k = doc.createElement("div"); k.className = "mn-codex__ov-stat-key"; Array.from(stat.dt.childNodes).forEach((n) => k.appendChild(n));
+        const v = doc.createElement("div"); v.className = "mn-codex__ov-stat-value"; Array.from(stat.dd.childNodes).forEach((n) => v.appendChild(n));
+        cell.append(k, v);
+        row.appendChild(cell);
+      }
+    }
+    if (profile.length) {
+      const wrap = block("mn-codex__ov-profile");
+      label(wrap, "PROFILE");
+      const list = doc.createElement("dl");
+      list.className = "mn-codex__ov-grid";
+      for (const pair of profile) {
+        const item = doc.createElement("div");
+        item.append(pair.dt, pair.dd);
+        list.appendChild(item);
+      }
+      wrap.appendChild(list);
+    }
+    const chipRow = (pairsIn, title, withKey) => {
+      if (!pairsIn.length) return;
+      const row = block("mn-codex__ov-row");
+      label(row, title);
+      const chips = doc.createElement("div");
+      chips.className = "mn-codex__ov-chips";
+      for (const pair of pairsIn) {
+        if (withKey) {
+          const chip = doc.createElement("span");
+          chip.className = "mn-codex__ov-chip mn-codex__ov-chip--keyed";
+          const k = doc.createElement("span"); k.className = "mn-codex__ov-chip-key"; k.textContent = pair.key;
+          const v = doc.createElement("span"); Array.from(pair.dd.childNodes).forEach((n) => v.appendChild(n));
+          chip.append(k, v);
+          chips.appendChild(chip);
+        } else {
+          this.valueChips(pair.dd, doc).forEach((chip) => chips.appendChild(chip));
+        }
+      }
+      row.appendChild(chips);
+    };
+    chipRow(affiliation, "AFFILIATION", false);
+    chipRow(abilities, "ABILITY", true);
+    // 표 자리에 블록들을 차례로 (블록마다 따로 놓아 넘치면 다음 쪽으로 이어지게)
+    for (const div of blocks) dl.parentNode.insertBefore(div, dl);
+    dl.remove();
+  }
+
+  /** 능력 쪽 그림 칸(visual · visual_focus · visual_scale)을 <img> 로 */
+  abilityVisualImage(doc, pageData, sourcePath, alt) {
+    const src = this.resolveImage(this.asText(pageData.visual).trim(), sourcePath);
+    if (!src) return null;
+    const focus = this.asText(pageData.visual_focus).trim() || "50% 30%";
+    const scale = Number(pageData.visual_scale) || 1;
+    const img = doc.createElement("img");
+    img.src = src;
+    img.alt = alt || "";
+    img.loading = "lazy";
+    img.style.objectPosition = focus;
+    if (scale > 1) { img.style.transform = `scale(${scale})`; img.style.transformOrigin = focus; }
+    // 확대해도 테가 같이 커지지 않게 안쪽 창(테 · 바탕 · 잘라내기)으로 한 겹 감쌈
+    const win = doc.createElement("span");
+    win.className = "mn-codex__ab-visual-window";
+    win.appendChild(img);
+    return win;
+  }
+
+  /** 능력: 목록 「신탁 : 네이그림」은 번호 · 종류 표식 · 이름 (+ 그림 있는 능력은 작은 그림), 하위 쪽은 그림 판(있으면) · 종류 표식 · 큰 이름 · 표식 고리 */
+  shapeAbility(pageData, heading, kind, sourcePath, configuredPages, data) {
+    const doc = heading.ownerDocument;
+    const nameOf = (title) => {
+      const match = this.asText(title).match(/^\s*([^:：]{1,10}?)\s*[:：]\s*(.+)$/u);
+      return (match ? match[2] : this.asText(title)).trim();
+    };
+    if (kind === "section") {
+      const pages = new Map();
+      for (const page of configuredPages || []) {
+        if (page._mnBookPageKind === "entry" && page._mnBookSectionIndex === pageData._mnBookSectionIndex) pages.set(nameOf(page.title), page);
+      }
+      for (const node of this.templateNodesAfter(heading)) {
+        if (node.nodeType !== 1 || !/^(UL|OL)$/u.test(node.tagName)) continue;
+        node.classList.add("mn-codex__ab-index");
+        for (const li of Array.from(node.children)) {
+          const split = this.splitTypeName(li);
+          const name = split ? split.name : doc.createElement("span");
+          if (!split) Array.from(li.childNodes).forEach((n) => name.appendChild(n));
+          name.className = "mn-codex__ab-name";
+          li.textContent = "";
+          if (split) split.type.className = "mn-codex__ab-type";
+          const type = split ? split.type : doc.createElement("span");
+          if (!split) { type.className = "mn-codex__ab-type mn-codex__ab-type--empty"; type.setAttribute("aria-hidden", "true"); type.textContent = "—"; }
+          li.append(type, name);
+          li.classList.add("mn-codex__ab-item");
+          if (!split) li.classList.add("mn-codex__ab-item--untyped");
+          const page = pages.get(name.textContent.trim());
+          const target = page ? (configuredPages || []).indexOf(page) : -1;
+          if (target >= 0) {
+            li.setAttribute("data-mn-goto-page", String(target));
+            li.setAttribute("role", "button");
+            li.setAttribute("tabindex", "0");
+            li.setAttribute("title", `${name.textContent.trim()} 쪽으로`);
+          }
+          const img = page && page.visual ? this.abilityVisualImage(doc, page, sourcePath, name.textContent.trim()) : null;
+          const thumb = doc.createElement("span");
+          thumb.className = img ? "mn-codex__ab-thumb" : "mn-codex__ab-thumb mn-codex__ab-thumb--empty";
+          if (img) thumb.appendChild(img);
+          else thumb.setAttribute("aria-hidden", "true");
+          li.appendChild(thumb);
+        }
+        if (node.children.length > 5) node.classList.add("mn-codex__ab-index--many");
+        // 그림이 하나도 없으면 빈 액자도 빼서 지금 모양 그대로
+        if (!node.querySelector(".mn-codex__ab-thumb:not(.mn-codex__ab-thumb--empty)")) node.querySelectorAll(".mn-codex__ab-thumb").forEach((el) => el.remove());
+      }
+      return;
+    }
+    if (kind !== "entry") return;
+    if (this.asText(data && data.layout_variant).trim()) {
+      this.shapeAbilityBand(pageData, heading, sourcePath, configuredPages || []);
+      return;
+    }
+    const title = heading.querySelector(".mn-codex__title");
+    const split = title ? this.splitTypeName(title) : null;
+    if (split && title) {
+      title.textContent = "";
+      Array.from(split.name.childNodes).forEach((n) => title.appendChild(n));
+      const type = doc.createElement("div");
+      type.className = "mn-codex__ab-type mn-codex__ab-type--head";
+      type.textContent = split.type.textContent.trim();
+      heading.insertBefore(type, heading.querySelector(".mn-codex__title-row"));
+    }
+    const seal = doc.createElement("div");
+    seal.className = "mn-codex__ab-seal";
+    seal.setAttribute("aria-hidden", "true");
+    const mark = doc.createElement("span");
+    mark.className = "mn-codex__ab-star";
+    seal.appendChild(mark);
+    const img = pageData.visual ? this.abilityVisualImage(doc, pageData, sourcePath, title ? title.textContent : "") : null;
+    if (!img) { heading.appendChild(seal); return; }
+    // 그림 판: 작은 머리 바로 밑에 넓은 그림 창, 표식 고리는 창 오른쪽 아래 모서리에 걸침
+    heading.classList.add("mn-codex__heading--ab-visual");
+    const plate = doc.createElement("div");
+    plate.className = "mn-codex__ab-visual";
+    const frame = doc.createElement("div");
+    frame.className = "mn-codex__ab-visual-frame";
+    frame.appendChild(img);
+    plate.append(frame, seal);
+    const kicker = heading.querySelector(".mn-codex__section-kicker");
+    heading.insertBefore(plate, kicker ? kicker.nextSibling : heading.firstChild);
+  }
+
+  /** 능력 장의 능력 목록: 장 첫 쪽 글의 「- 종류 : 이름」 줄(없으면 하위 쪽 제목). 하위 쪽이 있는 능력엔 그 쪽 번호 */
+  abilityRoster(pageData, configuredPages) {
+    const plain = (text) => this.asText(text).replace(/\[\[([^\]|]*)\|?([^\]]*)\]\]/gu, (_m, target, alias) => alias || target).trim();
+    const parse = (text) => {
+      const match = plain(text).match(/^\s*([^:：]{1,10}?)\s*[:：]\s*(.+)$/u);
+      return match ? { type: match[1].trim(), name: match[2].trim() } : { type: "", name: plain(text) };
+    };
+    const sectionIndex = pageData._mnBookSectionIndex;
+    const entries = configuredPages
+      .map((page, index) => ({ page, index }))
+      .filter(({ page }) => page._mnBookPageKind === "entry" && page._mnBookSectionIndex === sectionIndex);
+    const section = configuredPages.find((page) => page._mnBookPageKind === "section" && page._mnBookSectionIndex === sectionIndex);
+    const lines = this.asText(section && section.content).split(/\r?\n/u)
+      .map((line) => line.match(/^\s*[-*+]\s+(.+)$/u))
+      .filter(Boolean)
+      .map((match) => parse(match[1]));
+    const roster = lines.length ? lines : entries.map(({ page }) => parse(page.title));
+    return roster.map((item) => {
+      const hit = entries.find(({ page }) => parse(page.title).name === item.name);
+      return { ...item, pageIndex: hit ? hit.index : -1 };
+    });
+  }
+
+  /** 첫 문단 끝 「…:분류」(쌍점 뒤 짧은 말)를 떼어 분류 표식 재료로. 문장 부호가 있거나 길거나 줄이 바뀌면 그대로 둠 */
+  takeTrailingClass(p) {
+    const kids = Array.from(p.childNodes);
+    let at = -1;
+    for (let i = kids.length - 1; i >= 0; i -= 1) {
+      if (kids[i].nodeName === "BR") return null;
+      if (kids[i].nodeType === 3 && /[:：]/u.test(kids[i].textContent)) { at = i; break; }
+    }
+    if (at < 0) return null;
+    const text = kids[at].textContent;
+    const cut = Math.max(text.lastIndexOf(":"), text.lastIndexOf("："));
+    const head = text.slice(0, cut).replace(/\s+$/u, "");
+    const tailText = text.slice(cut + 1);
+    const tailNodes = kids.slice(at + 1);
+    const tailAll = (tailText + tailNodes.map((node) => node.textContent).join("")).trim();
+    const headAll = (kids.slice(0, at).map((node) => node.textContent).join("") + head).trim();
+    if (!tailAll || !headAll || Array.from(tailAll).length > 24 || /[.!?。…]/u.test(tailAll)) return null;
+    const doc = p.ownerDocument;
+    const box = doc.createElement("span");
+    if (tailText.trim()) box.appendChild(doc.createTextNode(tailText.replace(/^\s+/u, "")));
+    tailNodes.forEach((node) => box.appendChild(node));
+    kids[at].textContent = head;
+    return box;
+  }
+
+  /** 능력 하위 쪽(전용 지면): 새 펼침 왼쪽 쪽 전체에 능력 그림을 배경으로 깔고, 그 위에 이름 묶음(번호 · 종류 · 큰 이름 · 분류),
+   *  아래 어둠 위에 설명 + 글 끝 능력 색인. 설명이 짧으면 인용처럼 크게, 길면 첫 문단만 조금 크게 하고 이름 자리를 줄여 글자리를 넓힘.
+   *  넘치면 오른쪽 쪽 · 다음 펼침으로 이어짐 (작가 고름 2026-10-27) */
+  shapeAbilityBand(pageData, heading, sourcePath, configuredPages) {
+    const doc = heading.ownerDocument;
+    const el = (tag, cls, text) => {
+      const node = doc.createElement(tag);
+      if (cls) node.className = cls;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    };
+    const pad = (value) => String(value).padStart(2, "0");
+    const titleEl = heading.querySelector(".mn-codex__title");
+    const titleCopy = titleEl ? titleEl.cloneNode(true) : el("span");
+    const split = this.splitTypeName(titleCopy);
+    const nameBox = el("div", "mn-codex__ab-band-name");
+    Array.from((split ? split.name : titleCopy).childNodes).forEach((node) => nameBox.appendChild(node));
+    const nameText = nameBox.textContent.trim();
+    const typeText = split ? split.type.textContent.trim() : "";
+    const nameLength = Array.from(nameText.replace(/\s+/gu, "")).length;
+    if (nameLength >= 9) nameBox.classList.add("mn-codex__ab-band-name--xlong");
+    else if (nameLength >= 6) nameBox.classList.add("mn-codex__ab-band-name--long");
+
+    const blocks = this.templateNodesAfter(heading).filter((node) => node.nodeType === 1);
+    const firstP = blocks.find((node) => node.tagName === "P");
+    const classBox = firstP ? this.takeTrailingClass(firstP) : null;
+    const textLength = blocks.reduce((sum, node) => sum + node.textContent.trim().length, 0);
+    const short = Boolean(firstP) && blocks.length === 1 && textLength <= 90;
+    if (firstP) firstP.classList.add(short ? "mn-codex__ab-quote" : "mn-codex__ab-lead");
+
+    const roster = this.abilityRoster(pageData, configuredPages);
+    const selfIndex = configuredPages.indexOf(pageData);
+    let order = roster.findIndex((item) => item.pageIndex === selfIndex);
+    if (order < 0) order = Math.max(0, Number(pageData._mnBookEntryIndex) || 0);
+
+    const band = el("div", "mn-codex__ab-band");
+    band.setAttribute("aria-hidden", "true");
+    if (textLength > 240 || blocks.length > 2) band.classList.add("mn-codex__ab-band--compact");
+    const art = pageData.visual ? this.abilityVisualImage(doc, pageData, sourcePath, nameText) : null;
+    if (!art) band.classList.add("mn-codex__ab-band--bare");
+    const no = el("div", "mn-codex__ab-band-no");
+    no.append(el("b", "", pad(order + 1)), el("small", "", `/ ${pad(Math.max(roster.length, order + 1))}`));
+    const copy = el("div", "mn-codex__ab-band-copy");
+    const kicker = heading.querySelector(".mn-codex__section-kicker");
+    const kickerText = kicker ? kicker.textContent.trim() : "";
+    copy.appendChild(el("div", "mn-codex__ab-band-kicker", kickerText ? `${kickerText} · ABILITY` : "ABILITY"));
+    if (typeText) copy.appendChild(el("span", "mn-codex__ab-band-type", typeText));
+    copy.appendChild(nameBox);
+    if (classBox) {
+      const tags = el("div", "mn-codex__ab-band-tags");
+      this.valueChips(classBox, doc).forEach((chip) => {
+        chip.className = "mn-codex__ab-band-tag";
+        tags.appendChild(chip);
+      });
+      if (tags.childElementCount) copy.appendChild(tags);
+    }
+    band.append(no, copy);
+    heading.classList.add("mn-codex__heading--ab-band");
+    heading._mnAbBand = band;
+    heading._mnAbArt = art;
+
+    if (roster.length < 2) return;
+    const after = this.templateNodesAfter(heading);
+    const last = after.length ? after[after.length - 1] : heading;
+    const pageBreak = el("div", "mn-codex__ab-roster-break");
+    pageBreak.setAttribute("aria-hidden", "true");
+    const nav = el("nav", "mn-codex__ab-roster");
+    nav.setAttribute("aria-label", "능력 색인");
+    nav.setAttribute("data-mn-flow-optional", "true");
+    nav.appendChild(el("div", "mn-codex__ab-roster-label", "ABILITY INDEX"));
+    const list = el("div", `mn-codex__ab-roster-list${roster.length > 6 ? " mn-codex__ab-roster-list--many" : ""}`);
+    roster.forEach((item, index) => {
+      const current = item.pageIndex >= 0 && item.pageIndex === selfIndex;
+      const linked = item.pageIndex >= 0 && !current;
+      const row = el(linked ? "button" : "div", "mn-codex__ab-roster-row");
+      if (linked) {
+        row.type = "button";
+        row.setAttribute("data-mn-goto-page", String(item.pageIndex));
+        row.title = `${item.name} 쪽으로`;
+      }
+      if (current) {
+        row.classList.add("is-current");
+        row.setAttribute("aria-current", "page");
+      }
+      if (item.pageIndex < 0) row.classList.add("is-plain");
+      row.append(el("em", "", pad(index + 1)), el("span", "mn-codex__ab-roster-type", item.type), el("span", "mn-codex__ab-roster-name", item.name));
+      list.appendChild(row);
+    });
+    nav.appendChild(list);
+    last.after(pageBreak, nav);
+  }
+
+  /** 능력 쪽 걸기: 이름 자리 높이는 펼침 높이의 비율(px, 오른쪽 색인 높이 맞춤에도 씀), 이름 묶음은 왼쪽 쪽 글 시작선에 맞추고,
+   *  능력 그림은 왼쪽 쪽 바닥에 배경으로 */
+  mountAbilityBand(band, art, spread) {
+    if (!band || !spread || !spread.book || !spread.leftPage) return;
+    const book = spread.book;
+    const page = spread.leftPage;
+    const ratio = band.classList.contains("mn-codex__ab-band--compact") ? 0.36 : 0.45;
+    const height = Math.round((book.offsetHeight || book.clientHeight || 640) * ratio);
+    book.style.setProperty("--mn-ab-band-h", `${height}px`);
+    book.classList.add("mn-codex__book--ab-band");
+    page.classList.add("mn-codex__page--ab-band");
+    // 그림 없는 능력은 이름 자리에 큰 번호가 있어서 쪽 아래 큰 장 번호는 뺌
+    page.classList.toggle("mn-codex__page--ab-bare", !art);
+    const pageRect = page.getBoundingClientRect();
+    const body = spread.leftFrame && spread.leftFrame.querySelector(".mn-codex__prose--page");
+    const bodyRect = body ? body.getBoundingClientRect() : null;
+    if (bodyRect && pageRect.width && page.offsetWidth) {
+      const view = book.ownerDocument && book.ownerDocument.defaultView;
+      const padding = view ? Number.parseFloat(view.getComputedStyle(body).paddingLeft) || 0 : 0;
+      const inset = (bodyRect.left - pageRect.left) / pageRect.width * page.offsetWidth + padding;
+      band.style.setProperty("--mn-ab-band-inset", `${Math.round(inset)}px`);
+    }
+    if (art) {
+      const backdrop = book.ownerDocument.createElement("div");
+      backdrop.className = "mn-codex__ab-backdrop";
+      backdrop.setAttribute("aria-hidden", "true");
+      backdrop.appendChild(art);
+      page.insertBefore(backdrop, page.firstChild);
+    }
+    page.appendChild(band);
+  }
+
+  /** 관계 쪽 사람 그림: 쪽의 portrait → 그 이름의 인물 노트 속성 「초상」 → 없으면 첫 글자 */
+  relationPortrait(name, pageData, sourcePath) {
+    const direct = this.asText(pageData && pageData.portrait).trim();
+    if (direct) return this.resolveImage(direct, sourcePath);
+    try {
+      const cache = this.app && this.app.metadataCache;
+      const file = cache && typeof cache.getFirstLinkpathDest === "function" ? cache.getFirstLinkpathDest(name, sourcePath) : null;
+      const front = file && cache.getFileCache(file)?.frontmatter;
+      const portrait = front && this.asText(front["초상"] || front.portrait).trim();
+      if (portrait) return this.resolveImage(portrait, file.path);
+    } catch (error) {
+      // 노트가 없거나 속성이 없으면 첫 글자로
+    }
+    return "";
+  }
+
+  relationFace(doc, name, src, focus, extraClass, tag = "div") {
+    const who = doc.createElement(tag);
+    who.className = `mn-codex__rel-who${extraClass ? ` ${extraClass}` : ""}`;
+    const face = doc.createElement("span");
+    face.className = "mn-codex__rel-face";
+    if (src) {
+      face.style.backgroundImage = `url("${src}")`;
+      if (focus) face.style.backgroundPosition = focus;
+    } else {
+      face.classList.add("mn-codex__rel-face--mono");
+      face.textContent = Array.from(name.trim())[0] || "?";
+    }
+    const label = doc.createElement("span");
+    label.className = "mn-codex__rel-name";
+    label.textContent = name;
+    who.append(face, label);
+    return who;
+  }
+
+  /**
+   * 관계: 왼쪽 쪽엔 관계도(가운데 나, 둘레에 사람 동그라미 — 많으면 두 겹), 오른쪽 쪽엔 고른 사람의 글.
+   * 동그라미를 누르면 오른쪽만 바뀜(쪽이 늘지 않음). 사람 = 관계 장의 하위 쪽(제목 · 관계 한 줄 · 그림 · 글).
+   */
+  async shapeRelation(pageData, heading, kind, data, sourcePath, component) {
+    if (kind !== "section") return;
+    const people = Array.isArray(pageData._mnRelationPeople) ? pageData._mnRelationPeople : [];
+    if (!people.length) return;
+    const doc = heading.ownerDocument;
+    const parent = heading.parentNode;
+    const nodes = this.templateNodesAfter(heading);
+    const anchor = nodes.length ? nodes[nodes.length - 1].nextSibling : heading.nextSibling;
+    const selfName = this.asText(data._mnCharacterName || data.title).trim();
+    const selfRef = Array.isArray(data.detail_images) && data.detail_images[0] ? data.detail_images[0] : (data.book_image || data.image);
+    const selfSrc = selfRef ? this.resolveImage(this.asText(selfRef), sourcePath) : "";
+    const selfFocus = Array.isArray(data.detail_focus) && data.detail_focus[0] ? this.asText(data.detail_focus[0]) : "50% 30%";
+    const sectionNo = String(Math.max(0, pageData._mnBookSectionIndex) + 1).padStart(2, "0");
+    const sectionTitle = this.asText(pageData._mnBookSectionTitle);
+
+    // 자리: 겹마다 8 · 12 · 16명. 8명까지 한 겹, 20명까지 두 겹, 그 뒤로 세 겹(남는 사람은 바깥 겹에 몰아 둠).
+    // 바깥 겹은 안쪽 겹 사이사이(반 칸 어긋남)에 놓아 이름이 겹치지 않게
+    const count = people.length;
+    const caps = [8, 12, 16];
+    const ringCount = count <= 8 ? 1 : count <= 20 ? 2 : 3;
+    const rings = ringCount === 1 ? [36] : ringCount === 2 ? [29, 46] : [22, 35.5, 49];
+    const sizes = [];
+    let left = count;
+    for (let r = 0; r < ringCount; r += 1) {
+      const take = r === ringCount - 1 ? left : Math.min(caps[r], left);
+      sizes.push(take);
+      left -= take;
+    }
+    const spots = [];
+    sizes.forEach((n, ring) => {
+      const start = -90 + (ring > 0 ? 180 / n : 0);
+      for (let k = 0; k < n; k += 1) {
+        const angle = (start + (360 / n) * k) * Math.PI / 180;
+        spots.push({ ring, angle, x: 50 + rings[ring] * Math.cos(angle), y: 50 + rings[ring] * Math.sin(angle) });
+      }
+    });
+
+    const label = doc.createElement("div");
+    label.className = "mn-codex__ov-label mn-codex__orbit-label";
+    label.textContent = `RELATIONS · ${String(count).padStart(2, "0")}`;
+    const orbit = doc.createElement("div");
+    orbit.className = `mn-codex__orbit${ringCount > 1 ? " mn-codex__orbit--dense" : ""}${ringCount > 2 ? " mn-codex__orbit--crowd" : ""}`;
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = doc.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("class", "mn-codex__orbit-lines");
+    svg.setAttribute("aria-hidden", "true");
+    const ringEls = rings.map((r) => {
+      const ring = doc.createElementNS(NS, "ellipse");
+      ring.setAttribute("cx", "50"); ring.setAttribute("cy", "50"); ring.setAttribute("rx", String(r)); ring.setAttribute("ry", String(r));
+      ring.setAttribute("class", "mn-codex__orbit-ring");
+      ring.setAttribute("vector-effect", "non-scaling-stroke");
+      svg.appendChild(ring);
+      return ring;
+    });
+    const lines = spots.map((spot) => {
+      const line = doc.createElementNS(NS, "line");
+      line.setAttribute("x1", "50"); line.setAttribute("y1", "50");
+      line.setAttribute("x2", spot.x.toFixed(2)); line.setAttribute("y2", spot.y.toFixed(2));
+      line.setAttribute("class", "mn-codex__orbit-line");
+      line.setAttribute("vector-effect", "non-scaling-stroke");
+      svg.appendChild(line);
+      return line;
+    });
+    orbit.appendChild(svg);
+    const center = this.relationFace(doc, selfName, selfSrc, selfFocus, "mn-codex__orbit-node mn-codex__orbit-node--self");
+    center.style.left = "50%";
+    center.style.top = "50%";
+    orbit.appendChild(center);
+    const buttons = people.map((person, i) => {
+      const name = this.asText(person.title).trim();
+      const button = this.relationFace(doc, name, this.relationPortrait(name, person, sourcePath), "", "mn-codex__orbit-node", "button");
+      button.type = "button";
+      button.style.left = `${spots[i].x}%`;
+      button.style.top = `${spots[i].y}%`;
+      const note = this.asText(person.relation).trim();
+      if (note) { const span = doc.createElement("span"); span.className = "mn-codex__rel-note"; span.textContent = note; button.appendChild(span); }
+      button.setAttribute("aria-label", `${name}${note ? ` · ${note}` : ""} 글 보기`);
+      orbit.appendChild(button);
+      return button;
+    });
+
+    // 오른쪽 쪽: 고른 사람 (처음엔 첫 사람)
+    const pageBreak = doc.createElement("div");
+    pageBreak.className = "mn-codex__page-break-marker";
+    const detail = doc.createElement("div");
+    detail.className = "mn-codex__rel-detail";
+    parent.insertBefore(label, anchor);
+    parent.insertBefore(orbit, anchor);
+    parent.insertBefore(pageBreak, anchor);
+    parent.insertBefore(detail, anchor);
+    const cards = [];
+    for (const [i, person] of people.entries()) {
+      const name = this.asText(person.title).trim();
+      const card = doc.createElement("div");
+      card.className = "mn-codex__rel-card";
+      card.hidden = i !== 0;
+      const kicker = doc.createElement("div");
+      kicker.className = "mn-codex__section-kicker mn-codex__rel-kicker";
+      kicker.textContent = `${sectionNo} / ${sectionTitle} · ${String(i + 1).padStart(2, "0")}`;
+      const title = doc.createElement("div");
+      title.className = "mn-codex__rel-card-name";
+      title.textContent = name;
+      const pair = doc.createElement("div");
+      pair.className = "mn-codex__rel-map";
+      pair.appendChild(this.relationFace(doc, selfName, selfSrc, selfFocus, "mn-codex__rel-who--self"));
+      const link = doc.createElement("div");
+      link.className = "mn-codex__rel-link";
+      const note = this.asText(person.relation).trim();
+      if (note) { const span = doc.createElement("span"); span.className = "mn-codex__rel-note"; span.textContent = note; link.appendChild(span); }
+      pair.appendChild(link);
+      pair.appendChild(this.relationFace(doc, name, this.relationPortrait(name, person, sourcePath), "", "mn-codex__rel-who--other"));
+      const body = doc.createElement("div");
+      body.className = "mn-codex__rel-body";
+      card.append(kicker, title, pair, body);
+      detail.appendChild(card);
+      await this.renderMarkdown(person.content || "", body, sourcePath, component);
+      cards.push(card);
+    }
+    const select = (index) => {
+      buttons.forEach((button, i) => { button.classList.toggle("is-active", i === index); button.setAttribute("aria-pressed", String(i === index)); });
+      lines.forEach((line, i) => line.classList.toggle("is-active", i === index));
+      cards.forEach((card, i) => { card.hidden = i !== index; });
+    };
+    buttons.forEach((button, i) => button.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); select(i); }));
+    select(0);
+
+    // 쪽에 놓인 뒤 실제 크기로 다시 놓기: 판 = 「RELATIONS」 줄 아래 ~ 쪽 글 칸 바닥, 가운데에서 동그라미가 판 밖으로 안 나가는 반지름
+    const factors = ringCount === 1 ? [0.8] : ringCount === 2 ? [0.56, 1] : [0.48, 0.74, 1];
+    const layout = () => {
+      const body = orbit.closest(".mn-codex__prose--page");
+      const width = orbit.clientWidth;
+      if (!body || !width) return;
+      const room = Math.floor(body.getBoundingClientRect().bottom - orbit.getBoundingClientRect().top - 6);
+      if (room > 160 && Math.abs(room - orbit.clientHeight) > 2) orbit.style.height = `${room}px`;
+      const height = orbit.clientHeight;
+      let half = 0;
+      for (const button of buttons) half = Math.max(half, button.offsetWidth / 2, button.offsetHeight / 2);
+      const maxR = Math.max(40, Math.min(width, height) / 2 - half - 4);
+      const cx = width / 2;
+      const cy = height / 2;
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      center.style.left = `${cx}px`;
+      center.style.top = `${cy}px`;
+      ringEls.forEach((ring, r) => {
+        ring.setAttribute("cx", String(cx)); ring.setAttribute("cy", String(cy));
+        ring.setAttribute("rx", String(maxR * factors[r])); ring.setAttribute("ry", String(maxR * factors[r]));
+      });
+      spots.forEach((spot, i) => {
+        const r = maxR * factors[spot.ring];
+        const x = cx + r * Math.cos(spot.angle);
+        const y = cy + r * Math.sin(spot.angle);
+        buttons[i].style.left = `${x}px`;
+        buttons[i].style.top = `${y}px`;
+        lines[i].setAttribute("x1", String(cx)); lines[i].setAttribute("y1", String(cy));
+        lines[i].setAttribute("x2", String(x)); lines[i].setAttribute("y2", String(y));
+      });
+    };
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(() => layout());
+      observer.observe(orbit);
+      if (component && typeof component.register === "function") component.register(() => observer.disconnect());
+    }
   }
 
   createHeading(data, parent) {
