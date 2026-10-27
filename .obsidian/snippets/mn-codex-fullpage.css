@@ -76,9 +76,9 @@ html body .markdown-preview-view.mn-codex-fullpage .markdown-preview-sizer > div
   padding-inline: clamp(18px, 4vw, 56px);
 }
 
-/* 책갈피를 안 쓰는 캐릭터 전용 책장(silver-knight)은 오른쪽 자리 없이 창 폭 가득. 아래 조작 띠도 없어서(쪽 번호는 위 탭 줄) 탭 줄 48px 만 뺌 */
+/* 책갈피를 안 쓰는 캐릭터 전용 책장(silver-knight)은 오른쪽 자리 없이 창 폭 가득. 아래 장 띠(표지 아래 띠와 같은 9.6%)만 빼고 책장 */
 html body .mn-codex-fullpage .mn-codex-host--inline-book.mn-codex-host--variant-silver-knight { padding-right: 0 !important; }
 html body .mn-codex-fullpage .mn-codex-host--variant-silver-knight > .mn-codex { min-height: calc(100cqi / var(--mn-cover-ratio)); }
 html body .mn-codex-fullpage .mn-codex-host--variant-silver-knight .mn-codex--layout-book .mn-codex__book-track {
-  height: max(650px, calc(100cqi / var(--mn-cover-ratio) - 48px)) !important;
+  height: max(650px, calc(100cqi / var(--mn-cover-ratio) * .904)) !important;
 }

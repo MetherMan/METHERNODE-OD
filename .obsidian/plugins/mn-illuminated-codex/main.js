@@ -1314,6 +1314,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     if (previous) previous.disabled = true;
     if (counter && !counter.textContent) counter.setText("01 / --");
     if (title && !title.textContent) title.setText("CHARACTER FILE");
+    this.linkMelyChapterStrip(cover, sourcePath);
     if (next) {
       next.disabled = false;
       next.onclick = async (event) => {
@@ -1342,15 +1343,16 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         if (role === "book") {
           this.connectMelyCoverToBook(cover, candidate);
           this.activateMelyBookSequence(cover, candidate, "book");
-          return;
+          return candidate;
         }
       }
     }
 
     const inlineBook = await this.createMelyInlineBook(cover, sourcePath);
-    if (!inlineBook) return;
+    if (!inlineBook) return null;
     this.connectMelyCoverToBook(cover, inlineBook);
     this.activateMelyBookSequence(cover, inlineBook, "book");
+    return inlineBook;
   }
 
   async createMelyInlineBook(cover, sourcePath) {
@@ -1469,6 +1471,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       };
     }
     if (counter) counter.setText(`01 / ${String(bookSteps + 1).padStart(2, "0")}`);
+    this.linkMelyChapterStrip(cover, book.getAttribute("data-mn-source-path") || "");
     if (title) title.setText(book.getAttribute("data-mn-sequence-title") || "CHARACTER FILE");
     coverRoot.onkeydown = (event) => {
       if (event.target && event.target.closest && event.target.closest("a, button, input, textarea, select")) return;
@@ -1483,6 +1486,53 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     book.hidden = !showingBook;
     cover.classList.toggle("is-active", !showingBook);
     book.classList.toggle("is-active", showingBook);
+  }
+
+  /** 표지 아래 띠를 책장 아래 장 띠와 같은 칸으로: 「00 표지 · 01 개요 · 02 능력 …」(책장 장 제목 그대로), 누르면 책장의 그 장으로.
+   *  책장은 처음 넘길 때 만들어지니 표지에 실린 장 목록(book_sections)으로 그림. 캐릭터 전용 지면만. 실험실 추가 2026-10-27 */
+  linkMelyChapterStrip(cover, sourcePath) {
+    const data = cover?._mnMelyDeckData;
+    const root = cover?.querySelector(":scope > .mn-codex");
+    const nav = root?.querySelector(".mn-mely-showcase__navigation");
+    if (!data || !nav || nav.classList.contains("mn-mely-showcase__navigation--chapters")) return;
+    if (!this.asText(data.layout_variant).trim()) return;
+    const plain = (text) => this.asText(text).replace(/\[\[([^\]|]*)\|?([^\]]*)\]\]/gu, (_m, target, alias) => alias || target).trim();
+    const titles = (Array.isArray(data.book_sections) ? data.book_sections : [])
+      .filter((section) => section && typeof section === "object" && section.tag !== false && section.page_tag !== false)
+      .map((section) => plain(section.title))
+      .filter(Boolean);
+    if (!titles.length) return;
+    nav.textContent = "";
+    nav.classList.add("mn-mely-showcase__navigation--chapters");
+    nav.setAttr("aria-label", "장 바로가기");
+    nav.style.setProperty("--mn-strip-count", String(Math.max(5, titles.length + 1)));
+    const cell = (index, label, onClick) => {
+      const button = nav.createEl("button", {
+        cls: "mn-mely-showcase__chapter",
+        attr: { type: "button", title: onClick ? `${label} 장으로` : label },
+      });
+      button.createSpan({ cls: "mn-mely-showcase__chapter-index", text: index });
+      button.createSpan({ cls: "mn-mely-showcase__chapter-label", text: label });
+      if (!onClick) {
+        button.classList.add("is-active");
+        button.setAttr("aria-current", "page");
+        return;
+      }
+      button.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        try {
+          const book = await this.openMelyBookFromCover(cover, sourcePath);
+          // 책장은 폭이 바뀌면 다시 그려지니, 누를 때 지금 있는 장 단추를 찾아 누름
+          const tag = book && book.querySelectorAll(":scope > .mn-codex > .mn-codex__page-tags > .mn-codex__page-tag:not(.mn-codex__page-tag--cover)")[onClick.at];
+          if (tag) tag.click();
+        } catch (error) {
+          console.error("MN Illuminated Codex: failed to open chapter from cover", error);
+        }
+      });
+    };
+    cell("00", "표지", null);
+    titles.forEach((title, at) => cell(String(at + 1).padStart(2, "0"), title, { at }));
   }
 
   createMelySequenceControls(root) {
@@ -2844,6 +2894,31 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       });
     }
 
+    // 표지가 앞에 붙은 책장이면 장 띠 맨 앞에 「00 표지」(누르면 표지로). 칸 수는 띠 칸 나눔에 씀. 실험실 추가 2026-10-27
+    let coverTag = null;
+    const syncCoverTag = () => {
+      const strip = root.querySelector(":scope > .mn-codex__page-tags");
+      if (!strip) return;
+      if (beforeFirst && !coverTag) {
+        coverTag = strip.createEl("button", {
+          cls: "mn-codex__page-tag mn-codex__page-tag--cover",
+          attr: { type: "button", "aria-label": "표지로", title: "표지로" },
+        });
+        coverTag.createSpan({ cls: "mn-codex__page-tag-index", text: "00" });
+        coverTag.createSpan({ cls: "mn-codex__page-tag-label", text: "표지" });
+        strip.insertBefore(coverTag, strip.firstChild);
+        on(coverTag, "click", (event) => {
+          event.preventDefault();
+          if (beforeFirst) beforeFirst();
+        });
+      } else if (!beforeFirst && coverTag) {
+        coverTag.remove();
+        coverTag = null;
+      }
+      strip.style.setProperty("--mn-strip-count", String(Math.max(5, strip.children.length)));
+    };
+    syncCoverTag();
+
     const bookTools = controls.createDiv({ cls: "mn-codex__book-tools" });
     const pagePicker = bookTools.createEl("select", {
       cls: "mn-codex__page-picker",
@@ -2925,6 +3000,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       getStep: () => step,
       setBeforeFirst: (callback) => {
         beforeFirst = typeof callback === "function" ? callback : null;
+        syncCoverTag();
         activate(step);
       },
       setStatusOffset: (offset) => {
@@ -4186,6 +4262,25 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const selfFocus = Array.isArray(data.detail_focus) && data.detail_focus[0] ? this.asText(data.detail_focus[0]) : "50% 30%";
     const sectionNo = String(Math.max(0, pageData._mnBookSectionIndex) + 1).padStart(2, "0");
     const sectionTitle = this.asText(pageData._mnBookSectionTitle);
+    // 사람의 인물 노트: 있으면 눌러서 열기(Ctrl/⌘ 누른 채면 새 탭), 없으면 알림만. 실험실 추가 2026-10-27
+    const noteOf = (name) => {
+      try {
+        const cache = this.app && this.app.metadataCache;
+        const file = cache && typeof cache.getFirstLinkpathDest === "function" ? cache.getFirstLinkpathDest(name, sourcePath) : null;
+        return file && /\.md$/iu.test(this.asText(file.path)) ? file : null;
+      } catch (error) {
+        return null;
+      }
+    };
+    const openPerson = (name, event) => {
+      const file = noteOf(name);
+      const workspace = this.app && this.app.workspace;
+      if (!file || !workspace || typeof workspace.openLinkText !== "function") {
+        new Notice(`「${name}」 인물 노트가 아직 없어요.`);
+        return;
+      }
+      workspace.openLinkText(file.path, sourcePath, event && (event.ctrlKey || event.metaKey) ? "tab" : false);
+    };
 
     // 자리: 겹마다 8 · 12 · 16명. 8명까지 한 겹, 20명까지 두 겹, 그 뒤로 세 겹(남는 사람은 바깥 겹에 몰아 둠).
     // 바깥 겹은 안쪽 겹 사이사이(반 칸 어긋남)에 놓아 이름이 겹치지 않게
@@ -4250,7 +4345,10 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       button.style.top = `${spots[i].y}%`;
       const note = this.asText(person.relation).trim();
       if (note) { const span = doc.createElement("span"); span.className = "mn-codex__rel-note"; span.textContent = note; button.appendChild(span); }
-      button.setAttribute("aria-label", `${name}${note ? ` · ${note}` : ""} 글 보기`);
+      const hasNote = Boolean(noteOf(name));
+      if (!hasNote) button.classList.add("mn-codex__orbit-node--no-note");
+      button.setAttribute("aria-label", `${name}${note ? ` · ${note}` : ""} · ${hasNote ? "눌러서 인물 노트 열기" : "인물 노트 없음"}`);
+      button.title = `${name} · ${hasNote ? "눌러서 인물 노트 열기" : "인물 노트 없음"}`;
       orbit.appendChild(button);
       return button;
     });
@@ -4276,6 +4374,12 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       const title = doc.createElement("div");
       title.className = "mn-codex__rel-card-name";
       title.textContent = name;
+      const hasNote = Boolean(noteOf(name));
+      const open = doc.createElement("button");
+      open.type = "button";
+      open.className = `mn-codex__rel-open${hasNote ? "" : " is-missing"}`;
+      open.textContent = hasNote ? "인물 노트 열기 ↗" : "인물 노트 없음";
+      open.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); openPerson(name, event); });
       const pair = doc.createElement("div");
       pair.className = "mn-codex__rel-map";
       pair.appendChild(this.relationFace(doc, selfName, selfSrc, selfFocus, "mn-codex__rel-who--self"));
@@ -4284,10 +4388,14 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       const note = this.asText(person.relation).trim();
       if (note) { const span = doc.createElement("span"); span.className = "mn-codex__rel-note"; span.textContent = note; link.appendChild(span); }
       pair.appendChild(link);
-      pair.appendChild(this.relationFace(doc, name, this.relationPortrait(name, person, sourcePath), "", "mn-codex__rel-who--other"));
+      const other = this.relationFace(doc, name, this.relationPortrait(name, person, sourcePath), "", "mn-codex__rel-who--other", "button");
+      other.type = "button";
+      other.title = `${name} · ${hasNote ? "눌러서 인물 노트 열기" : "인물 노트 없음"}`;
+      other.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); openPerson(name, event); });
+      pair.appendChild(other);
       const body = doc.createElement("div");
       body.className = "mn-codex__rel-body";
-      card.append(kicker, title, pair, body);
+      card.append(kicker, title, open, pair, body);
       detail.appendChild(card);
       await this.renderMarkdown(person.content || "", body, sourcePath, component);
       cards.push(card);
@@ -4297,7 +4405,18 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       lines.forEach((line, i) => line.classList.toggle("is-active", i === index));
       cards.forEach((card, i) => { card.hidden = i !== index; });
     };
-    buttons.forEach((button, i) => button.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); select(i); }));
+    // 마우스를 올리면 오른쪽에 그 사람 글, 누르면 인물 노트 열기. 터치는 첫 번째로 글, 두 번째로 열기
+    buttons.forEach((button, i) => {
+      const name = this.asText(people[i].title).trim();
+      button.addEventListener("pointerenter", (event) => { if (event.pointerType === "mouse") select(i); });
+      button.addEventListener("focus", () => { if (button.matches(":focus-visible")) select(i); });
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (button.classList.contains("is-active")) openPerson(name, event);
+        else select(i);
+      });
+    });
     select(0);
 
     // 쪽에 놓인 뒤 실제 크기로 다시 놓기: 판 = 「RELATIONS」 줄 아래 ~ 쪽 글 칸 바닥, 가운데에서 동그라미가 판 밖으로 안 나가는 반지름
