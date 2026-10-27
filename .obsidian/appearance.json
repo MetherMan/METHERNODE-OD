@@ -1,1 +1,6 @@
-{}
+{
+  "enabledCssSnippets": [
+    "mn-codex-obsidian-compat",
+    "mn-codex-fullpage"
+  ]
+}

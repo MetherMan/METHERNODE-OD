@@ -19,6 +19,7 @@ const ORG_TYPE = 'mn-orgchart'; // 조직도 (조직을 놓고 선으로 이어 
 const ORG_PAGE = '.도구/창/org/index.html';
 const ORG_FILES = /^The Archive - 자료\/[^/]+\.조직도\.json$/; // 조직도 저장본
 const ORG_NOTES = /^The Main - 지리\/.+\.md$/; // 「노트로 정리」가 쓰는 노트
+const PERSON_NOTES = /^The Main - 인물\/.+\.md$/; // 조직도 인물 카드의 「노트 열기」 (열기만, 쓰지 않음)
 /** 노트 맨 위 「키: 값」 속성만 빠르게 (방금 만든 노트는 옵시디언 속성 캐시가 아직 비어 있어서) */
 function quickFm(text) {
   const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text || '');
@@ -2251,7 +2252,7 @@ class StoryView extends ItemView {
         }
         reply({ mn: 'note', id: m.id, ok });
       } else if (m.mn === 'open') {
-        if (this.canNote(m.path)) this.app.workspace.openLinkText?.(m.path, '', 'tab');
+        if ((this.canOpen || this.canNote)(m.path)) this.app.workspace.openLinkText?.(m.path, '', 'tab');
       } else if (m.mn === 'save') {
         if (!this.canSave(m.path) || typeof m.text !== 'string') return;
         try {
@@ -2278,6 +2279,7 @@ class OrgView extends StoryView {
     this.canRead = (p) => ORG_FILES.test(p) || ORG_NOTES.test(p);
     this.canSave = (p) => ORG_FILES.test(p);
     this.canNote = (p) => ORG_NOTES.test(p);
+    this.canOpen = (p) => ORG_NOTES.test(p) || PERSON_NOTES.test(p);
   }
 
   getViewType() {

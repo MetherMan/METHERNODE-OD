@@ -1,0 +1,161 @@
+/* Mely Reference Material Edition v0.7
+   Uses the user's supplied brush, blueprint, feather, and gothic line-art material. */
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely {
+  --me-paper: #f1f0eb;
+  --me-ink: #101314;
+  --me-frost: #96bbb9;
+  border-color: rgba(207,220,217,.62);
+  background: #111516;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely::before {
+  top: .03em;
+  left: .035em;
+  z-index: 4;
+  color: rgba(243,245,241,.1);
+  font-size: clamp(5rem,14cqi,10.8rem);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__book {
+  background:
+    linear-gradient(90deg,rgba(10,13,14,.08) 0 49.2%,rgba(244,243,238,.18) 50% 100%),
+    var(--mn-mely-reference-spread,url("assets/mely-reference-spread.webp")) center/cover no-repeat;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__book::before {
+  display: none;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__page--left {
+  background: linear-gradient(90deg,rgba(8,11,12,.76) 0 8px,transparent 8px),linear-gradient(135deg,rgba(10,13,14,.18),transparent 55%);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__page--right {
+  background: linear-gradient(90deg,rgba(246,244,239,.72),rgba(246,244,239,.9) 45%,rgba(246,244,239,.66));
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__page--left::after {
+  color: rgba(244,246,242,.13);
+  mix-blend-mode: screen;
+}
+
+/* Remove the invented symmetrical mark from the earlier draft. */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__page--right::after {
+  display: none;
+  background: none;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__page-frame--copy::after {
+  position: absolute;
+  right: -2.4rem;
+  bottom: -1.5rem;
+  left: auto;
+  z-index: 1;
+  display: block;
+  width: clamp(8rem,14cqi,12.5rem);
+  height: clamp(19rem,39cqi,31rem);
+  border: 0;
+  background: var(--mn-mely-ornament-vine,url("assets/mely-ornament-vine.webp")) center bottom/contain no-repeat;
+  content: "";
+  opacity: .16;
+  pointer-events: none;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__heading::before {
+  top: -10.2rem;
+  right: -1.4rem;
+  width: clamp(12rem,26cqi,22rem);
+  height: clamp(15rem,34cqi,28rem);
+  background: var(--mn-mely-wing-etching,url("assets/mely-wing-etching.webp")) center/contain no-repeat;
+  opacity: .13;
+  transform: rotate(1.5deg);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__copy::before {
+  top: -3.8rem;
+  left: 0;
+  width: 44%;
+  height: 1px;
+  color: transparent;
+  background: linear-gradient(90deg,var(--me-ink),transparent);
+  content: "";
+  opacity: .58;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book .mn-codex__art {
+  background: linear-gradient(145deg,rgba(9,12,13,.62),rgba(226,233,230,.14));
+  box-shadow: 19px 21px 0 rgba(8,11,12,.78),0 22px 52px rgba(0,0,0,.24);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book .mn-codex__art::before {
+  border-color: rgba(242,245,241,.62);
+  box-shadow: inset 0 0 0 1px rgba(14,18,19,.16);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book .mn-codex__art img {
+  filter: saturate(.82) contrast(1.08) drop-shadow(0 20px 24px rgba(0,0,0,.22));
+  mix-blend-mode: normal;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__art--fit-bleed img {
+  transform: translate(3%,-1%) scale(1.12);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book::before,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book figcaption {
+  color: rgba(247,248,244,.92);
+  text-shadow: 0 1px 8px rgba(0,0,0,.72);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book::after {
+  background: repeating-linear-gradient(90deg,rgba(245,247,243,.94) 0 1px,transparent 1px 3px,rgba(245,247,243,.94) 3px 5px,transparent 5px 8px);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__image-note {
+  color: #e5ece8;
+  border-left-color: rgba(236,242,238,.78);
+  background: rgba(10,14,15,.68);
+  backdrop-filter: blur(12px);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__image-note::before {
+  background: var(--me-frost);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__title {
+  color: #101314;
+  text-wrap: balance;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__prose {
+  color: #20292a;
+  background: linear-gradient(90deg,rgba(246,244,239,.28),transparent 82%);
+}
+
+@container (max-width:760px) {
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__book {
+    background-size: auto 50%;
+    background-position: center top;
+    background-repeat: repeat-y;
+  }
+
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__page--right {
+    background: rgba(246,244,239,.9);
+  }
+
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__page-frame--copy::after {
+    right: -3.2rem;
+    opacity: .11;
+  }
+
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__art--fit-bleed img {
+    transform: translate(1%,1%) scale(1.06);
+  }
+}
+
+@media (max-width:760px) {
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__page--right {
+    background: rgba(246,244,239,.9);
+  }
+}

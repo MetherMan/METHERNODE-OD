@@ -1,0 +1,84 @@
+/*
+ * MN Codex 전체 화면 인물 페이지 (실험실 2026-10-27)
+ * 노트 속성에 `cssclasses: [mn-codex-fullpage]` 를 넣으면 그 노트는 코덱스 지면이 창 전체 폭을 씀.
+ * - 읽기 화면: 노트 제목 · 속성 칸을 숨겨 지면만 보임
+ * - 편집 화면: 속성 칸은 보여서 고칠 수 있음 (지면 글은 지면 오른쪽 위 「✎ 글 고치기」로)
+ * - 표지와 넘긴 책장의 높이를 같게 해서 넘길 때 페이지가 출렁이지 않게
+ * 「읽기 쉬운 줄 길이」나 보정 조각(mn-codex-obsidian-compat)보다 먼저 먹도록 html body 로 시작함.
+ * 설정 > 모양 > CSS 조각에서 켜요.
+ */
+
+/* 줄 길이 · 바깥 여백을 이 노트에서만 없앰 (옵시디언이 쓰는 변수) */
+html body .mn-codex-fullpage {
+  --file-line-width: 100%;
+  --file-margins: 0;
+  --mn-cover-ratio: 1.5; /* 표지 가로:세로 (silver-knight 1536:1024) */
+}
+
+/* 읽기 화면 */
+html body .markdown-preview-view.mn-codex-fullpage { padding: 0 !important; }
+html body .markdown-preview-view.mn-codex-fullpage .markdown-preview-sizer {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 0 3rem !important;
+}
+html body .markdown-preview-view.mn-codex-fullpage .inline-title,
+html body .markdown-preview-view.mn-codex-fullpage .metadata-container,
+html body .markdown-preview-view.mn-codex-fullpage .markdown-preview-pusher,
+html body .markdown-preview-view.mn-codex-fullpage .mod-header { display: none !important; }
+
+/* 편집 화면 (실시간 미리보기) */
+html body .markdown-source-view.mod-cm6.mn-codex-fullpage .cm-scroller { padding: 0 !important; }
+html body .markdown-source-view.mod-cm6.mn-codex-fullpage .cm-sizer,
+html body .markdown-source-view.mod-cm6.mn-codex-fullpage .cm-contentContainer,
+html body .markdown-source-view.mod-cm6.mn-codex-fullpage .cm-content {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding-inline: 0 !important;
+}
+html body .markdown-source-view.mod-cm6.mn-codex-fullpage .inline-title { display: none !important; }
+html body .markdown-source-view.mod-cm6.mn-codex-fullpage .metadata-container { margin: .6rem clamp(18px, 4vw, 56px) !important; }
+html body .markdown-source-view.mod-cm6.mn-codex-fullpage .cm-line { padding-inline: clamp(18px, 4vw, 56px) !important; }
+html body .markdown-source-view.mod-cm6.mn-codex-fullpage .cm-embed-block.cm-lang-mn-codex { padding: 0 !important; margin: 0 !important; }
+/* 블록 위에 마우스를 올리면 옵시디언이 띄우는 「</>」 편집 단추는 「✎ 글 고치기」와 겹치지 않게 왼쪽 위로 */
+html body .markdown-source-view.mod-cm6.mn-codex-fullpage .cm-embed-block.cm-lang-mn-codex .edit-block-button { left: .6rem; right: auto; }
+
+/* 지면: 테두리 · 둥근 모서리 · 바깥 그림자 없이 창 폭 가득 */
+html body .mn-codex-fullpage .block-language-mn-codex,
+html body .mn-codex-fullpage .mn-codex-host { margin: 0 !important; padding: 0 !important; max-width: none !important; border: 0 !important; }
+html body .mn-codex-fullpage .mn-codex.mn-codex--spread {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* 넘긴 책장: 오른쪽에 책갈피 자리, 높이는 표지와 같게 */
+html body .mn-codex-fullpage .mn-codex-host--inline-book { padding-right: 8.8rem !important; box-sizing: border-box; }
+html body .mn-codex-fullpage .mn-codex-host--inline-book > .mn-codex {
+  min-height: calc((100cqi + 8.8rem) / var(--mn-cover-ratio));
+}
+/* 책 몸통 높이 = 표지 높이 − 위 탭 줄 · 아래 쪽 고르기 줄(약 124px). 원래는 650~820px 사이라 창 폭마다 표지와 어긋났음.
+   다만 650px 보다 낮으면 오른쪽 쪽 글이 잘려서, 창 폭이 약 1160px 보다 좁을 때만 책장이 표지보다 조금 길어짐 */
+html body .mn-codex-fullpage .mn-codex--layout-book .mn-codex__book-track {
+  height: max(650px, calc((100cqi + 8.8rem) / var(--mn-cover-ratio) - 124px)) !important;
+  min-height: 650px !important;
+}
+
+/* 지면 아래 글(접는 상자 등)은 가운데 읽기 폭으로 */
+html body .markdown-preview-view.mn-codex-fullpage .markdown-preview-sizer > div:not(.mn-codex-host):not(:has(.mn-codex-host)) {
+  max-width: 1100px;
+  margin-inline: auto;
+  padding-inline: clamp(18px, 4vw, 56px);
+}
+
+/* 책갈피를 안 쓰는 캐릭터 전용 책장(silver-knight)은 오른쪽 자리 없이 창 폭 가득. 아래 조작 띠도 없어서(쪽 번호는 위 탭 줄) 탭 줄 48px 만 뺌 */
+html body .mn-codex-fullpage .mn-codex-host--inline-book.mn-codex-host--variant-silver-knight { padding-right: 0 !important; }
+html body .mn-codex-fullpage .mn-codex-host--variant-silver-knight > .mn-codex { min-height: calc(100cqi / var(--mn-cover-ratio)); }
+html body .mn-codex-fullpage .mn-codex-host--variant-silver-knight .mn-codex--layout-book .mn-codex__book-track {
+  height: max(650px, calc(100cqi / var(--mn-cover-ratio) - 48px)) !important;
+}

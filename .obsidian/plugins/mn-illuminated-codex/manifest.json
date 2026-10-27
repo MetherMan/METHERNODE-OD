@@ -1,0 +1,9 @@
+{
+  "id": "mn-illuminated-codex",
+  "name": "MN Illuminated Codex",
+  "version": "1.15.0",
+  "minAppVersion": "1.5.0",
+  "description": "Illustrated offline compendium layouts for the Merranoder vault.",
+  "author": "MN Project",
+  "isDesktopOnly": false
+}

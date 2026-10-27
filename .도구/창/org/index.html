@@ -41,6 +41,16 @@
   .node.sel { box-shadow: 0 0 0 2.5px var(--accent), 0 3px 12px rgba(60,35,15,0.25); }
   .node.target { box-shadow: 0 0 0 3.5px rgba(168,72,47,0.6), 0 3px 12px rgba(60,35,15,0.25); }
   .node.dim { opacity: 0.32; }
+  .node .pic { display: none; }
+  /* 인물 카드: 둥근 모서리 · 초상 동그라미(테두리 색 = 상태) · 조직 카드보다 서늘한 종이 */
+  .node.person { display: flex; align-items: center; gap: 9px; min-width: 120px; padding: 6px 18px 7px 7px; border-radius: 28px; background: #f4f2ec; border-color: rgba(70,80,105,0.55); }
+  .node.person::before { display: none; }
+  .node.person .pic { display: block; width: 42px; height: 42px; flex: none; border-radius: 50%; background: #d9d3c6 center / cover no-repeat; box-shadow: 0 0 0 2.5px var(--st); }
+  .node.person .tx { min-width: 0; }
+  /* 조직 카드에 확정된 세력 심볼(메달)이 있으면 이름 왼쪽에 */
+  .node.sym { display: flex; align-items: center; gap: 10px; max-width: 300px; padding-left: 14px; }
+  .node.sym .pic { display: block; width: 42px; height: 42px; flex: none; background: center / contain no-repeat; filter: drop-shadow(0 1px 2px rgba(60,35,15,0.3)); }
+  .node.sym .tx { min-width: 0; }
   /* 잇기 고리: 끌어서 다른 카드에 놓으면 선이 이어짐 */
   .knob { position: absolute; right: -10px; top: 50%; width: 18px; height: 18px; margin-top: -9px; border-radius: 50%; box-sizing: border-box;
     background: var(--paper); border: 2px solid var(--accent); cursor: crosshair; opacity: 0; transition: opacity 0.15s, transform 0.15s; }
@@ -132,6 +142,7 @@
 <div id="bar">
   <h1>라하니아 조직도</h1>
   <button class="btn" id="b-add" title="새 조직 카드 (빈 곳을 두 번 눌러도 돼요)">＋ 조직</button>
+  <button class="btn" id="b-addp" title="새 인물 카드 (조직과 선으로 이어 소속 · 관계를 적어요)">＋ 인물</button>
   <button class="btn" id="b-src" title="원문 조각 · 작가 확정에 적힌 연결을 아직 없는 것만 더해요">자료에 있는 연결 불러오기</button>
   <span class="zoomset">
     <button class="btn" id="b-zoom" title="돋보기 (Z) — 좌우로 끌면 확대 · 축소, 누르면 확대, Alt 누르고 누르면 축소">돋보기</button>
@@ -145,7 +156,7 @@
   <button class="btn main" id="b-note" title="이은 관계를 「라하니아 조직 정리」 노트로 써요 (라하니아 정보로 옮길 때 씀)">노트로 정리</button>
   <span id="saved"></span>
 </div>
-<div id="hint">카드를 끌면 옮겨요 · 카드 오른쪽 <b>고리</b>를 끌어 다른 카드에 놓으면 선이 이어지고 종류를 골라요 (빈 곳에 놓으면 새 조직과 이어요) · 선이나 이름표를 누르면 고쳐요 · 빈 곳 두 번 누르기: 새 조직 · 빈 곳 끌기: 화면 옮기기 · <b>오른쪽 단추 누른 채 좌우</b>: 확대 · 축소 (돋보기 Z, + − 0 글쇠도) · <b>카드 · 선 · 빈 곳 우클릭</b>: 메뉴 (지우기 · 잇기 · 상태 …) · Delete 지우기 · Ctrl+Z 되돌리기</div>
+<div id="hint">카드를 끌면 옮겨요 · <b>둥근 카드 = 인물</b> (우클릭 → 노트 열기) ·카드 오른쪽 <b>고리</b>를 끌어 다른 카드에 놓으면 선이 이어지고 종류를 골라요 (빈 곳에 놓으면 새 조직과 이어요) · 선이나 이름표를 누르면 고쳐요 · 빈 곳 두 번 누르기: 새 조직 · 빈 곳 끌기: 화면 옮기기 · <b>오른쪽 단추 누른 채 좌우</b>: 확대 · 축소 (돋보기 Z, + − 0 글쇠도) · <b>카드 · 선 · 빈 곳 우클릭</b>: 메뉴 (지우기 · 잇기 · 상태 …) · Delete 지우기 · Ctrl+Z 되돌리기</div>
 <div id="side">
   <h2>관계 종류</h2>
   <div class="types" id="types"></div>
@@ -269,7 +280,37 @@ const SOURCE_EDGES = [
   ['keishon', 'three', '이송', '회의 중', '판결은 3인 앞에서, 기사는 이송 (회의 제안)'],
 ];
 
-let D = null; // { version, types: [{ name, color }], nodes: [{ id, name, role, status, memo, x, y }], edges: [{ id, from, to, type, status, memo, both }] }
+let D = null; // { version, types: [{ name, color }], nodes: [{ id, name, role, status, memo, x, y, kind?, note?, pic?, sym? }], edges: [{ id, from, to, type, status, memo, both }] }
+// 인물 카드: kind '인물', note = 인물 노트 경로(The Main - 인물/…), pic = 초상 그림 경로(보관소 기준). kind 가 없으면 조직
+const isPerson = (n) => n?.kind === '인물';
+const what = (n) => (isPerson(n) ? '인물' : '조직');
+/** 보관소 그림 주소: 세계판 창은 서버(/vault), 옵시디언 액자는 <base>(.도구/창/org/) 에서 보관소 맨 위로 */
+const picUrl = (p) => (OBS ? '../../../' + p.split('/').map(encodeURIComponent).join('/') : vurl(p));
+// 세력 심볼: 작가가 고른 것만 「The Archive - 자료/기호/세력/<이름> (메달).png」에 있음.
+// 조직 이름 앞부분(「 / …」 · 「 (…)」 뺀 것)과 같은 이름의 메달이 있으면 카드에 띄움. 옆 칸에서 다른 그림으로 바꾸거나 「없음」으로 끌 수 있음(n.sym)
+const SYM_DIR = 'The Archive - 자료/기호/세력/';
+const symName = (n) => (n.name || '').split(' / ')[0].replace(/\s*\(.*\)\s*$/, '').trim();
+const symAuto = (n) => (symName(n) ? `${SYM_DIR}${symName(n)} (메달).png` : '');
+const symPath = (n) => (isPerson(n) || n.sym === '없음' ? '' : n.sym || symAuto(n));
+const symOk = new Map(); // 그림 경로 → true 있음 · false 없음 · null 재는 중
+/** 그림이 있는지 한 번만 불러 봄. 다 불러오면 판을 다시 그림(없는 그림 때문에 카드 크기가 흔들리지 않게, 있을 때만 메달 자리를 냄) */
+function symReady(p) {
+  if (!p) return false;
+  if (!symOk.has(p)) {
+    symOk.set(p, null);
+    const img = new Image();
+    img.onload = () => { symOk.set(p, true); draw(); };
+    img.onerror = () => { symOk.set(p, false); };
+    img.src = picUrl(p);
+  }
+  return symOk.get(p) === true;
+}
+/** 인물 노트 열기: 옵시디언에선 플러그인에 부탁, 세계판 창에선 옵시디언 주소로 */
+function openNote(p) {
+  if (!p) return;
+  if (OBS) parent.postMessage({ mn: 'open', path: p }, '*');
+  else open('obsidian://open?vault=' + encodeURIComponent('MN 실험실') + '&file=' + encodeURIComponent(p.replace(/\.md$/, '')));
+}
 let sel = null; // { kind: 'node' | 'edge', id }
 let filter = null; // 또렷하게 볼 관계 종류
 let hover = null; // 마우스를 올린 조직
@@ -471,13 +512,20 @@ function draw() {
     let e = nodeEls.get(n.id);
     if (!e) {
       e = el('div', 'node', nodesEl);
-      el('div', 'nm', e);
-      el('div', 'rl', e);
-      el('div', 'knob', e).title = '끌어서 다른 조직에 놓으면 이어져요';
+      el('div', 'pic', e);
+      const tx = el('div', 'tx', e);
+      el('div', 'nm', tx);
+      el('div', 'rl', tx);
+      el('div', 'knob', e).title = '끌어서 다른 카드에 놓으면 이어져요';
       e.dataset.id = n.id;
       nodeEls.set(n.id, e);
     }
-    e.querySelector('.nm').textContent = n.name || '이름 없는 조직';
+    e.classList.toggle('person', isPerson(n));
+    const sp = symPath(n), hasSym = symReady(sp);
+    e.classList.toggle('sym', hasSym);
+    const pic = e.querySelector('.pic'), bg = isPerson(n) && n.pic ? `url("${picUrl(n.pic)}")` : hasSym ? `url("${picUrl(sp)}")` : '';
+    if (pic.dataset.bg !== bg) { pic.style.backgroundImage = bg; pic.dataset.bg = bg; }
+    e.querySelector('.nm').textContent = n.name || `이름 없는 ${what(n)}`;
     e.querySelector('.rl').textContent = n.role || '';
     e.querySelector('.rl').style.display = n.role ? '' : 'none';
     e.style.setProperty('--st', stColor(n.status));
@@ -608,7 +656,7 @@ function drawSide() {
   if (sel.kind === 'node') {
     const n = nodeById(sel.id);
     const nm = field(ed, '이름', n.name, (v) => { n.name = v; });
-    field(ed, '한 줄 역할', n.role, (v) => { n.role = v; });
+    field(ed, isPerson(n) ? '이명 · 한 줄' : '한 줄 역할', n.role, (v) => { n.role = v; });
     el('label', '', ed, '상태');
     chips(ed, STATUS.map((s) => s[0]), n.status, (s) => { remember(); n.status = s; changed(); drawSide(); }, stColor);
     field(ed, '메모 · 출처', n.memo, (v) => { n.memo = v; }, true);
@@ -621,8 +669,18 @@ function drawSide() {
       row.style.cursor = 'pointer';
       row.onclick = () => select({ kind: 'edge', id: e.id });
     }
+    if (isPerson(n)) {
+      field(ed, '인물 노트 (보관소 경로)', n.note, (v) => { n.note = v.trim(); });
+      field(ed, '초상 그림 (보관소 경로)', n.pic, (v) => { n.pic = v.trim(); });
+    } else {
+      const sf = field(ed, '세력 심볼 (보관소 경로)', n.sym, (v) => { n.sym = v.trim(); if (!n.sym) delete n.sym; });
+      sf.placeholder = symAuto(n) || '이름이 비었어요';
+      const auto = symAuto(n), st = n.sym === '없음' ? '안 띄움' : n.sym ? (symOk.get(n.sym) === false ? '그 경로에 그림이 없어요' : '직접 고른 그림') : symOk.get(auto) ? '이름이 같은 확정 심볼을 띄우는 중' : '이름이 같은 확정 심볼이 아직 없어요';
+      el('div', 'muted', ed, `${st} · 비워 두면 이름으로 찾고, 「없음」이라 적으면 안 띄워요.`);
+    }
     const row = el('div', 'row', ed);
-    const del = el('button', 'btn del', row, '조직 지우기');
+    if (isPerson(n) && n.note) el('button', 'btn', row, '노트 열기').onclick = () => openNote(n.note);
+    const del = el('button', 'btn del', row, `${what(n)} 지우기`);
     del.onclick = () => removeSel();
     if (sel.fresh) { nm.focus(); nm.select(); sel.fresh = false; }
     return;
@@ -667,7 +725,7 @@ function removeNode(id) {
   const k = D.edges.filter((e) => e.from === id || e.to === id).length;
   D.nodes = D.nodes.filter((x) => x.id !== id);
   D.edges = D.edges.filter((e) => e.from !== id && e.to !== id);
-  afterRemove(`「${n.name || '이름 없는 조직'}」을 지웠어요${k ? ` (이어진 선 ${k}개도)` : ''}`);
+  afterRemove(`「${n.name || `이름 없는 ${what(n)}`}」을 지웠어요${k ? ` (이어진 선 ${k}개도)` : ''}`);
 }
 function removeEdge(id) {
   const e = edgeById(id);
@@ -715,9 +773,10 @@ function openCtx(cx, cy, d) {
   const n = d.node && nodeById(d.node), e = !n && d.edge && edgeById(d.edge);
   if (n) {
     const k = D.edges.filter((x) => x.from === n.id || x.to === n.id).length;
-    el('div', 'cx-h', ctx, n.name || '이름 없는 조직');
-    item('이름 · 역할 고치기', () => { sel = { kind: 'node', id: n.id, fresh: true }; draw(); drawSide(); });
-    item('다른 조직과 잇기', () => startClickLink(n.id, cx, cy));
+    el('div', 'cx-h', ctx, n.name || `이름 없는 ${what(n)}`);
+    if (isPerson(n) && n.note) item('노트 열기', () => openNote(n.note));
+    item(isPerson(n) ? '이름 · 이명 고치기' : '이름 · 역할 고치기', () => { sel = { kind: 'node', id: n.id, fresh: true }; draw(); drawSide(); });
+    item('다른 카드와 잇기', () => startClickLink(n.id, cx, cy));
     statusRow(n.status, (s) => { n.status = s; });
     item('복제', () => { remember(); const c = { ...n, id: uid('n'), name: n.name + ' (사본)', x: n.x + 30, y: n.y + 30 }; D.nodes.push(c); changed(); select({ kind: 'node', id: c.id }); });
     el('div', 'cx-s', ctx);
@@ -735,6 +794,7 @@ function openCtx(cx, cy, d) {
     const at = toWorld(cx, cy), r = board.getBoundingClientRect();
     el('div', 'cx-h', ctx, '판');
     item('여기에 새 조직', () => addNode(at[0], at[1]));
+    item('여기에 새 인물', () => addNode(at[0], at[1], '인물'));
     item('자료에 있는 연결 불러오기', () => $('#b-src').click());
     item('전체 보기', fit);
     item('100%로 보기', () => zoomAt(1, cx - r.left, cy - r.top));
@@ -936,9 +996,10 @@ board.addEventListener('wheel', (ev) => {
   const r = board.getBoundingClientRect();
   zoomAt(view.k * Math.exp(-ev.deltaY * 0.0015), ev.clientX - r.left, ev.clientY - r.top);
 }, { passive: false });
-function addNode(x, y) {
+function addNode(x, y, kind) {
   remember();
-  const n = { id: uid('n'), name: '새 조직', role: '', status: '미정', memo: '', x: Math.round(x - 70), y: Math.round(y - 22) };
+  const n = { id: uid('n'), name: kind === '인물' ? '새 인물' : '새 조직', role: '', status: '미정', memo: '', x: Math.round(x - 70), y: Math.round(y - 22) };
+  if (kind === '인물') Object.assign(n, { kind, note: '', pic: '' });
   D.nodes.push(n);
   changed();
   sel = { kind: 'node', id: n.id, fresh: true };
@@ -958,7 +1019,9 @@ function fit() {
 }
 
 // ---------- 단추 · 글쇠 ----------
-$('#b-add').onclick = () => { const [x, y] = toWorld(board.getBoundingClientRect().left + board.clientWidth / 2, board.getBoundingClientRect().top + board.clientHeight / 2); addNode(x, y); };
+const mid = () => toWorld(board.getBoundingClientRect().left + board.clientWidth / 2, board.getBoundingClientRect().top + board.clientHeight / 2);
+$('#b-add').onclick = () => addNode(...mid());
+$('#b-addp').onclick = () => addNode(...mid(), '인물');
 $('#b-fit').onclick = fit;
 $('#b-zoom').onclick = () => setTool(tool === 'zoom' ? 'select' : 'zoom');
 $('#b-zin').onclick = () => zoomAt(view.k * 1.25);
@@ -1014,10 +1077,14 @@ function noteText() {
   let s = fm + '# 라하니아 조직 정리\n\n';
   s += '> [!info] 「라하니아 조직도」 화면에서 놓고 이은 것을 그대로 옮긴 글이에요. 화면에서 고친 뒤 **노트로 정리**를 다시 누르면 새로 써져요(이 노트를 직접 고치면 그때 덮여요).\n';
   s += '> 상태: 작가 확정 · 원문 조각 · 회의 중 · 미정. 화살표는 화면의 선 방향 그대로예요.\n\n';
-  s += '## 조직\n';
-  for (const n of [...D.nodes].sort((a, b) => a.y - b.y || a.x - b.x)) {
-    s += `\n### ${n.name || '이름 없는 조직'}\n- 상태: ${n.status || '미정'}\n`;
-    if (n.role) s += `- 역할: ${n.role}\n`;
+  const sorted = [...D.nodes].sort((a, b) => a.y - b.y || a.x - b.x);
+  for (const [head, list] of [['조직', sorted.filter((n) => !isPerson(n))], ['인물', sorted.filter(isPerson)]]) {
+  if (!list.length) continue;
+  s += `${head === '인물' ? '\n' : ''}## ${head}\n`;
+  for (const n of list) {
+    s += `\n### ${n.name || `이름 없는 ${what(n)}`}\n- 상태: ${n.status || '미정'}\n`;
+    if (isPerson(n) && n.note) s += `- 노트: [[${n.note.replace(/\.md$/, '')}|${n.name}]]\n`;
+    if (n.role) s += `- ${isPerson(n) ? '이명' : '역할'}: ${n.role}\n`;
     const out = D.edges.filter((e) => e.from === n.id), inn = D.edges.filter((e) => e.to === n.id);
     if (out.length || inn.length) {
       s += '- 관계\n';
@@ -1025,6 +1092,7 @@ function noteText() {
       for (const e of inn) s += `  - ${e.both ? '↔' : '←'} ${name(e.from)} : ${e.type || '종류 미정'} (${e.status})${e.memo ? ' — ' + e.memo : ''}\n`;
     }
     if (n.memo) s += `- 메모: ${n.memo.replace(/\n+/g, ' ')}\n`;
+  }
   }
   s += '\n## 관계 종류별\n';
   const types = [...D.types.map((t) => t.name), ''];
@@ -1035,7 +1103,7 @@ function noteText() {
     for (const e of es) s += `- ${name(e.from)} ${e.both ? '↔' : '→'} ${name(e.to)} (${e.status})${e.memo ? ' — ' + e.memo : ''}\n`;
   }
   const lone = D.nodes.filter((n) => !D.edges.some((e) => e.from === n.id || e.to === n.id));
-  if (lone.length) s += `\n## 아직 이어지지 않은 조직\n${lone.map((n) => `- ${n.name}`).join('\n')}\n`;
+  if (lone.length) s += `\n## 아직 이어지지 않은 카드\n${lone.map((n) => `- ${n.name}${isPerson(n) ? ' (인물)' : ''}`).join('\n')}\n`;
   return s;
 }
 $('#b-note').onclick = async () => {

@@ -1,0 +1,226 @@
+/* Mely Angled Editorial Layout v0.8
+   Controlled asymmetry: rotate frames and labels, never leak images outside the page. */
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__book {
+  overflow: hidden;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__page {
+  overflow: hidden;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__page-frame--image {
+  overflow: visible;
+  padding-inline: clamp(2.2rem,4.3cqi,3.7rem);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book {
+  position: relative;
+  z-index: 7;
+  width: 93%;
+  max-width: 100%;
+  margin-inline: auto;
+  overflow: visible;
+  isolation: isolate;
+}
+
+/* Offset backing plate. It rotates independently from the picture frame. */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book::after {
+  position: absolute;
+  inset: .9rem -1rem 2.65rem 1.1rem;
+  z-index: -1;
+  display: block;
+  width: auto;
+  height: auto;
+  background:
+    linear-gradient(90deg,rgba(150,190,187,.82) 0 5px,transparent 5px),
+    rgba(8,11,12,.86);
+  content: "";
+  opacity: 1;
+  transform: rotate(1.65deg);
+  transform-origin: center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book::before {
+  top: -1.9rem;
+  left: -.45rem;
+  padding: .35rem .68rem;
+  color: #f5f6f2;
+  background: #0c0f10;
+  text-shadow: none;
+  transform: rotate(-1.2deg);
+  transform-origin: left center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book .mn-codex__art {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  clip-path: polygon(2.2% 0,100% 2.7%,97.6% 100%,0 96.8%);
+  box-shadow: 0 24px 46px rgba(0,0,0,.28);
+  contain: paint;
+  transform: rotate(-1.35deg);
+  transform-origin: center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book .mn-codex__art::before {
+  inset: 14px 16px 17px 13px;
+  border-color: rgba(245,247,243,.66);
+  clip-path: polygon(1.5% 0,100% 2%,98.3% 100%,0 97.7%);
+}
+
+/* Every image mode is physically clipped by the rotated art board. */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__art--fit-contain,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__art--fit-cover,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__art--fit-bleed {
+  overflow: hidden;
+  contain: paint;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book .mn-codex__art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__art--fit-contain img {
+  padding: clamp(.8rem,1.8cqi,1.25rem);
+  object-fit: contain;
+  transform: none;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__art--fit-cover img {
+  padding: 0;
+  object-fit: cover;
+  transform: none;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__art--fit-bleed img {
+  padding: 0;
+  object-fit: contain;
+  transform: scale(1.045) translate(.5%,.3%);
+  transform-origin: center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book figcaption {
+  z-index: 10;
+  display: table;
+  max-width: 88%;
+  margin: .3rem 0 0 -.2rem;
+  padding: .42rem .78rem .4rem 1.75rem;
+  color: #f3f5f1;
+  background: rgba(9,12,13,.92);
+  text-shadow: none;
+  transform: rotate(-.72deg);
+  transform-origin: left center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book figcaption::before {
+  left: .7rem;
+  background: var(--me-frost);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__image-note {
+  width: 68%;
+  max-width: calc(100% - 2rem);
+  margin-top: 1.6rem;
+  margin-right: 1.2rem;
+  transform: rotate(.62deg);
+  transform-origin: right center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__copy {
+  max-width: 100%;
+  overflow: visible;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__heading {
+  max-width: 100%;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__eyebrow {
+  transform: rotate(-1.35deg);
+  transform-origin: left center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__title-row {
+  max-width: 100%;
+  transform: rotate(-.62deg);
+  transform-origin: left center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__title {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__subtitle {
+  display: table;
+  transform: rotate(.35deg);
+  transform-origin: left center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__prose {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__copy::after {
+  transform: rotate(1.2deg);
+  transform-origin: center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__book::after {
+  transform: rotate(-1deg);
+  transform-origin: center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely::after {
+  transform: rotate(.8deg);
+  transform-origin: right center;
+}
+
+@container (max-width:760px) {
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__page-frame--image {
+    overflow: visible;
+    padding-inline: clamp(1.7rem,7cqi,2.5rem);
+  }
+
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book {
+    width: 91%;
+  }
+
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book::after {
+    inset: .65rem -.65rem 2.4rem .75rem;
+    transform: rotate(1.05deg);
+  }
+
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book .mn-codex__art {
+    transform: rotate(-.75deg);
+  }
+
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__art--fit-bleed img {
+    transform: scale(1.025);
+  }
+
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__image-note {
+    width: 72%;
+    margin-right: .6rem;
+    transform: rotate(.38deg);
+  }
+
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__title-row {
+    transform: rotate(-.38deg);
+  }
+}
+
+@media (max-width:760px) {
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__figure--book { width: 91%; }
+  body .mn-codex.mn-codex--spread.mn-codex--theme-mely .mn-codex__art--fit-bleed img { transform: scale(1.025); }
+}

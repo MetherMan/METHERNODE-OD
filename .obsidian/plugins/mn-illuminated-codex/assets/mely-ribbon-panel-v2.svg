@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1552 1014" preserveAspectRatio="none">
+  <defs>
+    <filter id="paper" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="17" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="mono"/>
+      <feComponentTransfer in="mono" result="softNoise">
+        <feFuncA type="table" tableValues="0 0.045"/>
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="softNoise" mode="multiply"/>
+    </filter>
+  </defs>
+  <!-- Erase the older, too-high title plate baked into the chrome. -->
+  <polygon points="1012,40 1552,40 1552,353 891,353" fill="#050607"/>
+  <!-- Reference-accurate live-title plate. -->
+  <polygon points="1058,78 1552,78 1526,355 903,355" fill="#f4f1ea" filter="url(#paper)"/>
+  <path d="M1511 79L1511 336M1493 79L1322 355" fill="none" stroke="#b28f4c" stroke-width="1" opacity=".72"/>
+</svg>

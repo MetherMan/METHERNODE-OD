@@ -1,0 +1,1378 @@
+/* MN Illuminated Codex book-layout development reference.
+ * Obsidian loads the runtime-canonical copy from styles.css. */
+
+/* Flow mode keeps the original composition but lets the tallest page define the height. */
+body .mn-codex.mn-codex--spread.mn-codex--layout-flow .mn-codex__book {
+  align-items: stretch;
+  height: auto;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--layout-flow .mn-codex__page,
+body .mn-codex.mn-codex--spread.mn-codex--layout-flow .mn-codex__page-frame {
+  height: auto;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--layout-flow .mn-codex__page-frame--copy {
+  overflow: visible;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--layout-flow .mn-codex__copy,
+body .mn-codex.mn-codex--spread.mn-codex--layout-flow .mn-codex__prose {
+  max-height: none;
+  overflow: visible;
+}
+
+/* Reader shell */
+body .mn-codex.mn-codex--spread.mn-codex--layout-book {
+  overflow: visible;
+  padding-top: 3rem;
+  padding-bottom: 4.7rem;
+  outline: none;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--layout-book:focus-visible {
+  box-shadow: 0 0 0 2px rgba(150,187,185,.82),0 38px 90px rgba(6,10,12,.42);
+}
+
+body .mn-codex--layout-book .mn-codex__reader {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+}
+
+body .mn-codex--layout-book .mn-codex__book-track {
+  position: relative;
+  width: 100%;
+  height: clamp(650px,61cqi,820px);
+  min-height: 650px;
+  perspective: 1800px;
+  isolation: isolate;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--layout-book .mn-codex__book--turn {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(6%) rotateY(-3deg) scale(.985);
+  transform-origin: left center;
+  transition: opacity .28s ease,transform .44s cubic-bezier(.2,.75,.2,1),filter .4s ease;
+  will-change: opacity,transform;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--layout-book .mn-codex__book--turn.is-active {
+  z-index: 4;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0) rotateY(0) scale(1);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--layout-book .mn-codex__book--turn.is-before {
+  z-index: 2;
+  opacity: 0;
+  transform: translateX(-7%) rotateY(3.5deg) scale(.982);
+  transform-origin: right center;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--layout-book .mn-codex__book--turn.is-after {
+  z-index: 1;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--layout-book .mn-codex__book--turn.mn-codex__book--unused {
+  display: none;
+}
+
+body .mn-codex--layout-book .mn-codex__book--turn .mn-codex__page,
+body .mn-codex--layout-book .mn-codex__book--turn .mn-codex__page-frame {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+}
+
+body .mn-codex--layout-book .mn-codex__book--turn .mn-codex__page-frame--copy {
+  overflow: hidden;
+  justify-content: flex-start;
+}
+
+body .mn-codex--layout-book .mn-codex__copy {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body .mn-codex--layout-book .mn-codex__sticker {
+  position: absolute;
+  top: var(--mn-sticker-y,50%);
+  left: var(--mn-sticker-x,75%);
+  z-index: var(--mn-sticker-z,16);
+  display: block;
+  width: var(--mn-sticker-width,18%);
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  opacity: var(--mn-sticker-opacity,1);
+  border: 0;
+  background: transparent;
+  filter: drop-shadow(0 .18rem .24rem rgba(17,21,22,.1));
+  pointer-events: none;
+  transform: translate(-50%,-50%) rotate(var(--mn-sticker-rotate,0deg)) scaleX(var(--mn-sticker-flip,1));
+  transform-origin: center;
+}
+
+body .mn-codex--layout-book .mn-codex__sticker--flip { --mn-sticker-flip: -1; }
+
+body .mn-codex--layout-book .mn-codex__sticker img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  object-fit: contain;
+  filter: none;
+  mix-blend-mode: normal;
+}
+
+body .mn-codex--layout-book .mn-codex__heading,
+body .mn-codex--layout-book .mn-codex__continuation {
+  flex: 0 0 auto;
+}
+
+body .mn-codex--layout-book .mn-codex__prose--page {
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+body .mn-codex--layout-book .mn-codex__prose--page > :first-child {
+  margin-top: 0;
+}
+
+body .mn-codex--layout-book .mn-codex__prose--page > :last-child {
+  margin-bottom: 0;
+}
+
+/* Optional in-text plate: a small bestiary-style drawing beside the prose. */
+body .mn-codex--layout-book .mn-codex__book-illustration {
+  position: relative;
+  z-index: 2;
+  float: right;
+  clear: right;
+  width: 35%;
+  margin: .15rem 0 1.15rem 1.35rem;
+}
+
+body .mn-codex--layout-book .mn-codex__book-illustration--left {
+  float: left;
+  clear: left;
+  margin-right: 1.35rem;
+  margin-left: 0;
+}
+
+body .mn-codex--layout-book .mn-codex__book-illustration--small { width: 24%; }
+body .mn-codex--layout-book .mn-codex__book-illustration--large { width: 48%; }
+body .mn-codex--layout-book .mn-codex__book-illustration--wide {
+  float: none;
+  clear: both;
+  width: 100%;
+  margin: .25rem 0 1.25rem;
+}
+
+body .mn-codex--layout-book .mn-codex__book-illustration img {
+  display: block;
+  width: 100%;
+  max-height: clamp(10rem,23cqi,17rem);
+  object-fit: contain;
+  object-position: center;
+}
+
+body .mn-codex--layout-book .mn-codex__book-illustration--ink img {
+  opacity: .82;
+  filter: grayscale(1) sepia(.2) contrast(1.18);
+  mix-blend-mode: multiply;
+}
+
+body .mn-codex--layout-book .mn-codex__book-illustration figcaption {
+  margin-top: .45rem;
+  font: italic .62rem/1.45 "Noto Serif KR","Nanum Myeongjo",serif;
+  letter-spacing: .04em;
+  text-align: center;
+  opacity: .64;
+}
+
+body .mn-codex--layout-book .mn-codex__book-illustration-missing {
+  padding: 2rem .75rem;
+  border: 1px dashed currentColor;
+  font-size: .65rem;
+  letter-spacing: .08em;
+  text-align: center;
+  opacity: .55;
+}
+
+body .mn-codex--layout-book .mn-codex__prose--oversize {
+  padding-right: .55rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+body .mn-codex--layout-book .mn-codex__prose--oversize::-webkit-scrollbar {
+  width: 4px;
+}
+
+body .mn-codex--layout-book .mn-codex__prose--oversize::-webkit-scrollbar-thumb {
+  background: currentColor;
+  border-radius: 99px;
+  opacity: .34;
+}
+
+body .mn-codex--layout-book .mn-codex__page-break-marker {
+  display: none;
+}
+
+body .mn-codex--layout-book .mn-codex__continuation {
+  margin: 0 0 1.25rem;
+  padding: 0 0 .72rem;
+  border-bottom: 1px solid currentColor;
+  font: 800 .52rem/1.3 "Arial Narrow","Pretendard",sans-serif;
+  letter-spacing: .2em;
+  opacity: .62;
+}
+
+/* Mely chapter pages become pale research leaves after the visual opener. */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__book--turn {
+  grid-template-columns: minmax(0,.49fr) 1px minmax(0,.51fr);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__page-frame--copy {
+  padding-top: clamp(3.3rem,4.8cqi,4.4rem);
+  padding-bottom: clamp(3.7rem,5.5cqi,4.8rem);
+}
+
+/* With no image, the opening spread is two real writing leaves. */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-text-only
+  .mn-codex__book--turn:first-child .mn-codex__page-frame--copy {
+  padding-inline: clamp(2.8rem,5cqi,4.8rem);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-text-only
+  .mn-codex__book--turn:first-child {
+  background:
+    linear-gradient(90deg,rgba(246,244,239,.94),rgba(246,244,239,.99) 49.5%,rgba(229,236,233,.9) 50%,rgba(246,244,239,.96)),
+    var(--mn-mely-reference-spread,url("assets/mely-reference-spread.webp")) right center/cover no-repeat;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-text-only
+  .mn-codex__book--turn:first-child .mn-codex__page--left,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-text-only
+  .mn-codex__book--turn:first-child .mn-codex__page--right {
+  color: #101314;
+  background: linear-gradient(145deg,rgba(255,255,255,.72),rgba(241,240,235,.88));
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-text-only
+  .mn-codex__book--turn:first-child .mn-codex__page--left::after,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-text-only
+  .mn-codex__book--turn:first-child .mn-codex__page--right::after {
+  display: none;
+}
+
+/* Optional warm bestiary leaf. Archive remains the default Mely paper. */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-page-parchment
+  .mn-codex__book--turn {
+  background:
+    linear-gradient(90deg,rgba(116,78,39,.12),transparent 48.8%,rgba(79,50,25,.18) 50%,transparent 51.2%),
+    linear-gradient(90deg,#ddc797,#f0dfb7 48.8%,#d8bd85 50%,#ead5a7);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-page-parchment
+  .mn-codex__book--turn .mn-codex__page--left,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-page-parchment
+  .mn-codex__book--turn .mn-codex__page--right {
+  color: #30251a;
+  background:
+    radial-gradient(circle at 13% 17%,rgba(92,55,24,.13) 0 1px,transparent 1.6px),
+    radial-gradient(circle at 78% 66%,rgba(92,55,24,.09) 0 1px,transparent 1.8px),
+    repeating-linear-gradient(8deg,rgba(92,55,24,.024) 0 1px,transparent 1px 5px),
+    linear-gradient(145deg,rgba(250,239,209,.97),rgba(226,204,158,.96));
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-page-parchment
+  .mn-codex__page-frame {
+  border-color: rgba(92,55,24,.4);
+  box-shadow: inset 0 0 0 1px rgba(255,247,220,.4),inset 0 0 32px rgba(104,65,29,.08);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__book--continuation {
+  background:
+    linear-gradient(90deg,rgba(246,244,239,.9),rgba(246,244,239,.98) 49.5%,rgba(229,236,233,.88) 50%,rgba(246,244,239,.94)),
+    var(--mn-mely-reference-spread,url("assets/mely-reference-spread.webp")) right center/cover no-repeat;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__book--continuation .mn-codex__page--left,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__book--continuation .mn-codex__page--right {
+  color: #101314;
+  background: linear-gradient(145deg,rgba(255,255,255,.57),rgba(241,240,235,.77));
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__book--continuation .mn-codex__page--left::after,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__book--continuation .mn-codex__page--right::after {
+  display: none;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__book--continuation .mn-codex__page-frame {
+  padding-top: clamp(4.8rem,7cqi,6rem);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__book--continuation .mn-codex__page-frame--copy::after {
+  width: clamp(6rem,10cqi,9rem);
+  height: clamp(13rem,26cqi,22rem);
+  opacity: .09;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__copy--continuation::before {
+  top: -2.2rem;
+  width: 100%;
+  background: linear-gradient(90deg,#101314,transparent 62%);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__copy--continuation::after {
+  display: none;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__copy--continuation .mn-codex__prose {
+  margin-top: 0;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book .mn-codex__copy--continuation .mn-codex__prose p:first-child::first-letter {
+  float: none;
+  margin: 0;
+  font: inherit;
+}
+
+/* Page controls */
+body .mn-codex--layout-book .mn-codex__book-controls {
+  position: absolute;
+  right: clamp(1.2rem,3cqi,2.5rem);
+  bottom: .85rem;
+  left: clamp(1.2rem,3cqi,2.5rem);
+  z-index: 45;
+  display: grid;
+  grid-template-columns: minmax(8rem,1fr) auto minmax(8rem,1fr);
+  align-items: center;
+  gap: 1rem;
+  color: #f2f4f1;
+}
+
+body .mn-codex--layout-book .mn-codex__book-button {
+  min-height: 2.5rem;
+  margin: 0;
+  padding: .64rem .9rem;
+  color: #f2f4f1;
+  border: 1px solid rgba(242,244,241,.3);
+  border-radius: 0;
+  background: rgba(10,14,15,.88);
+  box-shadow: none;
+  font: 800 .56rem/1 "Arial Narrow","Pretendard",sans-serif;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  transition: color .2s ease,background .2s ease,transform .2s ease;
+}
+
+body .mn-codex--layout-book .mn-codex__book-button--previous {
+  justify-self: start;
+  text-align: left;
+}
+
+body .mn-codex--layout-book .mn-codex__book-button--previous::before {
+  margin-right: .75rem;
+  content: "‹";
+  color: #96bbb9;
+  font-size: 1.15rem;
+  vertical-align: -.08em;
+}
+
+body .mn-codex--layout-book .mn-codex__book-button--next {
+  justify-self: end;
+  text-align: right;
+}
+
+body .mn-codex--layout-book .mn-codex__book-button--next::after {
+  margin-left: .75rem;
+  content: "›";
+  color: #96bbb9;
+  font-size: 1.15rem;
+  vertical-align: -.08em;
+}
+
+body .mn-codex--layout-book .mn-codex__book-button:hover:not(:disabled),
+body .mn-codex--layout-book .mn-codex__book-button:focus-visible {
+  color: #101314;
+  background: #a9cbc8;
+  transform: translateY(-2px) rotate(-.35deg);
+}
+
+body .mn-codex--layout-book .mn-codex__book-button:disabled {
+  cursor: default;
+  opacity: .28;
+}
+
+body .mn-codex--layout-book .mn-codex__book-status {
+  position: relative;
+  min-width: 6.5rem;
+  padding: .65rem 1.2rem;
+  color: #101314;
+  background: #f2f1ec;
+  clip-path: polygon(7% 0,100% 4%,94% 100%,0 91%);
+  font: 700 .72rem/1 "MN Bodoni Moda",Didot,serif;
+  letter-spacing: .18em;
+  text-align: center;
+}
+
+/* Narrow panes and phones show one leaf at a time. */
+body .mn-codex--layout-book .mn-codex__reader--single .mn-codex__book-track {
+  height: clamp(690px,138cqi,850px);
+  min-height: 690px;
+}
+
+body .mn-codex--layout-book .mn-codex__reader--single .mn-codex__book--turn {
+  grid-template-columns: minmax(0,1fr) !important;
+}
+
+body .mn-codex--layout-book .mn-codex__reader--single .mn-codex__gutter {
+  display: none !important;
+}
+
+body .mn-codex--layout-book .mn-codex__reader--single[data-mobile-side="left"] .mn-codex__page--right,
+body .mn-codex--layout-book .mn-codex__reader--single[data-mobile-side="right"] .mn-codex__page--left {
+  display: none !important;
+}
+
+body .mn-codex--layout-book .mn-codex__reader--single .mn-codex__page,
+body .mn-codex--layout-book .mn-codex__reader--single .mn-codex__page-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 0 !important;
+}
+
+body .mn-codex--layout-book .mn-codex__reader--single .mn-codex__page-frame--copy {
+  padding-top: clamp(3.8rem,11cqi,5.4rem) !important;
+}
+
+body .mn-codex--layout-book .mn-codex__reader--single .mn-codex__book-controls {
+  grid-template-columns: 1fr auto 1fr;
+}
+
+@media (max-width:560px) {
+  body .mn-codex.mn-codex--spread.mn-codex--layout-book {
+    padding-bottom: 4.2rem;
+  }
+
+  body .mn-codex--layout-book .mn-codex__book-controls {
+    right: .65rem;
+    left: .65rem;
+    gap: .45rem;
+  }
+
+  body .mn-codex--layout-book .mn-codex__book-button {
+    min-width: 0;
+    padding-inline: .58rem;
+    font-size: .48rem;
+    letter-spacing: .09em;
+  }
+
+  body .mn-codex--layout-book .mn-codex__book-status {
+    min-width: 4.8rem;
+    padding-inline: .6rem;
+  }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  body .mn-codex--layout-book .mn-codex__book--turn,
+  body .mn-codex--layout-book .mn-codex__book-button {
+    transition: none;
+  }
+}
+
+@media print {
+  body .mn-codex--layout-book .mn-codex__book-track {
+    height: auto;
+  }
+
+  body .mn-codex--layout-book .mn-codex__book--turn {
+    position: relative;
+    display: grid !important;
+    height: 720px;
+    margin-bottom: 1rem;
+    opacity: 1;
+    break-after: page;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  body .mn-codex--layout-book .mn-codex__book-controls {
+    display: none;
+  }
+}
+
+/* Structured chapters: section openers and their child entry pages. */
+body .mn-codex--layout-book.mn-codex--book-structured .mn-codex__prose--page {
+  margin-top: 0;
+}
+
+body .mn-codex--layout-book .mn-codex__heading--book-page {
+  clear: both;
+  margin: 0 0 1.35rem;
+  padding: 0;
+}
+
+body .mn-codex--layout-book .mn-codex__heading--book-page::before {
+  top: -4.4rem;
+  right: -.7rem;
+  width: clamp(7rem,15cqi,12rem);
+  height: clamp(8rem,18cqi,14rem);
+  opacity: .09;
+}
+
+body .mn-codex--layout-book .mn-codex__heading--book-page .mn-codex__eyebrow {
+  margin-bottom: .7rem;
+}
+
+body .mn-codex--layout-book .mn-codex__heading--book-page .mn-codex__title {
+  font-size: clamp(2rem,4.2cqi,3.35rem);
+  line-height: 1.02;
+}
+
+body .mn-codex--layout-book .mn-codex__heading--book-page .mn-codex__subtitle {
+  margin-top: .55rem;
+}
+
+body .mn-codex--layout-book .mn-codex__heading--book-section {
+  margin-bottom: clamp(1.6rem,2.5cqi,2.25rem);
+}
+
+body .mn-codex--layout-book .mn-codex__heading--book-section .mn-codex__title {
+  max-width: 9.5em;
+  font-size: clamp(2.85rem,5.2cqi,4.35rem);
+  line-height: .94;
+}
+
+body .mn-codex--layout-book .mn-codex__heading--book-entry .mn-codex__title {
+  font-size: clamp(1.8rem,3.25cqi,2.65rem);
+  line-height: 1.08;
+}
+
+body .mn-codex--layout-book .mn-codex__section-index,
+body .mn-codex--layout-book .mn-codex__section-kicker {
+  display: table;
+  margin: .05rem 0 .6rem;
+  color: #537473;
+  font: 800 .58rem/1.2 "Arial Narrow","Pretendard",sans-serif;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+body .mn-codex--layout-book .mn-codex__section-index::before,
+body .mn-codex--layout-book .mn-codex__section-kicker::before {
+  display: inline-block;
+  width: 1.8rem;
+  height: 1px;
+  margin-right: .65rem;
+  background: currentColor;
+  content: "";
+  vertical-align: .22em;
+}
+
+/* Every structured archive spread uses the exact same paper, inset and ornaments. */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-structured.mn-codex--book-text-only.mn-codex--book-page-archive
+  .mn-codex__book--turn {
+  background:
+    linear-gradient(90deg,rgba(246,244,239,.94),rgba(246,244,239,.99) 49.5%,rgba(229,236,233,.9) 50%,rgba(246,244,239,.96)),
+    var(--mn-mely-reference-spread,url("assets/mely-reference-spread.webp")) right center/cover no-repeat;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-structured.mn-codex--book-text-only.mn-codex--book-page-archive
+  .mn-codex__book--turn .mn-codex__page--left,
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-structured.mn-codex--book-text-only.mn-codex--book-page-archive
+  .mn-codex__book--turn .mn-codex__page--right {
+  color: #101314;
+  background: linear-gradient(145deg,rgba(255,255,255,.72),rgba(241,240,235,.88));
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-structured.mn-codex--book-text-only
+  .mn-codex__book--turn .mn-codex__page-frame--copy {
+  padding-top: clamp(3.3rem,4.8cqi,4.4rem);
+  padding-inline: clamp(2.8rem,5cqi,4.8rem);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-structured
+  .mn-codex__copy--continuation::before {
+  top: -3.8rem;
+  width: 44%;
+  background: linear-gradient(90deg,var(--me-ink),transparent);
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-structured
+  .mn-codex__book--continuation .mn-codex__page-frame--copy::after {
+  width: clamp(8rem,14cqi,12.5rem);
+  height: clamp(19rem,39cqi,31rem);
+  opacity: .16;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-structured
+  .mn-codex__page-frame--section .mn-codex__prose--page > p:first-of-type::first-letter {
+  float: none;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-structured
+  .mn-codex__page-frame--entry .mn-codex__prose--page > p:first-of-type::first-letter {
+  float: none;
+  margin: 0;
+  font: inherit;
+}
+
+/* Chapter bookmarks */
+body .mn-codex--layout-book .mn-codex__bookmarks {
+  position: absolute;
+  top: clamp(2.7rem,5.2cqi,4.4rem);
+  right: -.8rem;
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .42rem;
+  max-height: calc(100% - 7rem);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  pointer-events: auto;
+  scrollbar-width: none;
+}
+
+/* Bookmark controls must remain above the temporary folio-flip stage (z-index:90). */
+body .mn-codex--layout-book.is-bookmark-turning .mn-codex__bookmarks {
+  z-index: 110;
+}
+
+body .mn-codex--layout-book .mn-codex__bookmarks::-webkit-scrollbar { display: none; }
+
+body .mn-codex--layout-book .mn-codex__bookmark {
+  position: relative;
+  display: grid;
+  min-width: clamp(6rem,9.5cqi,8.6rem);
+  max-width: clamp(8rem,13cqi,11.5rem);
+  min-height: 2.15rem;
+  grid-template-columns: auto minmax(0,1fr);
+  align-items: center;
+  gap: .55rem;
+  margin: 0;
+  padding: .56rem 1.05rem .56rem .8rem;
+  overflow: hidden;
+  color: rgba(241,243,239,.78);
+  border: 0;
+  border-left: 3px solid #729895;
+  border-radius: 0;
+  background: linear-gradient(92deg,rgba(16,20,21,.96),rgba(42,51,51,.92));
+  box-shadow: 0 .28rem .75rem rgba(6,9,10,.2);
+  clip-path: polygon(0 7%,100% 0,94% 100%,0 92%);
+  cursor: pointer;
+  font: 800 .58rem/1.15 "Arial Narrow","Pretendard",sans-serif;
+  letter-spacing: .11em;
+  text-align: left;
+  transform: translateX(.78rem);
+  transform-origin: right center;
+  transition: color .2s ease,background .2s ease,transform .24s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease;
+}
+
+body .mn-codex--layout-book .mn-codex__bookmark:nth-child(even) {
+  border-left-color: #b49150;
+  background: linear-gradient(92deg,rgba(24,24,23,.96),rgba(58,48,33,.92));
+}
+
+body .mn-codex--layout-book .mn-codex__bookmark:hover,
+body .mn-codex--layout-book .mn-codex__bookmark:focus-visible {
+  color: #fff;
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(169,203,200,.72),0 .35rem 1rem rgba(6,9,10,.28);
+  transform: translateX(.2rem);
+}
+
+body .mn-codex--layout-book .mn-codex__bookmark.is-active {
+  color: #111516;
+  border-left-color: #111516;
+  background: linear-gradient(92deg,#d9e8e4,#a9cbc8 72%,#8fb8b5);
+  box-shadow: -.22rem .35rem 1rem rgba(6,9,10,.2);
+  transform: translateX(-.38rem);
+}
+
+body .mn-codex--layout-book .mn-codex__bookmark-index {
+  color: #b49352;
+  font: 700 .62rem/1 "MN Bodoni Moda",Didot,serif;
+  letter-spacing: .08em;
+}
+
+body .mn-codex--layout-book .mn-codex__bookmark.is-active .mn-codex__bookmark-index {
+  color: #5f4b26;
+}
+
+body .mn-codex--layout-book .mn-codex__bookmark-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body .mn-codex--layout-book .mn-codex__bookmark.is-pulsing {
+  animation: mn-codex-bookmark-pulse .36s ease;
+}
+
+/* A short multi-sheet sweep runs while a bookmark crosses several spreads. */
+body .mn-codex--layout-book .mn-codex__book-track::before,
+body .mn-codex--layout-book .mn-codex__book-track::after {
+  display: none;
+}
+
+body .mn-codex--layout-book.is-bookmark-turning .mn-codex__book-track::before,
+body .mn-codex--layout-book.is-bookmark-turning .mn-codex__book-track::after {
+  position: absolute;
+  inset: 1.2% 2.2%;
+  z-index: 18;
+  display: block;
+  border: 1px solid rgba(99,115,112,.2);
+  background:
+    repeating-linear-gradient(90deg,transparent 0 7%,rgba(68,81,79,.055) 7.2% 7.45%,transparent 7.7% 14%),
+    linear-gradient(105deg,rgba(255,255,255,.03),rgba(250,249,244,.92) 47%,rgba(218,226,222,.76) 53%,rgba(255,255,255,.08));
+  box-shadow: 0 1.1rem 2.6rem rgba(16,23,24,.22);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: right center;
+}
+
+body .mn-codex--layout-book.is-bookmark-forward .mn-codex__book-track::before {
+  animation: mn-codex-sheet-forward .54s cubic-bezier(.22,.72,.18,1) infinite;
+}
+
+body .mn-codex--layout-book.is-bookmark-forward .mn-codex__book-track::after {
+  animation: mn-codex-sheet-forward .54s .09s cubic-bezier(.22,.72,.18,1) infinite;
+}
+
+body .mn-codex--layout-book.is-bookmark-backward .mn-codex__book-track::before {
+  transform-origin: left center;
+  animation: mn-codex-sheet-backward .54s cubic-bezier(.22,.72,.18,1) infinite;
+}
+
+body .mn-codex--layout-book.is-bookmark-backward .mn-codex__book-track::after {
+  transform-origin: left center;
+  animation: mn-codex-sheet-backward .54s .09s cubic-bezier(.22,.72,.18,1) infinite;
+}
+
+body .mn-codex--layout-book.is-bookmark-turning .mn-codex__book--turn {
+  transition: opacity .14s ease,transform .2s cubic-bezier(.25,.72,.2,1),filter .18s ease;
+}
+
+body .mn-codex--layout-book.is-bookmark-forward .mn-codex__book--flutter-leaving {
+  animation: mn-codex-spread-leave-forward .22s ease both;
+}
+
+body .mn-codex--layout-book.is-bookmark-forward .mn-codex__book--flutter-arriving {
+  animation: mn-codex-spread-arrive-forward .24s ease both;
+}
+
+body .mn-codex--layout-book.is-bookmark-backward .mn-codex__book--flutter-leaving {
+  animation: mn-codex-spread-leave-backward .22s ease both;
+}
+
+body .mn-codex--layout-book.is-bookmark-backward .mn-codex__book--flutter-arriving {
+  animation: mn-codex-spread-arrive-backward .24s ease both;
+}
+
+@keyframes mn-codex-sheet-forward {
+  0% { opacity:0; transform:perspective(1100px) translateX(44%) rotateY(-78deg) scaleX(.18); }
+  32% { opacity:.82; }
+  100% { opacity:0; transform:perspective(1100px) translateX(-42%) rotateY(12deg) scaleX(.94); }
+}
+
+@keyframes mn-codex-sheet-backward {
+  0% { opacity:0; transform:perspective(1100px) translateX(-44%) rotateY(78deg) scaleX(.18); }
+  32% { opacity:.82; }
+  100% { opacity:0; transform:perspective(1100px) translateX(42%) rotateY(-12deg) scaleX(.94); }
+}
+
+@keyframes mn-codex-spread-leave-forward {
+  from { opacity:1; filter:none; transform:translateX(0) rotateY(0); }
+  to { opacity:.12; filter:blur(.5px); transform:translateX(-4%) rotateY(2deg); }
+}
+
+@keyframes mn-codex-spread-arrive-forward {
+  from { opacity:.2; filter:blur(.6px); transform:translateX(5%) rotateY(-2.5deg); }
+  to { opacity:1; filter:none; transform:translateX(0) rotateY(0); }
+}
+
+@keyframes mn-codex-spread-leave-backward {
+  from { opacity:1; filter:none; transform:translateX(0) rotateY(0); }
+  to { opacity:.12; filter:blur(.5px); transform:translateX(4%) rotateY(-2deg); }
+}
+
+@keyframes mn-codex-spread-arrive-backward {
+  from { opacity:.2; filter:blur(.6px); transform:translateX(-5%) rotateY(2.5deg); }
+  to { opacity:1; filter:none; transform:translateX(0) rotateY(0); }
+}
+
+@keyframes mn-codex-bookmark-pulse {
+  0%,100% { transform:translateX(-.38rem) scale(1); }
+  50% { transform:translateX(-.62rem) scale(1.035); }
+}
+
+@container (max-width:760px) {
+  body .mn-codex--layout-book .mn-codex__bookmarks {
+    top: .65rem;
+    right: 1.2rem;
+    left: 1.2rem;
+    max-height: none;
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: .28rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  body .mn-codex--layout-book .mn-codex__bookmarks::-webkit-scrollbar { display:none; }
+  body .mn-codex--layout-book .mn-codex__bookmark { min-width:auto; max-width:8.5rem; min-height:1.9rem; padding:.46rem .72rem; transform:translateY(-.25rem); }
+  body .mn-codex--layout-book .mn-codex__bookmark:hover,
+  body .mn-codex--layout-book .mn-codex__bookmark:focus-visible,
+  body .mn-codex--layout-book .mn-codex__bookmark.is-active { transform:translateY(.05rem); }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  body .mn-codex--layout-book.is-bookmark-turning .mn-codex__book-track::before,
+  body .mn-codex--layout-book.is-bookmark-turning .mn-codex__book-track::after { display:none; animation:none; }
+  body .mn-codex--layout-book.is-bookmark-turning .mn-codex__book--turn,
+  body .mn-codex--layout-book .mn-codex__bookmark { animation:none; transition:none; }
+}
+
+/* Continuous folio flip: keep one spread still and turn layered paper leaves above it. */
+body .mn-codex--layout-book .mn-codex__flip-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 90;
+  width: 100%;
+  height: clamp(650px,61cqi,820px);
+  overflow: hidden;
+  perspective: 1800px;
+  pointer-events: none;
+  transform-style: preserve-3d;
+}
+
+body .mn-codex--layout-book .mn-codex__flip-snapshot {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  display: grid !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  opacity: 1;
+  pointer-events: none !important;
+  transform: none !important;
+  animation: mn-codex-snapshot-reveal var(--mn-flip-total,900ms) linear both !important;
+}
+
+body .mn-codex--layout-book .mn-codex__flip-target {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  display: grid !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  opacity: 0;
+  pointer-events: none !important;
+  transform: none !important;
+  animation: mn-codex-target-reveal var(--mn-flip-total,740ms) ease-out both !important;
+}
+
+body .mn-codex--layout-book .mn-codex__flip-sheet {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: calc(20 + var(--mn-flip-z,1));
+  width: 50%;
+  height: 100%;
+  transform: translateX(var(--mn-flip-offset,0)) rotateY(0deg);
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  animation: mn-codex-folio-forward 480ms var(--mn-flip-delay,0ms) cubic-bezier(.34,.06,.16,.98) both;
+  will-change: transform,filter;
+}
+
+body .mn-codex--layout-book.is-bookmark-backward .mn-codex__flip-sheet {
+  right: 50%;
+  left: auto;
+  transform: translateX(calc(0px - var(--mn-flip-offset,0px))) rotateY(0deg);
+  transform-origin: right center;
+  animation-name: mn-codex-folio-backward;
+}
+
+body .mn-codex--layout-book .mn-codex__flip-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border: 1px solid rgba(93,105,102,.2);
+  background:
+    linear-gradient(90deg,rgba(38,49,47,.08),transparent 3.2%),
+    repeating-linear-gradient(0deg,rgba(66,78,75,.018) 0 1px,transparent 1px 5px),
+    linear-gradient(145deg,#fbfaf6,#efeee9 72%,#dde4e1);
+  box-shadow: inset .85rem 0 1.4rem rgba(37,48,47,.08),-.35rem .75rem 1.7rem rgba(16,23,24,.18);
+  backface-visibility: hidden;
+}
+
+body .mn-codex--layout-book .mn-codex__flip-face::before {
+  position: absolute;
+  top: 3.1rem;
+  right: 2.8rem;
+  left: 2.8rem;
+  height: 1px;
+  background: linear-gradient(90deg,#111718 0 34%,transparent 34% 39%,rgba(17,23,24,.2) 39% 100%);
+  content: "";
+  opacity: .62;
+}
+
+body .mn-codex--layout-book .mn-codex__flip-face::after {
+  position: absolute;
+  right: 1.4rem;
+  bottom: 1.15rem;
+  width: clamp(4.5rem,8cqi,7rem);
+  height: clamp(8rem,17cqi,13rem);
+  background: var(--mn-mely-ornament-vine,url("assets/mely-ornament-vine.webp")) right bottom/contain no-repeat;
+  content: "";
+  opacity: .08;
+}
+
+body .mn-codex--layout-book .mn-codex__flip-face--back {
+  background:
+    linear-gradient(270deg,rgba(38,49,47,.1),transparent 3.5%),
+    repeating-linear-gradient(0deg,rgba(66,78,75,.018) 0 1px,transparent 1px 5px),
+    linear-gradient(215deg,#f8f7f2,#ebeae5 72%,#d8e0dd);
+  box-shadow: inset -.85rem 0 1.4rem rgba(37,48,47,.09),.35rem .75rem 1.7rem rgba(16,23,24,.16);
+  transform: rotateY(180deg);
+}
+
+body .mn-codex--layout-book.is-bookmark-backward .mn-codex__flip-face {
+  box-shadow: inset -.85rem 0 1.4rem rgba(37,48,47,.08),.35rem .75rem 1.7rem rgba(16,23,24,.18);
+}
+
+body .mn-codex--layout-book.is-bookmark-backward .mn-codex__flip-face--back {
+  box-shadow: inset .85rem 0 1.4rem rgba(37,48,47,.09),-.35rem .75rem 1.7rem rgba(16,23,24,.16);
+}
+
+body .mn-codex--layout-book.is-bookmark-turning .mn-codex__book-track::before,
+body .mn-codex--layout-book.is-bookmark-turning .mn-codex__book-track::after {
+  display: none !important;
+  animation: none !important;
+}
+
+body .mn-codex--layout-book.is-bookmark-turning .mn-codex__book--turn {
+  transition: none !important;
+}
+
+@keyframes mn-codex-folio-forward {
+  0% { opacity:1; filter:brightness(1); transform:translateX(var(--mn-flip-offset,0)) rotateY(0deg) translateZ(0); }
+  42% { opacity:1; filter:brightness(.93); }
+  52% { opacity:1; filter:brightness(.76); }
+  74% { opacity:.96; }
+  100% { opacity:0; filter:brightness(1.02); transform:translateX(calc(0px - var(--mn-flip-offset,0px))) rotateY(-180deg) translateZ(1px); }
+}
+
+@keyframes mn-codex-folio-backward {
+  0% { opacity:1; filter:brightness(1); transform:translateX(calc(0px - var(--mn-flip-offset,0px))) rotateY(0deg) translateZ(0); }
+  42% { opacity:1; filter:brightness(.93); }
+  52% { opacity:1; filter:brightness(.76); }
+  74% { opacity:.96; }
+  100% { opacity:0; filter:brightness(1.02); transform:translateX(var(--mn-flip-offset,0)) rotateY(180deg) translateZ(1px); }
+}
+
+@keyframes mn-codex-snapshot-reveal {
+  0%,28% { opacity:1; }
+  62%,100% { opacity:0; }
+}
+
+@keyframes mn-codex-target-reveal {
+  0%,20% { opacity:0; }
+  58%,100% { opacity:1; }
+}
+
+@container (max-width:760px) {
+  body .mn-codex--layout-book .mn-codex__flip-stage { height:clamp(690px,138cqi,850px); }
+  body .mn-codex--layout-book .mn-codex__flip-sheet { left:0; width:100%; transform-origin:left center; }
+  body .mn-codex--layout-book.is-bookmark-backward .mn-codex__flip-sheet { right:0; left:auto; transform-origin:right center; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  body .mn-codex--layout-book .mn-codex__flip-stage { display:none; }
+}
+
+/* Stable, readable long-form flow inside structured book pages. */
+body .mn-codex--layout-book.mn-codex--book-structured .mn-codex__prose--page p,
+body .mn-codex--layout-book.mn-codex--book-structured .mn-codex__prose--page li {
+  orphans: 3;
+  widows: 3;
+}
+
+body .mn-codex--layout-book.mn-codex--book-structured .mn-codex__prose--page h1,
+body .mn-codex--layout-book.mn-codex--book-structured .mn-codex__prose--page h2,
+body .mn-codex--layout-book.mn-codex--book-structured .mn-codex__prose--page h3,
+body .mn-codex--layout-book.mn-codex--book-structured .mn-codex__prose--page h4,
+body .mn-codex--layout-book.mn-codex--book-structured .mn-codex__prose--page h5,
+body .mn-codex--layout-book.mn-codex--book-structured .mn-codex__prose--page h6 {
+  break-after: avoid;
+}
+
+body .mn-codex--layout-book .mn-codex__flow-fragment--head { margin-bottom: 0; }
+body .mn-codex--layout-book .mn-codex__flow-fragment--tail { margin-top: 0; }
+
+body .mn-codex--layout-book .mn-codex__prose--page a,
+body .mn-codex--layout-book .mn-codex__prose--page code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+body .mn-codex--layout-book .mn-codex__prose--page pre {
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+body .mn-codex--layout-book .mn-codex__prose--page table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: thin;
+}
+
+body .mn-codex--layout-book .mn-codex__prose--page img,
+body .mn-codex--layout-book .mn-codex__prose--page svg,
+body .mn-codex--layout-book .mn-codex__prose--page video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Keep the archive barcode in the physical bottom margin instead of spending
+   almost one full text line-block on it inside the left page flow. */
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-structured
+  .mn-codex__page--left .mn-codex__copy::after {
+  display: none;
+}
+
+body .mn-codex.mn-codex--spread.mn-codex--theme-mely.mn-codex--layout-book.mn-codex--book-structured
+  .mn-codex__page--left::after {
+  position: absolute;
+  top: auto;
+  right: clamp(2.8rem,5cqi,4.8rem);
+  bottom: .35rem;
+  left: auto;
+  z-index: 8;
+  display: block !important;
+  box-sizing: border-box;
+  width: clamp(8rem,17.5cqi,11.5rem);
+  height: 58px;
+  margin: 0;
+  padding: 1.3rem .65rem 0;
+  color: var(--me-ink,#101314);
+  border: 1px solid currentColor;
+  border-radius: 0;
+  background:
+    repeating-linear-gradient(90deg,currentColor 0 2px,transparent 2px 5px,currentColor 5px 6px,transparent 6px 9px) 10px calc(100% - 10px) / calc(100% - 20px) 15px no-repeat,
+    linear-gradient(currentColor,currentColor) 10px 10px / 36% 4px no-repeat;
+  box-shadow: none;
+  content: "MN / WING DATA";
+  font: 900 .4rem/1 "Arial Narrow",sans-serif;
+  letter-spacing: .18em;
+  opacity: .72;
+  mix-blend-mode: normal;
+  pointer-events: none;
+  transform: rotate(1.2deg);
+}
+
+/* Per-page mixed leaf/full-spread layout. A full page owns an otherwise empty
+   spread and draws one continuous copy area over both paper halves. */
+body .mn-codex--layout-book .mn-codex__book--logical-spread .mn-codex__gutter {
+  opacity: .16;
+  pointer-events: none;
+}
+
+body .mn-codex--layout-book .mn-codex__book--logical-spread .mn-codex__page-frame--mode-spread {
+  position: absolute;
+  top: 0;
+  right: auto;
+  bottom: 0;
+  left: 0;
+  z-index: 12;
+  width: 204% !important;
+  height: 100%;
+  padding-inline: clamp(3.4rem,6.5cqi,6.2rem) !important;
+  background: linear-gradient(90deg,rgba(255,255,255,.08),rgba(255,255,255,.28) 49.6%,rgba(225,232,229,.12) 50%,rgba(255,255,255,.08));
+}
+
+body .mn-codex--layout-book .mn-codex__book--logical-spread .mn-codex__page-frame--mode-spread .mn-codex__copy {
+  max-width: none;
+}
+body .mn-codex--layout-book .mn-codex__book--logical-spread .mn-codex__page--right:has(.mn-codex__page-frame--mode-spread) .mn-codex__page-frame--mode-spread { right:0; left:auto; }
+
+body .mn-codex--layout-book .mn-codex__book--logical-spread .mn-codex__page-frame--mode-spread .mn-codex__prose--page {
+  column-count: 2;
+  column-gap: clamp(4.5rem,8cqi,7.8rem);
+  column-fill: auto;
+}
+body .mn-codex--layout-book .mn-codex__book--logical-spread .mn-codex__page:not(:has(.mn-codex__page-frame--mode-spread)) { visibility:hidden; pointer-events:none; }
+
+body .mn-codex--layout-book .mn-codex__book--logical-spread .mn-codex__page-frame--mode-spread ~ *,
+body .mn-codex--layout-book .mn-codex__book--logical-spread .mn-codex__page:has(.mn-codex__page-frame--mode-spread) ~ .mn-codex__gutter {
+  pointer-events: none;
+}
+
+/* Page tags are outside the paper, so they can never cover page text. */
+body .mn-codex--layout-book .mn-codex__page-tags {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 125;
+  display: flex;
+  align-items: center;
+  gap: .32rem;
+  min-height: 2.15rem;
+  padding: 0 .5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+body .mn-codex--layout-book .mn-codex__page-tags::-webkit-scrollbar { display:none; }
+body .mn-codex--layout-book .mn-codex__page-tag {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: .4rem;
+  min-height: 1.85rem;
+  margin: 0;
+  padding: .42rem .72rem;
+  color: rgba(239,242,238,.78);
+  border: 1px solid rgba(169,203,200,.32);
+  border-radius: 0;
+  background: rgba(13,17,18,.94);
+  font: 800 .52rem/1 "Arial Narrow","Pretendard",sans-serif;
+  letter-spacing: .1em;
+}
+body .mn-codex--layout-book .mn-codex__page-tag:hover,
+body .mn-codex--layout-book .mn-codex__page-tag:focus-visible,
+body .mn-codex--layout-book .mn-codex__page-tag.is-active { color:#101314; background:#a9cbc8; outline:none; }
+body .mn-codex--layout-book .mn-codex__page-tag-index { color:#b49352; }
+
+body .mn-codex--layout-book .mn-codex__bookmarks { right: -7.3rem; overflow:visible; }
+body .mn-codex--layout-book .mn-codex__bookmark { transform: translateX(0); }
+body .mn-codex--layout-book .mn-codex__bookmark:hover,
+body .mn-codex--layout-book .mn-codex__bookmark:focus-visible { transform:translateX(-.3rem); }
+body .mn-codex--layout-book .mn-codex__bookmark.is-active { transform:translateX(-.55rem); }
+
+body .mn-codex--layout-book .mn-codex__page-picker,
+body .mn-codex--layout-book .mn-codex__layout-guide-button,
+body .mn-codex--layout-book .mn-codex__insert-image-button {
+  min-height: 2.05rem;
+  color: #eef2ee;
+  border: 1px solid rgba(238,242,238,.28);
+  border-radius: 0;
+  background: rgba(10,14,15,.92);
+  font: 750 .5rem/1 "Arial Narrow","Pretendard",sans-serif;
+  letter-spacing: .08em;
+}
+body .mn-codex--layout-book .mn-codex__book-tools { position:absolute; right:50%; bottom:3.15rem; display:flex; align-items:center; gap:.35rem; transform:translateX(50%); }
+/* Cover-linked books make the full controls layer click-through so only edge
+   PREV/NEXT controls intercept the paper. Explicitly restore hit testing for
+   the center page/image tools added later. */
+body .mn-codex-host--sequence-page .mn-codex--layout-book .mn-codex__book-tools {
+  z-index: 3;
+  pointer-events: auto;
+}
+body .mn-codex-host--sequence-page .mn-codex--layout-book .mn-codex__book-tools > * {
+  pointer-events: auto;
+}
+body .mn-codex--layout-book .mn-codex__page-picker { max-width:12rem; padding:.4rem .55rem; }
+body .mn-codex--layout-book .mn-codex__layout-guide-button { padding:.45rem .65rem; }
+body .mn-codex--layout-book .mn-codex__insert-image-button { padding:.45rem .72rem; color:#101314; background:#a9cbc8; }
+body .mn-codex--layout-book .mn-codex__layout-guide-button.is-active { color:#101314; background:#a9cbc8; }
+
+/* One uninterrupted Photoshop-style coordinate plane per physical spread.
+   The left/right add buttons only choose the initial insertion point. */
+body .mn-codex--layout-book .mn-codex__spread-image-layer {
+  position: absolute;
+  z-index: 24;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Free-positioned spread images and the opt-in visual placement guide. */
+body .mn-codex--layout-book .mn-codex__placed-image {
+  position: absolute;
+  top: var(--mn-page-image-y,50%);
+  left: var(--mn-page-image-x,50%);
+  z-index: var(--mn-page-image-z,12);
+  width: var(--mn-page-image-width,24%);
+  height: var(--mn-page-image-height,auto);
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  opacity: var(--mn-page-image-opacity,1);
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+  transform: translate(-50%,-50%) rotate(var(--mn-page-image-rotate,0deg)) scaleX(var(--mn-page-image-flip,1));
+  transform-origin: center;
+}
+body .mn-codex--layout-book .mn-codex__placed-image--behind { z-index:3; }
+body .mn-codex--layout-book .mn-codex__placed-image--flip { --mn-page-image-flip:-1; }
+body .mn-codex--layout-book .mn-codex__placed-image img { display:block; width:100%; height:100%; max-width:none; margin:0; object-fit:var(--mn-page-image-fit,contain); }
+body .mn-codex--layout-book .mn-codex__leaf-image-add {
+  position:absolute;
+  z-index:38;
+  top:.7rem;
+  left:50%;
+  display:none;
+  min-height:1.85rem;
+  margin:0;
+  padding:.4rem .72rem;
+  color:#eef2ee;
+  border:1px solid rgba(169,203,200,.8);
+  border-radius:0;
+  background:rgba(10,14,15,.94);
+  box-shadow:0 .35rem .8rem rgba(0,0,0,.24);
+  font:800 .52rem/1 "Arial Narrow","Pretendard",sans-serif;
+  letter-spacing:.06em;
+  pointer-events:auto;
+  transform:translateX(-50%);
+}
+body .mn-codex--layout-book.is-layout-guide .mn-codex__book--turn.is-active .mn-codex__page-frame--copy > .mn-codex__leaf-image-add { display:block; }
+body .mn-codex--layout-book .mn-codex__leaf-image-add:hover,
+body .mn-codex--layout-book .mn-codex__leaf-image-add:focus-visible { color:#101314; background:#a9cbc8; outline:none; }
+body .mn-codex--layout-book .mn-codex__layout-grid {
+  position:absolute;
+  z-index:30;
+  inset:0;
+  display:none;
+  pointer-events:none;
+  background-image:
+    linear-gradient(rgba(42,126,132,.35) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(42,126,132,.35) 1px,transparent 1px),
+    linear-gradient(rgba(180,147,82,.55) 2px,transparent 2px),
+    linear-gradient(90deg,rgba(180,147,82,.55) 2px,transparent 2px);
+  background-size:10% 10%,10% 10%,50% 50%,50% 50%;
+  box-shadow:inset 0 0 0 2px rgba(42,126,132,.78);
+}
+body .mn-codex--layout-book.is-layout-guide .mn-codex__book--turn.is-active .mn-codex__layout-grid { display:block; }
+body .mn-codex--layout-book.is-layout-guide .mn-codex__page-frame--copy { cursor:crosshair; }
+body .mn-codex--layout-book.is-layout-guide .mn-codex__page-frame--copy.is-guide-target { box-shadow:inset 0 0 0 3px #b49352; }
+body .mn-codex--layout-book.is-layout-guide .mn-codex__book--turn.is-active > .mn-codex__spread-image-layer { box-shadow:inset 0 0 0 3px rgba(180,147,82,.72); }
+body .mn-codex--layout-book.is-layout-guide .mn-codex__placed-image { pointer-events:auto; cursor:grab; outline:2px dashed rgba(42,126,132,.9); }
+body .mn-codex--layout-book.is-layout-guide .mn-codex__placed-image.is-selected { outline:3px solid #b49352; filter:drop-shadow(0 0 .45rem rgba(180,147,82,.75)); }
+body .mn-codex--layout-book.is-layout-guide .mn-codex__placed-image.is-dragging { cursor:grabbing; outline-color:#e0ad49; }
+body .mn-codex--layout-book.is-layout-guide .mn-codex__placed-image::after { position:absolute; right:0; bottom:100%; z-index:32; display:block; padding:.28rem .42rem; color:#eef2ee; background:#111516; content:attr(data-mn-position-label); font:700 .52rem/1 "Arial Narrow",sans-serif; white-space:nowrap; }
+body .mn-codex--layout-book.is-placing-image .mn-codex__book--turn.is-active .mn-codex__page-frame--copy { cursor:copy; }
+body .mn-codex--layout-book .mn-codex__transform-controls { position:absolute; z-index:40; top:0; left:0; display:none; width:100%; height:100%; pointer-events:none; }
+body .mn-codex--layout-book.is-layout-guide .mn-codex__placed-image.is-selected > .mn-codex__transform-controls { display:block; }
+body .mn-codex--layout-book .mn-codex__image-resize-handle,
+body .mn-codex--layout-book .mn-codex__image-rotate-handle { position:absolute; z-index:42; display:block; width:1rem; height:1rem; border:2px solid #f4f0e8; border-radius:50%; background:#b49352; box-shadow:0 0 0 1px #111516; pointer-events:auto; touch-action:none; }
+body .mn-codex--layout-book .mn-codex__image-resize-handle--nw { top:-.5rem; left:-.5rem; cursor:nwse-resize; }
+body .mn-codex--layout-book .mn-codex__image-resize-handle--ne { top:-.5rem; right:-.5rem; cursor:nesw-resize; }
+body .mn-codex--layout-book .mn-codex__image-resize-handle--sw { bottom:-.5rem; left:-.5rem; cursor:nesw-resize; }
+body .mn-codex--layout-book .mn-codex__image-resize-handle--se { right:-.5rem; bottom:-.5rem; cursor:nwse-resize; }
+body .mn-codex--layout-book .mn-codex__image-rotate-stem { position:absolute; bottom:calc(100% + .35rem); left:50%; width:2px; height:1.45rem; background:#b49352; pointer-events:none; transform:translateX(-50%); }
+body .mn-codex--layout-book .mn-codex__image-rotate-handle { bottom:calc(100% + 1.55rem); left:50%; width:1.15rem; height:1.15rem; cursor:grab; transform:translateX(-50%); }
+body .mn-codex--layout-book.is-layout-guide .mn-codex__placed-image.is-resizing { cursor:nwse-resize; }
+body .mn-codex--layout-book.is-layout-guide .mn-codex__placed-image.is-rotating { cursor:grabbing; }
+
+body .mn-codex--layout-book .mn-codex__layout-context {
+  display:none;
+  min-width:0;
+  height:2.05rem;
+  align-items:center;
+  gap:.25rem;
+  padding:.2rem .25rem .2rem .5rem;
+  color:#eef2ee;
+  border:1px solid rgba(169,203,200,.52);
+  background:rgba(10,14,15,.92);
+  pointer-events:auto;
+}
+body .mn-codex--layout-book.is-layout-guide .mn-codex__layout-context { display:flex; }
+body .mn-codex--layout-book .mn-codex__layout-context .mn-codex__layout-guide-selection {
+  display:block;
+  max-width:8rem;
+  min-width:3.5rem;
+  overflow:hidden;
+  color:#a9cbc8;
+  font:700 .52rem/1 "Arial Narrow","Pretendard",sans-serif;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+body .mn-codex--layout-book .mn-codex__layout-context button {
+  min-height:1.55rem;
+  margin:0;
+  padding:.3rem .42rem;
+  color:#eef2ee;
+  border:1px solid rgba(238,242,238,.24);
+  border-radius:0;
+  background:#161c1d;
+  font:800 .48rem/1 "Arial Narrow","Pretendard",sans-serif;
+  letter-spacing:.04em;
+}
+body .mn-codex--layout-book .mn-codex__layout-context button:hover:not(:disabled),
+body .mn-codex--layout-book .mn-codex__layout-context button:focus-visible:not(:disabled) { color:#101314; background:#a9cbc8; outline:none; }
+body .mn-codex--layout-book .mn-codex__layout-context button:disabled { opacity:.32; cursor:default; }
+
+.modal-container .mn-codex__image-suggestion { display:grid; grid-template-columns:3rem minmax(0,1fr); align-items:center; gap:.7rem; }
+.modal-container .mn-codex__image-suggestion-thumb { display:block; width:3rem; height:3rem; margin:0; border-radius:0; background:rgba(127,127,127,.12); object-fit:contain; }
+.modal-container .mn-codex__image-suggestion-copy { min-width:0; }
+.modal-container .mn-codex__image-suggestion-name { overflow:hidden; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+.modal-container .mn-codex__image-suggestion-path { overflow:hidden; margin-top:.18rem; opacity:.62; font-size:.76em; text-overflow:ellipsis; white-space:nowrap; }
+
+/* Readable inline text accents: `red::text`, `glow::text`, `marker::text`, etc. */
+body .mn-codex--layout-book .mn-codex__text-effect { font:inherit; }
+body .mn-codex--layout-book .mn-codex__text-effect--red,
+body .mn-codex--layout-book .mn-codex__text-effect--danger { color:#9a2632; font-weight:700; }
+body .mn-codex--layout-book .mn-codex__text-effect--blue { color:#315d86; }
+body .mn-codex--layout-book .mn-codex__text-effect--teal { color:#397a77; font-weight:650; }
+body .mn-codex--layout-book .mn-codex__text-effect--gold { color:#97702d; font-weight:700; }
+body .mn-codex--layout-book .mn-codex__text-effect--muted,
+body .mn-codex--layout-book .mn-codex__text-effect--whisper { opacity:.58; font-size:.9em; }
+body .mn-codex--layout-book .mn-codex__text-effect--glow { color:#245f63; text-shadow:0 0 .45rem rgba(97,185,185,.48); }
+body .mn-codex--layout-book .mn-codex__text-effect--marker,
+body .mn-codex--layout-book .mn-codex__text-marker { padding:0 .15em; color:inherit; background:linear-gradient(transparent 48%,rgba(169,203,200,.48) 48% 92%,transparent 92%); }
+body .mn-codex--layout-book .mn-codex__text-effect--underline { text-decoration:underline; text-decoration-color:#9a7a3b; text-decoration-thickness:1px; text-underline-offset:.2em; }
+body .mn-codex--layout-book .mn-codex__page-tone--red { --mn-page-tone:#8e2631; }
+body .mn-codex--layout-book .mn-codex__page-tone--blue { --mn-page-tone:#315d86; }
+body .mn-codex--layout-book .mn-codex__page-tone--teal { --mn-page-tone:#397a77; }
+body .mn-codex--layout-book [class*="mn-codex__page-tone--"] .mn-codex__prose--page { color:var(--mn-page-tone,inherit); }
+body .mn-codex--layout-book .mn-codex__page-effect--glow .mn-codex__prose--page { text-shadow:0 0 .38rem rgba(97,185,185,.3); }
+
+/* The small mystery diamonds were decorative pseudo-elements; remove them in book mode. */
+body .mn-codex--layout-book .mn-codex__gutter::before,
+body .mn-codex--layout-book .mn-codex__gutter::after,
+body .mn-codex--layout-book .mn-codex__prose--page::before,
+body .mn-codex--layout-book .mn-codex__prose--page::after,
+body .mn-codex--layout-book .mn-codex__title::after { display:none !important; content:none !important; box-shadow:none !important; }
