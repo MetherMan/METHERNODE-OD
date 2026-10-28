@@ -2048,6 +2048,27 @@ class SekaipanPlugin extends Plugin {
     workspace.revealLeaf(leaf);
   }
 
+  /** 인물 페이지에서: 조직도를 열고 그 이름의 카드를 골라 가운데로 (인물 카드가 있으면 그게 먼저). 실험실 추가 2026-10-28 */
+  async showInOrgChart(names) {
+    await this.openView(ORG_TYPE);
+    const view = this.app.workspace.getLeavesOfType(ORG_TYPE)[0]?.view;
+    if (view && typeof view.focusIn === 'function') view.focusIn({ names: [].concat(names || []) });
+  }
+
+  /** 인물 페이지 · 인물 도감에서: 세계판을 열고 그 노트(인물 · 지역)로 날아감 */
+  async showOnMap(path) {
+    await this.openView(VIEW_TYPE);
+    const view = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view;
+    if (!view) return false;
+    for (let i = 0; i < 50; i++) {
+      const it = typeof view.findByPath === 'function' ? view.findByPath(path) : null;
+      if (it) { view.pick(it); return true; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    new Notice('세계판에서 이 노트를 찾지 못했어요. (속성 「위치」나 「좌표」가 있는지 봐 주세요)');
+    return false;
+  }
+
   async saveSettings() {
     await this.saveData(this.settings);
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) leaf.view.reload?.();
@@ -2251,6 +2272,10 @@ class StoryView extends ItemView {
           }
         }
         reply({ mn: 'note', id: m.id, ok });
+      } else if (m.mn === 'ready') {
+        // 페이지가 다 읽었으면 기다리던 부탁(조직도에서 보기)을 건넴
+        this.ready = true;
+        if (this.pendingFocus) { reply({ mn: 'focus', ...this.pendingFocus }); this.pendingFocus = null; }
       } else if (m.mn === 'open') {
         if ((this.canOpen || this.canNote)(m.path)) this.app.workspace.openLinkText?.(m.path, '', 'tab');
       } else if (m.mn === 'save') {
@@ -2264,8 +2289,15 @@ class StoryView extends ItemView {
     });
   }
 
+  /** 다른 플러그인(인물 페이지)의 부탁을 액자 페이지에 건넴 (아직 읽는 중이면 다 읽은 뒤에) */
+  focusIn(payload) {
+    if (this.ready && this.frame?.contentWindow) this.frame.contentWindow.postMessage({ mn: 'focus', ...payload }, '*');
+    else this.pendingFocus = payload;
+  }
+
   async onClose() {
     this.frame = null;
+    this.ready = false;
   }
 }
 

@@ -717,6 +717,77 @@ class LayoutPickerModal extends FuzzySuggestModal {
  * 표지(이름 · 부제 · 표지 글 · 정보칸) · 그림(전신 · 책장 · 창 셋) · 책장(장 / 쪽)을 고치고 저장하면
  * 노트의 mn-codex 블록을 새 YAML 로 바꿔 씀. 여기 없는 키(배치 · 색 · 초점 등)는 그대로 둠.
  */
+/** 그림 초점 잡기: 그림에서 보일 자리를 누르거나 끌어 초점(가로% 세로%)을, 밀대로 확대를 정함. 옆 창에 실제로 잘릴 모양. 실험실 추가 2026-10-28 */
+class FocusPickerModal extends Modal {
+  constructor(app, src, focus, scale, aspect, onApply) {
+    super(app);
+    const m = String(focus || "").match(/(-?[\d.]+)%\s+(-?[\d.]+)%/u);
+    this.src = src;
+    this.x = m ? Number(m[1]) : 50;
+    this.y = m ? Number(m[2]) : 30;
+    this.scale = Number(scale) > 0 ? Number(scale) : 1;
+    this.aspect = aspect || 1.6;
+    this.onApply = onApply;
+  }
+
+  onOpen() {
+    this.modalEl.addClass("mn-focus-picker");
+    this.titleEl.setText("그림 초점 잡기");
+    const el = this.contentEl;
+    el.empty();
+    el.createDiv({ cls: "mn-focus-picker__hint", text: "보이게 할 자리(얼굴 등)를 누르거나 끌어요. 확대는 아래 밀대로." });
+    const body = el.createDiv({ cls: "mn-focus-picker__body" });
+    const stage = body.createDiv({ cls: "mn-focus-picker__stage" });
+    const img = stage.createEl("img", { attr: { src: this.src, alt: "", draggable: "false" } });
+    const mark = stage.createDiv({ cls: "mn-focus-picker__mark" });
+    const side = body.createDiv({ cls: "mn-focus-picker__side" });
+    side.createDiv({ cls: "mn-focus-picker__label", text: "보이는 모양" });
+    const preview = side.createDiv({ cls: "mn-focus-picker__preview" });
+    preview.style.aspectRatio = String(this.aspect);
+    const shot = preview.createEl("img", { attr: { src: this.src, alt: "" } });
+    const value = side.createDiv({ cls: "mn-focus-picker__value" });
+    const scaleRow = side.createDiv({ cls: "mn-focus-picker__scale" });
+    scaleRow.createSpan({ text: "확대" });
+    const slider = scaleRow.createEl("input", { attr: { type: "range", min: "1", max: "3", step: "0.05" } });
+    slider.value = String(this.scale);
+    const scaleText = scaleRow.createSpan({ cls: "mn-focus-picker__scale-value" });
+    const update = () => {
+      const focus = `${Math.round(this.x)}% ${Math.round(this.y)}%`;
+      mark.style.left = `${this.x}%`;
+      mark.style.top = `${this.y}%`;
+      shot.style.objectPosition = focus;
+      shot.style.transformOrigin = focus;
+      shot.style.transform = this.scale > 1 ? `scale(${this.scale})` : "";
+      value.setText(`초점 ${focus}`);
+      scaleText.setText(`${this.scale.toFixed(2)}×`);
+    };
+    const pick = (event) => {
+      const rect = img.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      this.x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+      this.y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
+      update();
+    };
+    let dragging = false;
+    stage.addEventListener("pointerdown", (event) => { dragging = true; stage.setPointerCapture?.(event.pointerId); pick(event); });
+    stage.addEventListener("pointermove", (event) => { if (dragging) pick(event); });
+    stage.addEventListener("pointerup", () => { dragging = false; });
+    slider.addEventListener("input", () => { this.scale = Number(slider.value) || 1; update(); });
+    const bar = el.createDiv({ cls: "mn-codex-editor__bar" });
+    bar.createEl("button", { text: "닫기", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    const apply = bar.createEl("button", { cls: "mod-cta", text: "적용", attr: { type: "button" } });
+    apply.addEventListener("click", () => {
+      this.onApply(`${Math.round(this.x)}% ${Math.round(this.y)}%`, Math.round(this.scale * 100) / 100);
+      this.close();
+    });
+    update();
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 class CodexEditModal extends Modal {
   constructor(app, data, onSave) {
     super(app);
@@ -746,6 +817,30 @@ class CodexEditModal extends Modal {
       pick.addEventListener("click", () => new VaultImagePickerModal(this.app, (file) => { input.value = file.path; onInput(file.path); }).open());
     }
     return input;
+  }
+
+  /** 그림 칸의 값(보관소 경로 · [[이름]])을 화면에 띄울 주소로 */
+  imageUrl(value) {
+    const raw = String(value || "").trim().replace(/^!?\[\[|\]\]$/gu, "").split("|")[0].trim();
+    if (!raw) return "";
+    const vault = this.app && this.app.vault;
+    const file = (vault && vault.getAbstractFileByPath(raw)) || (this.app.metadataCache && this.app.metadataCache.getFirstLinkpathDest(raw, ""));
+    return file && vault ? vault.getResourcePath(file) : "";
+  }
+
+  /** 초점 칸 옆 「눌러서 잡기」: 그림을 띄워 초점 · 확대를 잡고 칸에 넣음 */
+  focusButton(focusInput, getImage, getScale, setScale, aspect) {
+    const row = focusInput.parentElement;
+    const btn = row.createEl("button", { cls: "mn-codex-editor__pick", text: "눌러서 잡기", attr: { type: "button" } });
+    btn.addEventListener("click", () => {
+      const src = this.imageUrl(getImage());
+      if (!src) { new Notice("먼저 그림을 골라 주세요."); return; }
+      new FocusPickerModal(this.app, src, focusInput.value, getScale(), aspect, (focus, scale) => {
+        focusInput.value = focus;
+        focusInput.dispatchEvent(new Event("input"));
+        setScale(scale);
+      }).open();
+    });
   }
 
   tools(parent, list, index, rerender, label) {
@@ -794,6 +889,10 @@ class CodexEditModal extends Modal {
         list[i] = v;
         d.detail_images = list;
       }, { pick: true });
+      const focusList = () => (Array.isArray(d.detail_focus) ? d.detail_focus : (d.detail_focus = []));
+      const scaleList = () => (Array.isArray(d.detail_scale) ? d.detail_scale : (d.detail_scale = []));
+      const focus = this.field(pics, `　${label} 초점`, focusList()[i], (v) => { focusList()[i] = v; }, { placeholder: "50% 30%" });
+      this.focusButton(focus, () => (Array.isArray(d.detail_images) ? d.detail_images[i] : ""), () => scaleList()[i], (scale) => { scaleList()[i] = scale; }, 1.6);
     });
 
     const book = el.createEl("details", { cls: "mn-codex-editor__group", attr: { open: "" } });
@@ -806,11 +905,14 @@ class CodexEditModal extends Modal {
       this.tools(head, d.book_sections, si, rerender, "장");
       this.field(card, "장 제목", section.title, (v) => { section.title = v; });
       this.field(card, "작은 영문 머리", section.subtitle, (v) => { section.subtitle = v; });
-      this.field(card, "틀 (개요 · 능력 · 관계 · 기본)", section.template, (v) => { section.template = v.trim(); }, { placeholder: "비우면 장 제목으로 고름" });
-      this.field(card, "글", section.content, (v) => { section.content = v; }, { area: true, rows: 6 });
+      this.field(card, "틀 (개요 · 능력 · 관계 · 여담 · 기본)", section.template, (v) => { section.template = v.trim(); }, { placeholder: "비우면 장 제목으로 고름" });
       const tpl = String(section.template || "").trim();
+      const isPersonal = tpl ? /^(여담|personal)$/iu.test(tpl) : /여담|취향|사적|비하인드/u.test(String(section.title || ""));
+      if (isPersonal) this.personalFields(card, section);
+      else this.field(card, "글", section.content, (v) => { section.content = v; }, { area: true, rows: 6 });
       const isRelation = tpl ? /^(관계|relation)$/iu.test(tpl) : /관계|인연/u.test(String(section.title || ""));
       const isAbility = tpl ? /^(능력|ability)$/iu.test(tpl) : /능력|기술|전투|스킬/u.test(String(section.title || ""));
+      this.pageArtFields(card, section, "장 그림");
       if (!Array.isArray(section.pages)) section.pages = [];
       section.pages.forEach((page, pi) => {
         const pc = card.createDiv({ cls: "mn-codex-editor__page" });
@@ -820,9 +922,12 @@ class CodexEditModal extends Modal {
         this.field(pc, "쪽 제목", page.title, (v) => { page.title = v; });
         if (isAbility) {
           this.field(pc, "능력 그림", page.visual, (v) => { page.visual = v; }, { pick: true, placeholder: "왼쪽 쪽 전체에 배경으로 깔림 · 비우면 그림 없이" });
-          this.field(pc, "그림 초점 (가로% 세로%)", page.visual_focus, (v) => { page.visual_focus = v; }, { placeholder: "50% 30%" });
-          this.field(pc, "그림 확대 (1 = 그대로)", page.visual_scale, (v) => { page.visual_scale = v; }, { placeholder: "1" });
+          const focus = this.field(pc, "그림 초점 (가로% 세로%)", page.visual_focus, (v) => { page.visual_focus = v; }, { placeholder: "50% 30%" });
+          const scale = this.field(pc, "그림 확대 (1 = 그대로)", page.visual_scale, (v) => { page.visual_scale = v; }, { placeholder: "1" });
+          // 능력 쪽은 왼쪽 쪽 전체(세로로 긴 판)에 깔리니 미리보기도 그 비율로
+          this.focusButton(focus, () => page.visual, () => page.visual_scale, (v) => { page.visual_scale = v; scale.value = String(v); }, 0.6);
         }
+        if (!isAbility && !isRelation) this.pageArtFields(pc, page, "쪽 그림");
         if (isRelation) {
           this.field(pc, "관계 한 줄 (두 사람 사이에 뜸)", page.relation, (v) => { page.relation = v; });
           this.field(pc, "그 사람 그림", page.portrait, (v) => { page.portrait = v; }, { pick: true, placeholder: "비우면 그 이름 인물 노트의 「초상」, 없으면 첫 글자" });
@@ -848,6 +953,45 @@ class CodexEditModal extends Modal {
     el.scrollTop = keepScroll;
   }
 
+  /** 장 · 쪽 그림 칸: 그림 · 초점(눌러서 잡기) · 확대. 왼쪽 석판 쪽이면 그 쪽 전체 바닥에 은은하게 깔림 */
+  pageArtFields(parent, target, label) {
+    this.field(parent, label, target.visual, (v) => { target.visual = v; }, { pick: true, placeholder: "왼쪽 석판 쪽에 놓이면 글 뒤에 은은하게 (오른쪽 종이 쪽은 글만) · 바탕까지 그린 세로 그림이 어울려요" });
+    const focus = this.field(parent, "　그림 초점", target.visual_focus, (v) => { target.visual_focus = v; }, { placeholder: "50% 40%" });
+    const scale = this.field(parent, "　그림 확대 (1 = 그대로)", target.visual_scale, (v) => { target.visual_scale = v; }, { placeholder: "1" });
+    this.focusButton(focus, () => target.visual, () => target.visual_scale, (v) => { target.visual_scale = v; scale.value = String(v); }, 0.78);
+  }
+
+  /** 여담 장: 글을 칸으로 나눠 고침 — 좋아하는 것 · 싫어하는 것 · 취미 · 한마디(한 줄씩), 여담(한 줄에 하나), 그 밖의 글.
+   *  저장하면 「이름 : 값」 줄 + 「- 여담」 목록 + 그 밖의 글로 다시 묶음(세 칸은 비어도 남겨서 지면에 「—」로 보임) */
+  personalFields(card, section) {
+    const BASE = ["좋아하는 것", "싫어하는 것", "취미"];
+    const QUOTES = ["한마디", "좌우명"];
+    const KV = /^\s*([^:：\n]{1,12}?)\s*[:：]\s*(.*)$/u;
+    const state = { values: {}, trivia: [], rest: [] };
+    String(section.content || "").split(/\r?\n/u).forEach((line) => {
+      const item = line.match(/^\s*[-*+]\s+(.*)$/u);
+      const kv = line.match(KV);
+      if (item) state.trivia.push(item[1]);
+      else if (kv && (BASE.includes(kv[1].trim()) || QUOTES.includes(kv[1].trim()))) state.values[kv[1].trim()] = kv[2].trim();
+      else state.rest.push(line);
+    });
+    const quoteKey = QUOTES.find((key) => state.values[key] !== undefined) || "한마디";
+    const compose = () => {
+      const lines = BASE.map((key) => `${key} : ${state.values[key] || ""}`.trimEnd());
+      if (String(state.values[quoteKey] || "").trim()) lines.push(`${quoteKey} : ${state.values[quoteKey].trim()}`);
+      const parts = [lines.join("\n")];
+      const trivia = state.trivia.map((t) => t.trim()).filter(Boolean);
+      if (trivia.length) parts.push(trivia.map((t) => `- ${t}`).join("\n"));
+      const rest = state.rest.join("\n").trim();
+      if (rest) parts.push(rest);
+      section.content = parts.join("\n\n") + "\n";
+    };
+    BASE.forEach((key) => this.field(card, `${key} (쉼표로 여럿)`, state.values[key], (v) => { state.values[key] = v; compose(); }));
+    this.field(card, `${quoteKey} (비우면 안 보임)`, state.values[quoteKey], (v) => { state.values[quoteKey] = v; compose(); });
+    this.field(card, "여담 (한 줄에 하나)", state.trivia.join("\n"), (v) => { state.trivia = v.split(/\r?\n/u); compose(); }, { area: true, rows: 4 });
+    this.field(card, "그 밖의 글", state.rest.join("\n").trim(), (v) => { state.rest = v.split(/\r?\n/u); compose(); }, { area: true, rows: 2 });
+  }
+
   /** 빈 칸은 키째 빼서 YAML 을 짧게 */
   clean(d) {
     const out = { ...d };
@@ -858,10 +1002,24 @@ class CodexEditModal extends Modal {
       else out.detail_images = list;
     }
     if (out.facts && !Object.keys(out.facts).length) delete out.facts;
+    // 왼쪽 창 초점 · 확대: 빈 자리는 기본값으로 채우고, 전부 기본값이면 키째 뺌
+    for (const key of ["detail_focus", "detail_scale"]) {
+      if (!Array.isArray(out[key])) continue;
+      const list = Array.from(out[key], (v) => (v == null ? "" : v));
+      const isDefault = (v) => String(v).trim() === "" || (key === "detail_scale" && Number(v) === 1);
+      if (list.every(isDefault)) delete out[key];
+      else out[key] = key === "detail_scale" ? list.map((v) => Number(v) || 1) : list.map((v) => String(v).trim() || "50% 30%");
+    }
     out.book_sections = (out.book_sections || []).map((s) => {
       const sec = { ...s };
       if (!sec.subtitle) delete sec.subtitle;
       if (!sec.template) delete sec.template;
+      for (const k of ["visual", "visual_focus"]) if (!String(sec[k] || "").trim()) delete sec[k];
+      if (sec.visual_scale !== undefined) {
+        const scale = Number(sec.visual_scale);
+        if (!sec.visual || !Number.isFinite(scale) || scale === 1 || String(sec.visual_scale).trim() === "") delete sec.visual_scale;
+        else sec.visual_scale = scale;
+      }
       sec.pages = (sec.pages || []).filter((p) => p && (p.title || p.content)).map((p) => {
         const page = { ...p };
         for (const k of ["relation", "portrait", "visual", "visual_focus"]) if (!String(page[k] || "").trim()) delete page[k];
@@ -955,6 +1113,35 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         }
       }
     );
+
+    // 인물 도감: ```mn-roster 블록 = 「분류: 인물」 노트를 카드로 (소속으로 거르기 · 시험 노트 숨기기 · 누르면 그 인물로). 실험실 추가 2026-10-28
+    this.registerMarkdownCodeBlockProcessor("mn-roster", async (source, el, ctx) => {
+      const child = new MarkdownRenderChild(el);
+      ctx.addChild(child);
+      let options = {};
+      try {
+        options = parseYaml(source) || {};
+      } catch (error) {
+        options = {};
+      }
+      const state = { group: "", hideTest: Boolean(options.hide_test) };
+      const draw = async () => {
+        el.empty();
+        await this.renderRoster(options, el, ctx.sourcePath, state);
+      };
+      await draw();
+      // 인물 노트 속성이 바뀌면 다시 그림
+      const cache = this.app && this.app.metadataCache;
+      if (cache && typeof cache.on === "function") {
+        let timer = 0;
+        child.registerEvent(cache.on("changed", (file) => {
+          const front = cache.getFileCache(file)?.frontmatter;
+          if (!front || this.asText(front["분류"]).trim() !== "인물") return;
+          clearTimeout(timer);
+          timer = setTimeout(draw, 400);
+        }));
+      }
+    });
 
     TEMPLATE_CATALOG.forEach((template) => {
       this.addSnippetCommand(
@@ -2240,6 +2427,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     this.createBookIllustration(firstPageData, firstBody, sourcePath, component);
     await this.renderMarkdownWithPageBreaks(firstPageData.content, firstBody, sourcePath, component);
     if (firstHeading) await this.shapeBookTemplate(firstPageData, firstHeading, data, sourcePath, configuredPages, component);
+    if (firstHeading) this.preparePageArt(firstPageData, firstHeading, data, sourcePath);
     if (hasConfiguredPages) {
       for (let pageIndex = 1; pageIndex < configuredPages.length; pageIndex += 1) {
         const pageData = configuredPages[pageIndex];
@@ -2247,13 +2435,14 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         entryBreak.setAttr("data-mn-book-next-page-index", String(pageIndex));
         entryBreak.setAttr("data-mn-book-next-page-mode", pageData.page_mode || bookPageMode);
         // 관계도는 왼쪽(관계도) | 오른쪽(고른 사람 글)이 한 펼침이어야 해서 새 펼침의 왼쪽 쪽에서 시작
-        if (pageData._mnBookTemplate === "relation" && pageData._mnBookPageKind === "section") entryBreak.setAttr("data-mn-next-spread", "true");
+        if ((pageData._mnBookTemplate === "relation" || pageData._mnBookTemplate === "personal") && pageData._mnBookPageKind === "section") entryBreak.setAttr("data-mn-next-spread", "true");
         // 능력 하위 쪽(전용 지면)은 그림 띠가 두 쪽 위를 가로질러서 역시 새 펼침의 왼쪽 쪽에서 시작
         if (pageData._mnBookTemplate === "ability" && pageData._mnBookPageKind === "entry" && this.asText(data.layout_variant).trim()) entryBreak.setAttr("data-mn-next-spread", "true");
         const heading = prepareBookHeading(pageData, firstBody, pageIndex);
         this.createBookIllustration(pageData, firstBody, sourcePath, component);
         await this.renderMarkdownWithPageBreaks(pageData.content, firstBody, sourcePath, component);
         await this.shapeBookTemplate(pageData, heading, data, sourcePath, configuredPages, component);
+        this.preparePageArt(pageData, heading, data, sourcePath);
       }
     }
     this.enhanceBookText(firstBody);
@@ -2465,6 +2654,10 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         }
       }
       // 능력 띠: 이 펼침 위에 그림 띠를 걸고 두 쪽 글자리를 띠 아래로 내림(꼭 빈 왼쪽 쪽에서). 실험실 추가 2026-10-27
+      // 쪽 그림: 제목이 왼쪽 석판 쪽에 놓이면 그 쪽 전체 바닥에 (오른쪽 종이 쪽은 글만). 실험실 추가 2026-10-28
+      if (node.nodeType === 1 && node._mnPageArt && currentPage.side === "left" && currentPage.spread) {
+        this.mountPageArt(node._mnPageArt.backdrop, currentPage.spread.leftPage);
+      }
       if (node.nodeType === 1 && node._mnAbBand) {
         if (currentPage.side !== "left" || currentHasContent) {
           currentPage = nextSpreadPage();
@@ -2549,6 +2742,21 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         this.createBookStickers(pageData, page, sourcePath, component);
         placedPageImages.push(...this.createBookPageImages(pageData, page, sourcePath, component));
       });
+      // 쪽 그림: 그 쪽 글이 끝나는 높이를 재서 글 자리만 살짝 누름. 실험실 추가 2026-10-28
+      for (const page of contentPages) {
+        const pageNode = typeof page.frame.closest === "function" ? page.frame.closest(".mn-codex__page") : null;
+        const art = pageNode && pageNode.querySelector(":scope > .mn-codex__page-art");
+        if (!art) continue;
+        const pageRect = pageNode.getBoundingClientRect();
+        if (!pageRect.height) continue;
+        let bottom = pageRect.top;
+        for (const child of Array.from(page.body.children)) {
+          const rect = child.getBoundingClientRect();
+          if (rect.height) bottom = Math.max(bottom, rect.bottom);
+        }
+        const reach = (bottom - pageRect.top) / pageRect.height;
+        art.style.setProperty("--mn-text-end", `${Math.min(100, Math.max(18, Math.round(reach * 100) + 2))}%`);
+      }
       // 글이 쪽 높이 72% 아래까지 차면 큰 장 번호 장식은 숨김(글 뒤에 겹치지 않게). 실험실 추가 2026-10-27
       contentPages.forEach((page) => {
         const pageNode = typeof page.frame.closest === "function" ? page.frame.closest(".mn-codex__page") : null;
@@ -3775,7 +3983,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
   // 글은 작가가 쓴 그대로 두고 놓는 모양만 바꿈 (「이름 : 값」 표를 인물 카드로, 「신탁 : 네이그림」을 종류 표식 + 이름으로, 관계 쪽은 두 사람을 잇는 그림).
 
   bookTemplateOf(section, data) {
-    const names = { "개요": "overview", overview: "overview", "능력": "ability", ability: "ability", "관계": "relation", relation: "relation", "기본": "", plain: "", none: "" };
+    const names = { "개요": "overview", overview: "overview", "능력": "ability", ability: "ability", "관계": "relation", relation: "relation", "여담": "personal", personal: "personal", "기본": "", plain: "", none: "" };
     const raw = this.asText(section && (section.template ?? section["틀"])).trim().toLowerCase();
     if (raw) return Object.prototype.hasOwnProperty.call(names, raw) ? names[raw] : "";
     if (!this.asText(data && data.layout_variant).trim()) return "";
@@ -3783,6 +3991,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     if (/개요|소개|프로필|기본\s*정보/u.test(title)) return "overview";
     if (/능력|기술|전투|스킬/u.test(title)) return "ability";
     if (/관계|인연/u.test(title)) return "relation";
+    if (/여담|취향|사적|비하인드/u.test(title)) return "personal";
     return "";
   }
 
@@ -3839,16 +4048,17 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const kind = this.asText(pageData._mnBookPageKind);
     heading.classList.add(`mn-codex__heading--tpl-${template}`);
     try {
-      if (template === "overview") this.shapeOverview(heading);
+      if (template === "overview") this.shapeOverview(heading, data, sourcePath);
       else if (template === "ability") this.shapeAbility(pageData, heading, kind, sourcePath, configuredPages, data);
       else if (template === "relation") await this.shapeRelation(pageData, heading, kind, data, sourcePath, component);
+      else if (template === "personal" && kind === "section") this.shapePersonal(heading);
     } catch (error) {
       console.warn("MN Codex: 틀을 입히지 못했어요", template, error);
     }
   }
 
   /** 개요: 「이름 : 값」 표를 인물 카드로 — 이명 · 이름(큰 이름), 소개 한 줄, 투력 · 항력(큰 숫자), 겉모습(작은 표), 소속 · 능력(칩) */
-  shapeOverview(heading) {
+  shapeOverview(heading, data, sourcePath) {
     // 장 첫 쪽은 머리글을 한 줄로: 「SECTION 01 · 개요」 (큰 장 제목 · 영문 부제 · 머리줄은 CSS 에서 숨김, 인물 이름이 주인공)
     const index = heading.querySelector(".mn-codex__section-index");
     const sectionTitle = heading.getAttribute("data-mn-book-section-title");
@@ -3927,12 +4137,128 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         }
       }
       row.appendChild(chips);
+      return row;
     };
-    chipRow(affiliation, "AFFILIATION", false);
+    // 소속: 「조직도에서 보기 ↗」(이 인물 카드 → 소속 조직 순으로 찾아 가운데로), 링크 없는 칩은 눌러서 그 조직으로. 실험실 추가 2026-10-28
+    const selfName = this.asText(data && (data._mnCharacterName || data.title)).trim();
+    const affRow = chipRow(affiliation, "AFFILIATION", false);
+    if (affRow) {
+      const chipEls = Array.from(affRow.querySelectorAll(".mn-codex__ov-chip"));
+      const orgNames = chipEls.map((chip) => chip.textContent.trim()).filter(Boolean);
+      const go = doc.createElement("button");
+      go.type = "button";
+      go.className = "mn-codex__ov-go";
+      go.textContent = "조직도에서 보기 ↗";
+      go.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); this.showInOrgChart([selfName, ...orgNames]); });
+      affRow.querySelector(".mn-codex__ov-label").appendChild(go);
+      for (const chip of chipEls) {
+        if (chip.querySelector("a")) continue;
+        chip.classList.add("is-org");
+        chip.setAttribute("role", "button");
+        chip.setAttribute("tabindex", "0");
+        chip.title = `조직도에서 「${chip.textContent.trim()}」 보기`;
+        const open = (event) => { event.preventDefault(); event.stopPropagation(); this.showInOrgChart([chip.textContent.trim()]); };
+        chip.addEventListener("click", open);
+        chip.addEventListener("keydown", (event) => { if (event.key === "Enter") open(event); });
+      }
+    }
     chipRow(abilities, "ABILITY", true);
+    // 위치: 노트 속성 「위치」가 있으면 「지도에서 보기 ↗」(세계판에서 이 인물로)
+    const front = this.noteFrontmatter(sourcePath);
+    const place = front ? this.plainLink(front["위치"]) : "";
+    if (place) {
+      const row = block("mn-codex__ov-row");
+      const head = label(row, "LOCATION");
+      const go = doc.createElement("button");
+      go.type = "button";
+      go.className = "mn-codex__ov-go";
+      go.textContent = "지도에서 보기 ↗";
+      go.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); this.showOnMap(sourcePath); });
+      head.appendChild(go);
+      const chips = doc.createElement("div");
+      chips.className = "mn-codex__ov-chips";
+      const chip = doc.createElement("span");
+      chip.className = "mn-codex__ov-chip";
+      chip.textContent = place;
+      chips.appendChild(chip);
+      row.appendChild(chips);
+    }
     // 표 자리에 블록들을 차례로 (블록마다 따로 놓아 넘치면 다음 쪽으로 이어지게)
     for (const div of blocks) dl.parentNode.insertBefore(div, dl);
     dl.remove();
+  }
+
+  /** 여담: 「좋아하는 것 · 싫어하는 것 · 취미 … : 값」은 왼쪽 석판에 칩 묶음(값이 비면 「—」), 「한마디 · 좌우명 : 값」은 인용 상자(비면 숨김),
+   *  목록(「- …」)은 오른쪽 종이에 번호 붙은 여담 줄(없으면 「01 —」 한 줄). 글은 쓴 그대로이고 놓는 모양만 바뀜. 실험실 추가 2026-10-28 */
+  shapePersonal(heading) {
+    const doc = heading.ownerDocument;
+    const el = (tag, cls, text) => {
+      const node = doc.createElement(tag);
+      if (cls) node.className = cls;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    };
+    const nodes = this.templateNodesAfter(heading).filter((node) => node.nodeType === 1);
+    const dl = nodes.find((node) => node.matches("dl.mn-codex__sheet"));
+    const pairs = [];
+    if (dl) {
+      for (const dt of Array.from(dl.querySelectorAll("dt"))) {
+        const dd = dt.nextElementSibling;
+        if (dd && dd.tagName === "DD") pairs.push({ key: dt.textContent.replace(/[:：]\s*$/u, "").trim(), dt, dd });
+      }
+    }
+    const QUOTE = /^(한마디|좌우명|말버릇|입버릇)$/u;
+    const groups = pairs.filter((pair) => !QUOTE.test(pair.key));
+    const quote = pairs.find((pair) => QUOTE.test(pair.key) && pair.dd.textContent.trim());
+    const lists = nodes.filter((node) => /^(UL|OL)$/u.test(node.tagName));
+    const last = nodes.length ? nodes[nodes.length - 1] : heading;
+
+    const likes = el("div", "mn-codex__pe-likes");
+    for (const pair of groups) {
+      const row = el("div", "mn-codex__pe-group");
+      const key = el("div", "mn-codex__pe-key");
+      Array.from(pair.dt.childNodes).forEach((node) => key.appendChild(node));
+      const values = el("div", "mn-codex__pe-chips");
+      const chips = this.valueChips(pair.dd, doc);
+      if (chips.length) chips.forEach((chip) => { chip.className = "mn-codex__pe-chip"; values.appendChild(chip); });
+      else values.appendChild(el("span", "mn-codex__pe-empty", "—"));
+      row.append(key, values);
+      likes.appendChild(row);
+    }
+
+    const trivia = el("div", "mn-codex__pe-trivia");
+    trivia.appendChild(el("div", "mn-codex__ov-label mn-codex__pe-label", "TRIVIA"));
+    const items = lists.flatMap((list) => Array.from(list.children).filter((child) => child.tagName === "LI"));
+    const rows = items.length ? items : [null];
+    rows.forEach((li, index) => {
+      const row = el("div", "mn-codex__pe-item");
+      row.appendChild(el("em", "", String(index + 1).padStart(2, "0")));
+      const text = el("div", "mn-codex__pe-text");
+      if (li) Array.from(li.childNodes).forEach((node) => text.appendChild(node));
+      else { text.textContent = "—"; text.classList.add("is-empty"); }
+      row.appendChild(text);
+      trivia.appendChild(row);
+    });
+
+    let quoteBox = null;
+    if (quote) {
+      quoteBox = el("figure", "mn-codex__pe-quote");
+      const label = el("div", "mn-codex__ov-label mn-codex__pe-label");
+      label.textContent = quote.key;
+      const said = el("blockquote", "");
+      Array.from(quote.dd.childNodes).forEach((node) => said.appendChild(node));
+      quoteBox.append(label, said);
+    }
+
+    // 놓기: 표 자리에 취향 묶음, 그 뒤 쪽 나눔(오른쪽 종이로) → 여담 줄 → 한마디
+    const pageBreak = el("div", "mn-codex__page-break-marker");
+    if (dl) dl.replaceWith(likes);
+    else last.after(likes);
+    lists.forEach((list) => list.remove());
+    const tail = [pageBreak, trivia];
+    if (quoteBox) tail.push(quoteBox);
+    const after = this.templateNodesAfter(heading);
+    (after.length ? after[after.length - 1] : likes).after(...tail);
   }
 
   /** 능력 쪽 그림 칸(visual · visual_focus · visual_scale)을 <img> 로 */
@@ -4085,6 +4411,27 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     return box;
   }
 
+  /** 쪽 그림(장 · 쪽의 visual): 능력 하위 쪽(띠 펼침)을 뺀 모든 쪽. 제목이 왼쪽 석판 쪽에 놓이면 그 쪽 전체 바닥에 은은하게 깔고
+   *  글 자리만 살짝 어둡게 눌러 읽히게 함(오른쪽 종이 쪽은 글만). 캐릭터 전용 지면만. 실험실 추가 2026-10-28 */
+  preparePageArt(pageData, heading, data, sourcePath) {
+    if (!heading || !pageData || !this.asText(pageData.visual).trim()) return;
+    if (!this.asText(data && data.layout_variant).trim()) return;
+    if (pageData._mnBookTemplate === "ability" && pageData._mnBookPageKind === "entry") return;
+    const art = this.abilityVisualImage(heading.ownerDocument, pageData, sourcePath, this.asText(pageData.title));
+    if (!art) return;
+    const backdrop = heading.ownerDocument.createElement("div");
+    backdrop.className = "mn-codex__page-art";
+    backdrop.setAttribute("aria-hidden", "true");
+    backdrop.appendChild(art);
+    heading._mnPageArt = { backdrop };
+  }
+
+  mountPageArt(backdrop, page) {
+    if (!backdrop || !page) return;
+    page.classList.add("mn-codex__page--has-art");
+    page.insertBefore(backdrop, page.firstChild);
+  }
+
   /** 능력 하위 쪽(전용 지면): 새 펼침 왼쪽 쪽 전체에 능력 그림을 배경으로 깔고, 그 위에 이름 묶음(번호 · 종류 · 큰 이름 · 분류),
    *  아래 어둠 위에 설명 + 글 끝 능력 색인. 설명이 짧으면 인용처럼 크게, 길면 첫 문단만 조금 크게 하고 이름 자리를 줄여 글자리를 넓힘.
    *  넘치면 오른쪽 쪽 · 다음 펼침으로 이어짐 (작가 고름 2026-10-27) */
@@ -4209,10 +4556,239 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     page.appendChild(band);
   }
 
+  /** 노트 속성(frontmatter) */
+  noteFrontmatter(path) {
+    try {
+      const vault = this.app && this.app.vault;
+      const file = vault && path ? vault.getAbstractFileByPath(path) : null;
+      return (file && this.app.metadataCache.getFileCache(file)?.frontmatter) || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /** 세계판 플러그인(조직도 · 지도)에 부탁 */
+  sekaipanPlugin() {
+    const plugins = this.app && this.app.plugins;
+    return plugins && plugins.plugins ? plugins.plugins["mn-sekaipan"] || null : null;
+  }
+
+  async showInOrgChart(names) {
+    const plugin = this.sekaipanPlugin();
+    if (plugin && typeof plugin.showInOrgChart === "function") return plugin.showInOrgChart(names);
+    new Notice("조직도는 세계판 플러그인(MN 세계판)이 켜져 있어야 열려요.");
+  }
+
+  async showOnMap(path) {
+    const plugin = this.sekaipanPlugin();
+    if (plugin && typeof plugin.showOnMap === "function") return plugin.showOnMap(path);
+    new Notice("지도는 세계판 플러그인(MN 세계판)이 켜져 있어야 열려요.");
+  }
+
+  /** [[노트|별칭]] · [[노트]] → 보이는 글자 */
+  plainLink(value) {
+    return this.asText(value).replace(/\[\[([^\]|]*)\|?([^\]]*)\]\]/gu, (_m, target, alias) => alias || target).trim();
+  }
+
+  /** 인물 도감 그리기 */
+  async renderRoster(options, el, sourcePath, state) {
+    el.addClass("mn-roster");
+    const folder = this.asText(options.folder).trim().replace(/\/?$/u, "/");
+    const cache = this.app && this.app.metadataCache;
+    const files = this.characterNoteFiles().filter((file) => folder === "/" || file.path.startsWith(folder));
+    const list = (value) => (Array.isArray(value) ? value : value === undefined || value === null || value === "" ? [] : [value])
+      .map((item) => this.plainLink(item))
+      .filter(Boolean);
+    const people = [];
+    for (const file of files) {
+      const front = (cache && cache.getFileCache(file)?.frontmatter) || {};
+      const data = await this.readCodexData(file);
+      const face = data && Array.isArray(data.detail_images) && data.detail_images[0] ? this.asText(data.detail_images[0]) : "";
+      const portrait = this.asText(front["초상"] || front.portrait).trim();
+      const ref = face || portrait || this.asText(data && (data.book_image || data.image)).trim();
+      people.push({
+        file,
+        name: this.asText(data && data.title).trim() || file.basename,
+        alias: this.plainLink(front["이명"]),
+        job: this.plainLink(front["하는 일"]),
+        groups: list(front["소속"]),
+        race: this.plainLink(front["종족"]),
+        time: this.plainLink(front["시점"]),
+        test: /시험/u.test(this.asText(front["시점"])),
+        place: this.plainLink(front["위치"]),
+        src: ref ? this.resolveImage(ref, file.path) : "",
+        focus: face && Array.isArray(data.detail_focus) && data.detail_focus[0] ? this.asText(data.detail_focus[0]) : "50% 18%",
+        scale: face && Array.isArray(data.detail_scale) && Number(data.detail_scale[0]) > 1 ? Number(data.detail_scale[0]) : 1,
+      });
+    }
+    people.sort((a, b) => Number(a.test) - Number(b.test) || a.name.localeCompare(b.name, "ko"));
+
+    const head = el.createDiv({ cls: "mn-roster__head" });
+    const titles = head.createDiv();
+    titles.createDiv({ cls: "mn-roster__kicker", text: "CHARACTER INDEX" });
+    titles.createDiv({ cls: "mn-roster__title", text: this.asText(options.title, "인물 도감") });
+    const count = head.createDiv({ cls: "mn-roster__count" });
+
+    const filters = el.createDiv({ cls: "mn-roster__filters" });
+    const groups = [...new Set(people.flatMap((person) => person.groups))].sort((a, b) => a.localeCompare(b, "ko"));
+    const grid = el.createDiv({ cls: "mn-roster__grid" });
+    const chip = (label, active, onClick, extra = "") => {
+      const button = filters.createEl("button", { cls: `mn-roster__filter${active ? " is-on" : ""}${extra}`, text: label, attr: { type: "button" } });
+      button.addEventListener("click", onClick);
+      return button;
+    };
+    const drawGrid = () => {
+      filters.empty();
+      chip("전체", !state.group, () => { state.group = ""; drawGrid(); });
+      groups.forEach((group) => chip(group, state.group === group, () => { state.group = state.group === group ? "" : group; drawGrid(); }));
+      if (people.some((person) => person.test)) {
+        chip(state.hideTest ? "시험 노트 보기" : "시험 노트 숨기기", false, () => { state.hideTest = !state.hideTest; drawGrid(); }, " mn-roster__filter--toggle");
+      }
+      grid.empty();
+      const shown = people.filter((person) => (!state.group || person.groups.includes(state.group)) && !(state.hideTest && person.test));
+      count.setText(`${String(shown.length).padStart(2, "0")} / ${String(people.length).padStart(2, "0")}`);
+      if (!shown.length) grid.createDiv({ cls: "mn-roster__none", text: "조건에 맞는 인물이 없어요." });
+      shown.forEach((person, index) => {
+        const card = grid.createEl("button", { cls: `mn-roster__card${person.test ? " is-test" : ""}`, attr: { type: "button", title: `${person.name} 인물 페이지 열기` } });
+        const figure = card.createDiv({ cls: "mn-roster__figure" });
+        if (person.src) {
+          const img = figure.createEl("img", { attr: { src: person.src, alt: "", loading: "lazy" } });
+          img.style.objectPosition = person.focus;
+          if (person.scale > 1) { img.style.transform = `scale(${person.scale})`; img.style.transformOrigin = person.focus; }
+        } else {
+          figure.addClass("mn-roster__figure--mono");
+          figure.createSpan({ text: Array.from(person.name)[0] || "?" });
+        }
+        if (person.test) figure.createSpan({ cls: "mn-roster__badge", text: "시험" });
+        const body = card.createDiv({ cls: "mn-roster__body" });
+        body.createSpan({ cls: "mn-roster__no", text: String(index + 1).padStart(2, "0") });
+        if (person.alias) body.createDiv({ cls: "mn-roster__alias", text: person.alias });
+        body.createDiv({ cls: "mn-roster__name", text: person.name });
+        if (person.job) body.createDiv({ cls: "mn-roster__job", text: person.job });
+        if (person.groups.length) {
+          const row = body.createDiv({ cls: "mn-roster__groups" });
+          person.groups.forEach((group) => row.createSpan({ cls: "mn-roster__group", text: group }));
+        }
+        const meta = [person.race, person.time && !person.test ? `시점 ${person.time}` : ""].filter(Boolean).join(" · ");
+        if (meta) body.createDiv({ cls: "mn-roster__meta", text: meta });
+        if (person.place) {
+          const where = body.createDiv({ cls: "mn-roster__place" });
+          where.createSpan({ text: person.place });
+          const map = where.createSpan({ cls: "mn-roster__map", text: "지도 ↗", attr: { role: "button", tabindex: "0", title: `세계판에서 ${person.name} 보기` } });
+          const open = (event) => { event.preventDefault(); event.stopPropagation(); this.showOnMap(person.file.path); };
+          map.addEventListener("click", open);
+          map.addEventListener("keydown", (event) => { if (event.key === "Enter") open(event); });
+        }
+        card.addEventListener("click", (event) => {
+          event.preventDefault();
+          const workspace = this.app && this.app.workspace;
+          if (workspace && typeof workspace.openLinkText === "function") workspace.openLinkText(person.file.path, sourcePath, event.ctrlKey || event.metaKey ? "tab" : false);
+        });
+      });
+    };
+    drawGrid();
+  }
+
+  /** 인물 노트들(속성 「분류: 인물」) */
+  characterNoteFiles() {
+    const vault = this.app && this.app.vault;
+    const cache = this.app && this.app.metadataCache;
+    if (!vault || typeof vault.getMarkdownFiles !== "function" || !cache) return [];
+    return vault.getMarkdownFiles().filter((file) => {
+      const front = cache.getFileCache(file)?.frontmatter;
+      return front && this.asText(front["분류"]).trim() === "인물";
+    });
+  }
+
+  /** 노트의 지면 블록(```mn-codex) 데이터. 고친 시각(mtime)이 같으면 다시 읽지 않음 */
+  async readCodexData(file) {
+    if (!file || !this.app?.vault || typeof this.app.vault.cachedRead !== "function") return null;
+    this._mnCodexCache = this._mnCodexCache || new Map();
+    const mtime = file.stat ? file.stat.mtime : 0;
+    const hit = this._mnCodexCache.get(file.path);
+    if (hit && hit.mtime === mtime) return hit.data;
+    let data = null;
+    try {
+      const text = await this.app.vault.cachedRead(file);
+      const match = String(text).match(/```mn-codex[^\n]*\n([\s\S]*?)\n```/u);
+      if (match) data = parseYaml(match[1]);
+    } catch (error) {
+      data = null;
+    }
+    this._mnCodexCache.set(file.path, { mtime, data });
+    return data;
+  }
+
+  /** 다른 인물 노트의 관계 장에 이 이름(selfName)으로 적힌 쪽들 → 관계도 사람 (그 노트 주인이 사람, 그쪽 글 · 관계 한 줄 그대로) */
+  async incomingRelations(selfName, sourcePath) {
+    if (!selfName) return [];
+    const out = [];
+    for (const file of this.characterNoteFiles()) {
+      if (file.path === sourcePath) continue;
+      const data = await this.readCodexData(file);
+      if (!data || !Array.isArray(data.book_sections)) continue;
+      const owner = this.asText(data.title).trim() || file.basename;
+      if (owner === selfName) continue;
+      for (const section of data.book_sections) {
+        if (!section || typeof section !== "object") continue;
+        const explicit = this.asText(section.template ?? section["틀"]).trim();
+        const isRelation = explicit ? /^(관계|relation)$/iu.test(explicit) : /관계|인연/u.test(this.asText(section.title));
+        if (!isRelation || !Array.isArray(section.pages)) continue;
+        for (const page of section.pages) {
+          if (!page || this.asText(page.title).trim() !== selfName) continue;
+          // 그 사람 얼굴: 그 노트의 왼쪽 창 1(얼굴 컷) · 초점 → 없으면 책장 그림 · 표지 그림 (자기 페이지 가운데 얼굴과 같은 방식)
+          const ref = Array.isArray(data.detail_images) && data.detail_images[0] ? data.detail_images[0] : (data.book_image || data.image || "");
+          const focus = Array.isArray(data.detail_focus) && data.detail_focus[0] ? this.asText(data.detail_focus[0]) : "50% 30%";
+          out.push({ title: owner, relation: this.asText(page.relation), content: this.asText(page.content), portrait: this.asText(ref), _mnPortraitFocus: ref ? focus : "", _mnFrom: owner, _mnFromPath: file.path });
+        }
+      }
+    }
+    return out;
+  }
+
+  /** 관계도에서 새 인물 노트 만들기: 지금 노트와 같은 지면 틀(전용 지면은 임시로 빌려 씀), 값은 모두 「미정」. 만든 뒤 엶 */
+  async createCharacterNote(name, sourcePath, sourceData) {
+    const vault = this.app && this.app.vault;
+    if (!vault || typeof vault.create !== "function") throw new Error("보관소에 쓸 수 없어요");
+    const safe = this.asText(name).replace(/[\\/:*?"<>|#^[\]]/gu, "").trim();
+    if (!safe) throw new Error("이름이 비었어요");
+    const folder = /^The Main - 인물\//u.test(sourcePath) ? sourcePath.replace(/\/[^/]*$/u, "") : "The Main - 인물";
+    const path = normalizePath(`${folder}/${safe}.md`);
+    if (vault.getAbstractFileByPath(path)) {
+      await this.app.workspace.openLinkText(path, sourcePath, false);
+      return path;
+    }
+    const sourceName = this.asText(sourceData && (sourceData._mnCharacterName || sourceData.title)).trim() || "원래";
+    const variant = this.asText(sourceData && sourceData.layout_variant).trim();
+    const brand = this.asText(sourceData && (sourceData.brand || sourceData.archive_brand)).trim();
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const q = (value) => JSON.stringify(value);
+    const lines = [
+      "---", "분류: 인물", "상태: 작가 작성 중", "하는 일: 미정", "시점: 미정", `만든날: ${today}`, "cssclasses:", "  - mn-codex-fullpage", "---", "",
+      "```mn-codex", "type: spread", "theme: mely", "layout_mode: black-tide",
+      variant ? `layout_variant: ${variant} # 임시: ${sourceName} 지면(바탕 · 색${brand ? " · 글자" : ""})을 빌려 씀 — 이 인물 것이 생기면 바꿔요` : null,
+      "visual_mode: live", "deck: auto",
+      variant && brand ? `brand: ${brand}` : null,
+      `title: ${q(safe)}`, `book_title: ${q(safe)}`, 'book_eyebrow: ""', 'book_subtitle: ""', "book_page_style: archive", "book_page_mode: left",
+      "book_sections:",
+      '  - title: "개요"', "    subtitle: BASE . RECORD", "    content: |", `      이름 : ${safe}`, "      소속 : 미정", "      종족 : 미정",
+      '  - title: "능력"', "    subtitle: ABILITY · TECHNIQUE", "    content: |", "      - 미정",
+      '  - title: "관계"', "    subtitle: RELATION · CHRONICLE", '    content: ""',
+      '  - title: "여담"', "    subtitle: PERSONAL · NOTES", "    content: |", "      좋아하는 것 :", "      싫어하는 것 :", "      취미 :",
+      'content: ""', "```", "",
+      "> [!note]- 메모", `> ${sourceName} 노트의 관계도에서 만든 빈 인물 노트예요. 값은 모두 미정이에요. ${sourceName} 노트에 적힌 관계는 이 노트의 관계도에도 저절로 떠요.`, "",
+    ].filter((line) => line !== null);
+    await vault.create(path, lines.join("\n"));
+    new Notice(`「${safe}」 인물 노트를 만들었어요 (값은 모두 미정).`);
+    if (this.app.workspace && typeof this.app.workspace.openLinkText === "function") await this.app.workspace.openLinkText(path, sourcePath, false);
+    return path;
+  }
+
   /** 관계 쪽 사람 그림: 쪽의 portrait → 그 이름의 인물 노트 속성 「초상」 → 없으면 첫 글자 */
   relationPortrait(name, pageData, sourcePath) {
     const direct = this.asText(pageData && pageData.portrait).trim();
-    if (direct) return this.resolveImage(direct, sourcePath);
+    if (direct) return this.resolveImage(direct, (pageData && pageData._mnFromPath) || sourcePath);
     try {
       const cache = this.app && this.app.metadataCache;
       const file = cache && typeof cache.getFirstLinkpathDest === "function" ? cache.getFirstLinkpathDest(name, sourcePath) : null;
@@ -4250,7 +4826,15 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
    */
   async shapeRelation(pageData, heading, kind, data, sourcePath, component) {
     if (kind !== "section") return;
-    const people = Array.isArray(pageData._mnRelationPeople) ? pageData._mnRelationPeople : [];
+    const own = Array.isArray(pageData._mnRelationPeople) ? pageData._mnRelationPeople : [];
+    // 다른 인물 노트의 관계 장에 이 사람이 적혀 있으면 이 관계도에도 띄움 (그쪽 글 그대로, 「○○ 노트에서」 표시). 실험실 추가 2026-10-28
+    const incoming = await this.incomingRelations(this.asText(data._mnCharacterName || data.title).trim(), sourcePath);
+    const people = own.slice();
+    for (const item of incoming) {
+      const same = people.find((person) => this.asText(person.title).trim() === item.title);
+      if (same) same._mnAlso = (same._mnAlso || []).concat(item);
+      else people.push(item);
+    }
     if (!people.length) return;
     const doc = heading.ownerDocument;
     const parent = heading.parentNode;
@@ -4276,7 +4860,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       const file = noteOf(name);
       const workspace = this.app && this.app.workspace;
       if (!file || !workspace || typeof workspace.openLinkText !== "function") {
-        new Notice(`「${name}」 인물 노트가 아직 없어요.`);
+        new Notice(`「${name}」 인물 노트가 아직 없어요. 오른쪽 카드의 「인물 노트 만들기」로 만들 수 있어요.`);
         return;
       }
       workspace.openLinkText(file.path, sourcePath, event && (event.ctrlKey || event.metaKey) ? "tab" : false);
@@ -4339,7 +4923,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     orbit.appendChild(center);
     const buttons = people.map((person, i) => {
       const name = this.asText(person.title).trim();
-      const button = this.relationFace(doc, name, this.relationPortrait(name, person, sourcePath), "", "mn-codex__orbit-node", "button");
+      const button = this.relationFace(doc, name, this.relationPortrait(name, person, sourcePath), person._mnPortraitFocus || "", "mn-codex__orbit-node", "button");
       button.type = "button";
       button.style.left = `${spots[i].x}%`;
       button.style.top = `${spots[i].y}%`;
@@ -4347,6 +4931,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       if (note) { const span = doc.createElement("span"); span.className = "mn-codex__rel-note"; span.textContent = note; button.appendChild(span); }
       const hasNote = Boolean(noteOf(name));
       if (!hasNote) button.classList.add("mn-codex__orbit-node--no-note");
+      if (person._mnFrom) button.classList.add("mn-codex__orbit-node--incoming");
       button.setAttribute("aria-label", `${name}${note ? ` · ${note}` : ""} · ${hasNote ? "눌러서 인물 노트 열기" : "인물 노트 없음"}`);
       button.title = `${name} · ${hasNote ? "눌러서 인물 노트 열기" : "인물 노트 없음"}`;
       orbit.appendChild(button);
@@ -4370,16 +4955,28 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       card.hidden = i !== 0;
       const kicker = doc.createElement("div");
       kicker.className = "mn-codex__section-kicker mn-codex__rel-kicker";
-      kicker.textContent = `${sectionNo} / ${sectionTitle} · ${String(i + 1).padStart(2, "0")}`;
+      kicker.textContent = `${sectionNo} / ${sectionTitle} · ${String(i + 1).padStart(2, "0")}${person._mnFrom ? ` · ${person._mnFrom} 노트에서` : ""}`;
       const title = doc.createElement("div");
       title.className = "mn-codex__rel-card-name";
       title.textContent = name;
       const hasNote = Boolean(noteOf(name));
       const open = doc.createElement("button");
       open.type = "button";
-      open.className = `mn-codex__rel-open${hasNote ? "" : " is-missing"}`;
-      open.textContent = hasNote ? "인물 노트 열기 ↗" : "인물 노트 없음";
-      open.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); openPerson(name, event); });
+      open.className = `mn-codex__rel-open${hasNote ? "" : " is-create"}`;
+      open.textContent = hasNote ? "인물 노트 열기 ↗" : "인물 노트 만들기 ＋";
+      open.title = hasNote ? `${name} 인물 노트 열기` : `${name} 인물 노트를 이 지면 틀로 새로 만들어요 (값은 모두 미정)`;
+      open.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (noteOf(name)) { openPerson(name, event); return; }
+        open.disabled = true;
+        try {
+          await this.createCharacterNote(name, sourcePath, data);
+        } catch (error) {
+          new Notice(`「${name}」 인물 노트를 만들지 못했어요: ${error && error.message ? error.message : error}`);
+          open.disabled = false;
+        }
+      });
       const pair = doc.createElement("div");
       pair.className = "mn-codex__rel-map";
       pair.appendChild(this.relationFace(doc, selfName, selfSrc, selfFocus, "mn-codex__rel-who--self"));
@@ -4388,7 +4985,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       const note = this.asText(person.relation).trim();
       if (note) { const span = doc.createElement("span"); span.className = "mn-codex__rel-note"; span.textContent = note; link.appendChild(span); }
       pair.appendChild(link);
-      const other = this.relationFace(doc, name, this.relationPortrait(name, person, sourcePath), "", "mn-codex__rel-who--other", "button");
+      const other = this.relationFace(doc, name, this.relationPortrait(name, person, sourcePath), person._mnPortraitFocus || "", "mn-codex__rel-who--other", "button");
       other.type = "button";
       other.title = `${name} · ${hasNote ? "눌러서 인물 노트 열기" : "인물 노트 없음"}`;
       other.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); openPerson(name, event); });
@@ -4397,7 +4994,26 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       body.className = "mn-codex__rel-body";
       card.append(kicker, title, open, pair, body);
       detail.appendChild(card);
-      await this.renderMarkdown(person.content || "", body, sourcePath, component);
+      if (person._mnFrom) {
+        const from = doc.createElement("div");
+        from.className = "mn-codex__rel-from";
+        from.textContent = `${person._mnFrom} 노트의 관계 장에 적힌 글이에요.`;
+        body.appendChild(from);
+      }
+      const text = doc.createElement("div");
+      body.appendChild(text);
+      await this.renderMarkdown(person.content || "", text, person._mnFromPath || sourcePath, component);
+      for (const also of person._mnAlso || []) {
+        const block = doc.createElement("div");
+        block.className = "mn-codex__rel-also";
+        const label = doc.createElement("div");
+        label.className = "mn-codex__rel-from";
+        label.textContent = `${also._mnFrom} 노트에서${also.relation ? ` · ${also.relation}` : ""}`;
+        const text = doc.createElement("div");
+        block.append(label, text);
+        body.appendChild(block);
+        await this.renderMarkdown(also.content || "", text, also._mnFromPath || sourcePath, component);
+      }
       cards.push(card);
     }
     const select = (index) => {

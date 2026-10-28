@@ -156,7 +156,7 @@
   <button class="btn main" id="b-note" title="이은 관계를 「라하니아 조직 정리」 노트로 써요 (라하니아 정보로 옮길 때 씀)">노트로 정리</button>
   <span id="saved"></span>
 </div>
-<div id="hint">카드를 끌면 옮겨요 · <b>둥근 카드 = 인물</b> (우클릭 → 노트 열기) ·카드 오른쪽 <b>고리</b>를 끌어 다른 카드에 놓으면 선이 이어지고 종류를 골라요 (빈 곳에 놓으면 새 조직과 이어요) · 선이나 이름표를 누르면 고쳐요 · 빈 곳 두 번 누르기: 새 조직 · 빈 곳 끌기: 화면 옮기기 · <b>오른쪽 단추 누른 채 좌우</b>: 확대 · 축소 (돋보기 Z, + − 0 글쇠도) · <b>카드 · 선 · 빈 곳 우클릭</b>: 메뉴 (지우기 · 잇기 · 상태 …) · Delete 지우기 · Ctrl+Z 되돌리기</div>
+<div id="hint">카드를 끌면 옮겨요 · <b>둥근 카드 = 인물</b> (두 번 누르기 · 우클릭 → 노트 열기) ·카드 오른쪽 <b>고리</b>를 끌어 다른 카드에 놓으면 선이 이어지고 종류를 골라요 (빈 곳에 놓으면 새 조직과 이어요) · 선이나 이름표를 누르면 고쳐요 · 빈 곳 두 번 누르기: 새 조직 · 빈 곳 끌기: 화면 옮기기 · <b>오른쪽 단추 누른 채 좌우</b>: 확대 · 축소 (돋보기 Z, + − 0 글쇠도) · <b>카드 · 선 · 빈 곳 우클릭</b>: 메뉴 (지우기 · 잇기 · 상태 …) · Delete 지우기 · Ctrl+Z 되돌리기</div>
 <div id="side">
   <h2>관계 종류</h2>
   <div class="types" id="types"></div>
@@ -195,6 +195,7 @@ let askN = 0;
 addEventListener('message', (e) => {
   const m = e.data || {};
   if ((m.mn === 'read' || m.mn === 'note') && asks.has(m.id)) { asks.get(m.id)(m.mn === 'read' ? m.text : m.ok); asks.delete(m.id); }
+  if (m.mn === 'focus' && D) focusNames(m.names); // 인물 페이지에서 「조직도에서 보기」
 });
 function askVault(msg) {
   return new Promise((res) => {
@@ -987,7 +988,11 @@ board.addEventListener('pointerleave', () => { if (!drag && hover) { hover = nul
 board.addEventListener('dblclick', (ev) => {
   if (tool === 'zoom') return;
   // 끄는 동안 판이 포인터를 붙잡아서 ev.target 은 늘 판이므로, 실제로 누른 자리를 다시 봄
-  if (document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.node, .tag, [data-e]')) return;
+  const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+  // 인물 카드를 두 번 누르면 그 인물 페이지(노트)를 엶
+  const card = hit?.closest('.node.person');
+  if (card) { const n = nodeById(card.dataset.id); if (n && n.note) openNote(n.note); else if (n) toast('이 인물 카드에 이어진 노트가 없어요 (오른쪽 칸 「노트」에 적어요)', false); return; }
+  if (hit?.closest('.node, .tag, [data-e]')) return;
   addNode(...toWorld(ev.clientX, ev.clientY));
 });
 board.addEventListener('wheel', (ev) => {
@@ -1005,6 +1010,26 @@ function addNode(x, y, kind) {
   sel = { kind: 'node', id: n.id, fresh: true };
   draw();
   drawSide();
+}
+/** 다른 창(인물 페이지)의 부탁: 그 이름의 카드를 골라 가운데로. 이름은 괄호 · 띄어쓰기를 빼고 견줌, 인물 카드가 먼저 */
+function focusNames(names) {
+  const norm = (s) => String(s || '').replace(/\(.*?\)/g, '').replace(/\s+/g, '').toLowerCase();
+  const wants = [].concat(names || []).map(norm).filter(Boolean);
+  const score = (n) => {
+    const a = norm(symName(n)), b = norm(n.name);
+    const at = wants.findIndex((w) => w === a || w === b || (w.length > 1 && (b.includes(w) || w.includes(a))));
+    return at < 0 ? -1 : at;
+  };
+  const hits = D.nodes.map((n) => ({ n, at: score(n) })).filter((h) => h.at >= 0).sort((x, y) => x.at - y.at);
+  if (!hits.length) { toast(`조직도에서 「${[].concat(names || []).join(', ')}」 카드를 찾지 못했어요`, false); return; }
+  const n = hits[0].n;
+  const b = boxOf(n);
+  const W = board.clientWidth, H = board.clientHeight - 70;
+  view.k = Math.max(view.k, 1);
+  view.x = W / 2 - (b.x + b.w / 2) * view.k;
+  view.y = 50 + H / 2 - (b.y + b.h / 2) * view.k;
+  applyView();
+  select({ kind: 'node', id: n.id });
 }
 function fit() {
   if (!D.nodes.length) return;
@@ -1129,6 +1154,9 @@ $('#b-note').onclick = async () => {
   // 옵시디언 액자가 처음엔 크기 0 으로 열릴 때가 있어서, 판 크기가 처음 잡히면 다시 맞춤
   let fitted = board.clientWidth > 0;
   new ResizeObserver(() => { if (!fitted && board.clientWidth > 0) { fitted = true; draw(); fit(); } }).observe(board);
+  // 다 읽었다고 알림(옵시디언: 기다리던 「조직도에서 보기」를 받음) · 세계판 창은 주소의 ?focus=이름,이름
+  if (OBS) parent.postMessage({ mn: 'ready' }, '*');
+  if (Q.get('focus')) setTimeout(() => focusNames(Q.get('focus').split(',')), 80);
 })();
 </script>
 </body>
