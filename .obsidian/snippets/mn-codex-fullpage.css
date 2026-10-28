@@ -43,8 +43,8 @@ html body .markdown-source-view.mod-cm6.mn-codex-fullpage .inline-title { displa
 html body .markdown-source-view.mod-cm6.mn-codex-fullpage .metadata-container { margin: .6rem clamp(18px, 4vw, 56px) !important; }
 html body .markdown-source-view.mod-cm6.mn-codex-fullpage .cm-line { padding-inline: clamp(18px, 4vw, 56px) !important; }
 html body .markdown-source-view.mod-cm6.mn-codex-fullpage .cm-embed-block.cm-lang-mn-codex { padding: 0 !important; margin: 0 !important; }
-/* 블록 위에 마우스를 올리면 옵시디언이 띄우는 「</>」 편집 단추는 「✎ 글 고치기」와 겹치지 않게 왼쪽 위로 */
-html body .markdown-source-view.mod-cm6.mn-codex-fullpage .cm-embed-block.cm-lang-mn-codex .edit-block-button { left: .6rem; right: auto; }
+/* 블록 위에 마우스를 올리면 옵시디언이 오른쪽 위에 「</>」 편집 단추(1.14 부터 .embed-actions)를 띄움 — 그 자리는 비워 둠
+   (「✎ 글 고치기」는 캐릭터 전용 지면에선 왼쪽 위, 다른 지면에선 그 아래 — 플러그인 styles.css) */
 
 /* 지면: 테두리 · 둥근 모서리 · 바깥 그림자 없이 창 폭 가득 */
 html body .mn-codex-fullpage .block-language-mn-codex,
@@ -70,7 +70,7 @@ html body .mn-codex-fullpage .mn-codex--layout-book .mn-codex__book-track {
 }
 
 /* 지면 아래 글(접는 상자 등)은 가운데 읽기 폭으로 */
-html body .markdown-preview-view.mn-codex-fullpage .markdown-preview-sizer > div:not(.mn-codex-host):not(:has(.mn-codex-host)) {
+html body .markdown-preview-view.mn-codex-fullpage .markdown-preview-sizer > div:not(.mn-codex-host):not(.mn-codex-section) { /* mn-codex-section = 플러그인이 지면 칸에 붙임 (:has() 는 느려서 뺌) */
   max-width: 1100px;
   margin-inline: auto;
   padding-inline: clamp(18px, 4vw, 56px);
@@ -81,4 +81,10 @@ html body .mn-codex-fullpage .mn-codex-host--inline-book.mn-codex-host--variant-
 html body .mn-codex-fullpage .mn-codex-host--variant-silver-knight > .mn-codex { min-height: calc(100cqi / var(--mn-cover-ratio)); }
 html body .mn-codex-fullpage .mn-codex-host--variant-silver-knight .mn-codex--layout-book .mn-codex__book-track {
   height: max(650px, calc(100cqi / var(--mn-cover-ratio) * .904)) !important;
+}
+
+/* 한 쪽 보기 판(지면 폭 760px 이하): 쪽 높이는 창 높이에 맞춤(아래 장 띠까지 한 화면에) — 리더가 두 배 폭 크기 기준이라 위 식(100cqi)을 쓰면 너무 길어짐 */
+html body .mn-codex-fullpage .mn-codex-host .mn-codex.mn-codex--single-edition.mn-codex--layout-book > .mn-codex__reader .mn-codex__book-track {
+  height: clamp(600px, calc(100vh - 150px), 880px) !important;
+  min-height: 600px !important;
 }

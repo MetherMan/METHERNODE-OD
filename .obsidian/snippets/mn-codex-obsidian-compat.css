@@ -4,15 +4,17 @@
  * Then enable it in Settings > Appearance > CSS snippets.
  */
 
-/* Give codex notes enough room in Reading view and Live Preview. */
-body .markdown-preview-view:has(.mn-codex--spread) .markdown-preview-sizer,
+/* Give codex notes enough room in Reading view and Live Preview.
+   (mn-codex-has-spread 는 플러그인이 지면이 든 노트 화면에 붙임 — 예전 :has(.mn-codex--spread) 는 지면 안 글이 바뀔 때마다
+   노트 화면 전체 스타일을 다시 계산하게 해서 느렸음, 2026-10-28) */
+body .markdown-preview-view.mn-codex-has-spread .markdown-preview-sizer,
 body .markdown-preview-view.mn-codex-page .markdown-preview-sizer {
   width: min(100%, 1280px) !important;
   max-width: 1280px !important;
   padding-inline: clamp(18px, 4vw, 56px) !important;
 }
 
-body .markdown-source-view.mod-cm6:has(.mn-codex--spread) .cm-sizer,
+body .markdown-source-view.mod-cm6.mn-codex-has-spread .cm-sizer,
 body .markdown-source-view.mod-cm6.mn-codex-page .cm-sizer {
   width: min(100%, 1280px) !important;
   max-width: 1280px !important;

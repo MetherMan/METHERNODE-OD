@@ -30,6 +30,87 @@ const MELY_SHOWCASE_LAYOUTS = new Set([
 const LAYOUT_MODES = new Set(["flow", "book", ...MELY_SHOWCASE_LAYOUTS]);
 const PAGE_BREAK_PATTERN = /<!--\s*mn-page-break\s*-->/gi;
 
+// 캐릭터 전용 지면(layout_variant)을 인물마다 다르게: 지면 색 = [색상 돌림(도, oklch 의 h 는 단위 없는 수), 채도 배수].
+// 은회(리냐 지면 그대로)는 돌리지 않음. 실험실 추가 2026-10-28
+const VARIANT_TINTS = Object.freeze({ 먹: [0, 0], 쪽빛: [20, 1.6], 청록: [-65, 1.4], 녹: [-110, 1.2], 자주: [60, 1.4], 적갈: [140, 1.4], 황토: [180, 1.3] });
+const VARIANT_TINT_NAMES = Object.freeze(["은회", ...Object.keys(VARIANT_TINTS)]);
+const VARIANT_TOKEN = /(\.[\w-]*variant-silver-knight)(?![\w-])/gu;
+
+/** 괄호 · 따옴표 밖의 구분자로만 나눔 (선택자 목록 · 선언 목록) */
+const splitTopLevel = (text, separator) => {
+  const parts = [];
+  let depth = 0;
+  let quote = "";
+  let start = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === "\\") i += 1;
+      else if (ch === quote) quote = "";
+    } else if (ch === "\"" || ch === "'") quote = ch;
+    else if (ch === "(" || ch === "[") depth += 1;
+    else if (ch === ")" || ch === "]") depth -= 1;
+    else if (ch === separator && depth === 0) {
+      parts.push(text.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(text.slice(start));
+  return parts;
+};
+
+/** 지면 색 덧층: styles.css 의 캐릭터 전용 지면 규칙(variant-silver-knight)을 같은 자리에 「.mn-sk-tint」를 붙여 그대로 베끼고
+ *  색 값만 oklch(from 색 …)로 돌림. 베낀 규칙은 모두 한 칸씩 무거워져서 원래 규칙끼리의 앞뒤 · 무게는 그대로.
+ *  색을 고르지 않은 지면(리냐)은 이 덧층을 쓰지 않음 */
+const buildVariantTintCss = (css, assetUrl) => {
+  const source = String(css || "").replace(/\/\*[\s\S]*?\*\//gu, "");
+  const roots = [".mn-codex--variant-silver-knight", ".mn-mely-showcase--variant-silver-knight", ".mn-codex-host--variant-silver-knight"]
+    .map((selector) => `${selector}.mn-sk-tint`).join(",");
+  const tint = (value) => value
+    .replace(/url\([^)]*\)|"[^"]*"|'[^']*'|#[0-9a-fA-F]{3,8}\b|rgba?\([^()]*\)/gu, (match) => (/^(url|"|')/u.test(match)
+      ? match
+      : `oklch(from ${match} l calc(c * var(--sk-c, 1)) calc(h + var(--sk-h, 0)))`))
+    .replace(/url\((["']?)assets\/([^"')]+)\1\)/gu, (match, quote, name) => `url("${assetUrl(name)}")`);
+  const walk = (text) => {
+    let out = "";
+    let index = 0;
+    while (index < text.length) {
+      const open = text.indexOf("{", index);
+      if (open < 0) break;
+      const prelude = text.slice(index, open).trim();
+      let depth = 1;
+      let close = open + 1;
+      while (close < text.length && depth) {
+        if (text[close] === "{") depth += 1;
+        else if (text[close] === "}") depth -= 1;
+        close += 1;
+      }
+      const body = text.slice(open + 1, close - 1);
+      index = close;
+      if (/^@(media|supports|container)\b/u.test(prelude)) {
+        const inner = walk(body);
+        if (inner) out += `${prelude}{\n${inner}}\n`;
+        continue;
+      }
+      if (prelude.startsWith("@")) continue;
+      let selector = "";
+      let declarations = splitTopLevel(body, ";").map((item) => item.trim()).filter(Boolean);
+      if (prelude === ":root") {
+        selector = roots;
+        declarations = declarations.filter((item) => item.startsWith("--mn-sk-"));
+      } else if (prelude.includes("variant-silver-knight")) {
+        selector = splitTopLevel(prelude, ",").map((item) => item.trim())
+          .filter((item) => item.includes("variant-silver-knight"))
+          .map((item) => item.replace(VARIANT_TOKEN, "$1.mn-sk-tint")).join(",");
+      }
+      if (!selector || !declarations.length) continue;
+      out += `${selector}{${declarations.map(tint).join(";")}}\n`;
+    }
+    return out;
+  };
+  return walk(source);
+};
+
 /**
  * Small, bounded pool for short-lived DOM objects. The reset callback owns
  * lifecycle cleanup so callers cannot accidentally return dirty nodes.
@@ -789,10 +870,11 @@ class FocusPickerModal extends Modal {
 }
 
 class CodexEditModal extends Modal {
-  constructor(app, data, onSave) {
+  constructor(app, data, onSave, onExport) {
     super(app);
     this.data = JSON.parse(JSON.stringify(data || {}));
     this.onSave = onSave;
+    this.onExport = onExport;
   }
 
   onOpen() {
@@ -895,6 +977,8 @@ class CodexEditModal extends Modal {
       this.focusButton(focus, () => (Array.isArray(d.detail_images) ? d.detail_images[i] : ""), () => scaleList()[i], (scale) => { scaleList()[i] = scale; }, 1.6);
     });
 
+    if (String(d.layout_variant || "").trim()) this.lookFields(el, d, rerender);
+
     const book = el.createEl("details", { cls: "mn-codex-editor__group", attr: { open: "" } });
     book.createEl("summary", { text: "책장 (넘기는 쪽)" });
     if (!Array.isArray(d.book_sections)) d.book_sections = [];
@@ -941,6 +1025,10 @@ class CodexEditModal extends Modal {
     addSection.addEventListener("click", () => { d.book_sections.push({ title: "새 장", subtitle: "", content: "", pages: [] }); rerender(); });
 
     const bar = el.createDiv({ cls: "mn-codex-editor__bar" });
+    if (typeof this.onExport === "function") {
+      const exportButton = bar.createEl("button", { cls: "mn-codex-editor__export", text: "책을 그림으로 내보내기", attr: { type: "button", title: "표지와 책장 펼침을 한 장씩 그림(PNG)으로 — The Archive - 자료/책 내보내기/노트 이름/" } });
+      exportButton.addEventListener("click", () => { this.close(); this.onExport(); });
+    }
     const cancel = bar.createEl("button", { text: "닫기", attr: { type: "button" } });
     cancel.addEventListener("click", () => this.close());
     const save = bar.createEl("button", { cls: "mod-cta", text: "저장", attr: { type: "button" } });
@@ -953,9 +1041,41 @@ class CodexEditModal extends Modal {
     el.scrollTop = keepScroll;
   }
 
-  /** 장 · 쪽 그림 칸: 그림 · 초점(눌러서 잡기) · 확대. 왼쪽 석판 쪽이면 그 쪽 전체 바닥에 은은하게 깔림 */
+  /** 지면 (캐릭터 전용 지면일 때만): 색 · 바탕 무늬 · 문장 · 쪽 아래 글자. 비우면 그 지면 그대로 */
+  lookFields(el, d, rerender) {
+    const group = el.createEl("details", { cls: "mn-codex-editor__group" });
+    group.createEl("summary", { text: "지면 (색 · 무늬 · 문장)" });
+    const chips = (label, options, current, onPick) => {
+      const row = group.createDiv({ cls: "mn-codex-editor__field" });
+      row.createEl("label", { text: label });
+      const box = row.createDiv({ cls: "mn-codex-editor__swatches" });
+      for (const option of options) {
+        const chip = box.createEl("button", { cls: "mn-codex-editor__swatch", attr: { type: "button" } });
+        if (option.color) chip.createEl("i").style.background = option.color;
+        chip.appendText(option.text);
+        if (option.value === current) chip.addClass("is-on");
+        chip.addEventListener("click", () => { onPick(option.value); rerender(); });
+      }
+    };
+    const swatch = (name) => {
+      const tint = VARIANT_TINTS[name];
+      return tint ? `oklch(from #4e6382 l calc(c * ${tint[1]}) calc(h + ${tint[0]}))` : "#4e6382";
+    };
+    chips("지면 색", VARIANT_TINT_NAMES.map((name) => ({ value: name, text: name === "은회" ? "은회 (그대로)" : name, color: swatch(name) })),
+      VARIANT_TINTS[String(d.page_tint || "").trim()] ? String(d.page_tint).trim() : "은회",
+      (value) => { if (value === "은회") delete d.page_tint; else d.page_tint = value; });
+    chips("바탕 무늬", [{ value: "검", text: "떠 있는 검" }, { value: "없음", text: "없음 (민무늬)" }],
+      /^(없음|민무늬|none|plain)$/iu.test(String(d.page_pattern || "").trim()) ? "없음" : "검",
+      (value) => { if (value === "검") delete d.page_pattern; else d.page_pattern = value; });
+    this.field(group, "문장 (표지 왼쪽 위 · 개요 그림 메달)", d.page_emblem, (v) => { d.page_emblem = v; },
+      { pick: true, placeholder: "비우면 케이숑 메달 · 「없음」이면 안 보임 · 세력 심볼 그림을 골라도 돼요" });
+    this.field(group, "쪽 아래 글자", d.archive_label, (v) => { d.archive_label = v; },
+      { placeholder: String(d.eyebrow || "").trim() || `${String(d.title || "이름").trim()} / ARCHIVE` });
+  }
+
+  /** 장 · 쪽 그림 칸: 그림 · 초점(눌러서 잡기) · 확대. 그림을 달면 그 장 · 쪽은 새 펼침 왼쪽 석판 쪽에서 시작하고 그 쪽 전체 바닥에 은은하게 깔림 */
   pageArtFields(parent, target, label) {
-    this.field(parent, label, target.visual, (v) => { target.visual = v; }, { pick: true, placeholder: "왼쪽 석판 쪽에 놓이면 글 뒤에 은은하게 (오른쪽 종이 쪽은 글만) · 바탕까지 그린 세로 그림이 어울려요" });
+    this.field(parent, label, target.visual, (v) => { target.visual = v; }, { pick: true, placeholder: "달면 새 펼침 왼쪽 석판 쪽에서 시작해 글 뒤에 은은하게 깔려요 · 바탕까지 그린 세로 그림이 어울려요" });
     const focus = this.field(parent, "　그림 초점", target.visual_focus, (v) => { target.visual_focus = v; }, { placeholder: "50% 40%" });
     const scale = this.field(parent, "　그림 확대 (1 = 그대로)", target.visual_scale, (v) => { target.visual_scale = v; }, { placeholder: "1" });
     this.focusButton(focus, () => target.visual, () => target.visual_scale, (v) => { target.visual_scale = v; scale.value = String(v); }, 0.78);
@@ -996,6 +1116,7 @@ class CodexEditModal extends Modal {
   clean(d) {
     const out = { ...d };
     for (const k of ["title", "subtitle", "content", "image", "book_image"]) if (out[k] === "") delete out[k];
+    for (const k of ["page_tint", "page_pattern", "page_emblem", "archive_label"]) if (!String(out[k] || "").trim()) delete out[k];
     if (Array.isArray(out.detail_images)) {
       const list = out.detail_images.map((v) => (v == null ? "" : String(v).trim()));
       if (list.every((v) => !v)) delete out.detail_images;
@@ -1162,13 +1283,26 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       callback: () => new Notice(`${this.manifest.name} v${this.manifest.version}`),
     });
     this.addRibbonIcon("book-open", "도감 레이아웃 삽입", () => this.openLayoutPicker());
+    this.addCommand({
+      id: "export-book-images",
+      name: "지금 노트의 인물 책을 그림으로 내보내기",
+      callback: () => {
+        const leaf = this.app.workspace && this.app.workspace.activeLeaf;
+        const container = leaf && leaf.view && leaf.view.containerEl;
+        const host = container && Array.from(container.querySelectorAll(".mn-codex-host")).find((el) => typeof el._mnExportBook === "function");
+        if (host) host._mnExportBook();
+        else new Notice("지금 노트에서 인물 책(지면 블록)을 찾지 못했어요. 읽기 화면에서 해 주세요.");
+      },
+    });
   }
 
   /** 지면 오른쪽 위 「글 고치기」 단추 (마우스를 올리면 보임). 표지 다음 책장에도 같은 단추를 달아 줌 */
   addEditButton(host, data, ctx) {
     if (typeof Modal !== "function" || typeof stringifyYaml !== "function") return;
-    const open = () => new CodexEditModal(this.app, data, (next) => this.saveCodexBlock(host, ctx, next)).open();
+    const exportBook = () => this.exportBookImages(host, ctx.sourcePath);
+    const open = () => new CodexEditModal(this.app, data, (next) => this.saveCodexBlock(host, ctx, next), exportBook).open();
     host._mnOpenEditor = open;
+    host._mnExportBook = exportBook;
     const make = (parent) => {
       if (!parent || parent.querySelector(":scope > .mn-codex-edit-button")) return;
       const button = parent.createEl("button", {
@@ -1183,6 +1317,102 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const watch = new MutationObserver(() => make(host._mnMelyInlineBook));
     if (host.parentElement) watch.observe(host.parentElement, { childList: true });
     if (typeof this.register === "function") this.register(() => watch.disconnect());
+  }
+
+  /** 책을 그림으로 내보내기: 표지와 책장 펼침을 차례로 띄워 화면 그대로 찍어 PNG 로 저장 (데스크톱 옵시디언 · Electron 화면 찍기).
+   *  저장 자리: The Archive - 자료/책 내보내기/<노트 이름>/ 00 표지.png · 01.png … (같은 이름은 덮어씀). 실험실 추가 2026-10-28 */
+  async exportBookImages(host, sourcePath) {
+    let contents = null;
+    for (const name of ["@electron/remote", "electron"]) {
+      try {
+        const loaded = require(name);
+        const remote = name === "electron" ? loaded && loaded.remote : loaded;
+        if (remote && typeof remote.getCurrentWebContents === "function") {
+          contents = remote.getCurrentWebContents();
+          break;
+        }
+      } catch (error) {
+        // 다음 방법으로
+      }
+    }
+    if (!contents || typeof contents.capturePage !== "function") {
+      new Notice("책 내보내기는 데스크톱 옵시디언에서만 돼요 (화면 찍기 기능을 찾지 못했어요).");
+      return;
+    }
+    const vault = this.app.vault;
+    const base = this.asText(sourcePath).split("/").pop().replace(/\.md$/u, "") || "책";
+    const root = "The Archive - 자료/책 내보내기";
+    const folder = normalizePath(`${root}/${base}`);
+    for (const part of [root, folder]) {
+      if (!vault.getAbstractFileByPath(part)) {
+        try {
+          await vault.createFolder(part);
+        } catch (error) {
+          // 이미 있음
+        }
+      }
+    }
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const doc = host.ownerDocument;
+    const view = doc.defaultView || window;
+    const shown = (el) => Boolean(el && el.getClientRects().length && el.getBoundingClientRect().width > 20);
+    let count = 0;
+    const capture = async (el, name) => {
+      el.scrollIntoView({ block: "start" });
+      await wait(400);
+      const rect = el.getBoundingClientRect();
+      const zoom = typeof contents.getZoomFactor === "function" ? Number(contents.getZoomFactor()) || 1 : 1;
+      const top = Math.max(0, rect.top);
+      const bottom = Math.min(view.innerHeight, rect.bottom);
+      if (bottom - top < 20 || rect.width < 20) return;
+      const image = await contents.capturePage({
+        x: Math.round(Math.max(0, rect.left) * zoom),
+        y: Math.round(top * zoom),
+        width: Math.round(rect.width * zoom),
+        height: Math.round((bottom - top) * zoom),
+      });
+      const png = image.toPNG();
+      const buffer = png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength);
+      const path = normalizePath(`${folder}/${name}.png`);
+      const existing = vault.getAbstractFileByPath(path);
+      if (existing instanceof TFile) await vault.modifyBinary(existing, buffer);
+      else await vault.createBinary(path, buffer);
+      count += 1;
+    };
+    doc.body.classList.add("mn-codex-exporting");
+    const progress = new Notice("책을 그림으로 내보내는 중… (끝날 때까지 창을 그대로 두세요)", 0);
+    try {
+      // 표지: 책장이 열려 있으면 「00 표지」로 돌아가서 찍음
+      let book = host._mnMelyInlineBook;
+      const coverTag = book && book.querySelector(".mn-codex__page-tag--cover");
+      if (coverTag && shown(book)) {
+        coverTag.click();
+        await wait(1000);
+      }
+      const cover = host.querySelector(":scope > .mn-codex");
+      if (shown(cover)) await capture(cover, "00 표지");
+      // 책장: 표지 NEXT 로 열고 펼침(좁은 지면은 한 쪽)마다 찍음
+      const next = host.querySelector(".mn-mely-pager__button--next");
+      if (next && shown(next)) next.click();
+      for (let i = 0; i < 40 && !(book = host._mnMelyInlineBook); i += 1) await wait(150);
+      const bookRoot = book && book.querySelector(":scope > .mn-codex");
+      let controller = null;
+      for (let i = 0; i < 80 && !(controller = bookRoot && bookRoot._mnBookController); i += 1) await wait(150);
+      if (controller && shown(bookRoot)) {
+        const total = controller.totalSteps();
+        for (let step = 0; step < total; step += 1) {
+          controller.activate(step);
+          await wait(1000);
+          await capture(bookRoot, String(step + 1).padStart(2, "0"));
+        }
+      }
+      new Notice(count ? `책을 그림 ${count}장으로 내보냈어요: ${folder}` : "찍을 지면을 찾지 못했어요. 노트를 읽기 화면으로 열고 다시 해 주세요.");
+    } catch (error) {
+      new Notice(`책을 내보내지 못했어요: ${error && error.message ? error.message : error}`);
+    } finally {
+      progress.hide();
+      doc.body.classList.remove("mn-codex-exporting");
+    }
   }
 
   /** 고친 데이터를 노트의 mn-codex 블록에 YAML 로 다시 씀 (블록 자리를 못 찾으면 쓰지 않음) */
@@ -1206,6 +1436,14 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       return lines.join(eol);
     });
     new Notice(written ? "지면 글을 저장했어요." : "블록 자리가 바뀌어 저장하지 않았어요. 다시 열어 주세요.");
+    // 관계 장의 사람들은 노트 속성 「관계」에도 [[이름]]으로 (세계판 · 그래프 · 역링크에서도 보이게). 실험실 추가 2026-10-28
+    if (written) {
+      try {
+        await this.syncRelationProperty(ctx.sourcePath, nextData);
+      } catch (error) {
+        console.warn("MN Codex: 속성 「관계」에 남기지 못했어요", error);
+      }
+    }
     return written;
   }
 
@@ -1239,14 +1477,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const adapter = this.app && this.app.vault && this.app.vault.adapter;
     if (!adapter || typeof adapter.getResourcePath !== "function") return;
 
-    const pluginDir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
-    const assetUrl = (name) => {
-      const vaultPath = normalizePath(`${pluginDir}/assets/${name}`);
-      const resource = String(adapter.getResourcePath(vaultPath));
-      const separator = resource.includes("?") ? "&" : "?";
-      return `${resource}${separator}mn-codex=${encodeURIComponent(this.manifest.version)}`
-        .replace(/"/g, "%22");
-    };
+    const assetUrl = (name) => this.pluginAssetUrl(name);
 
     const style = document.createElement("style");
     style.id = "mn-codex-runtime-assets";
@@ -1262,10 +1493,57 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       --mn-mely-black-tide-chrome: url("${assetUrl("mely-black-tide-chrome.png")}");
       --mn-onal-black-tide-foreground: url("${assetUrl("onal-black-tide-foreground-v2.png")}");
       --mn-onal-silver-knight-chrome: url("${assetUrl("onal-silver-knight-chrome.jpg")}");
+      --mn-onal-silver-knight-chrome-plain: url("${assetUrl("onal-silver-knight-chrome-plain.jpg")}");
       --mn-onal-keishon-medal: url("${assetUrl("onal-keishon-medal.png")}");
     }`;
     document.head.appendChild(style);
     if (typeof this.register === "function") this.register(() => style.remove());
+  }
+
+  pluginAssetUrl(name) {
+    const adapter = this.app && this.app.vault && this.app.vault.adapter;
+    const pluginDir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
+    const vaultPath = normalizePath(`${pluginDir}/assets/${name}`);
+    const resource = String(adapter.getResourcePath(vaultPath));
+    const separator = resource.includes("?") ? "&" : "?";
+    return `${resource}${separator}mn-codex=${encodeURIComponent(this.manifest.version)}`
+      .replace(/"/g, "%22");
+  }
+
+  /** 캐릭터 전용 지면을 인물마다: 지면 색(page_tint) · 바탕 무늬(page_pattern) · 문장(page_emblem) · 쪽 아래 글자(archive_label).
+   *  아무것도 안 적으면 그 지면 그대로(리냐). 표지 장면 · 책장 뿌리 · 책장 바깥 틀에 같이 걺. 실험실 추가 2026-10-28 */
+  applyVariantLook(el, data, sourcePath) {
+    if (!el || !data || !this.asText(data.layout_variant).trim()) return;
+    const tint = VARIANT_TINTS[this.asText(data.page_tint).trim()];
+    if (tint) {
+      el.classList.add("mn-sk-tint");
+      el.style.setProperty("--sk-h", String(tint[0]));
+      el.style.setProperty("--sk-c", String(tint[1]));
+      this.ensureVariantTintLayer();
+    }
+    if (/^(없음|민무늬|none|plain)$/iu.test(this.asText(data.page_pattern).trim())) el.classList.add("mn-sk-plain");
+    const emblem = this.asText(data.page_emblem).trim();
+    if (/^(없음|none)$/iu.test(emblem)) el.style.setProperty("--mn-onal-keishon-medal", "none");
+    else if (emblem) {
+      const src = this.resolveImage(emblem, sourcePath);
+      if (src) el.style.setProperty("--mn-onal-keishon-medal", `url("${String(src).replace(/"/g, "%22")}")`);
+    }
+    const label = this.asText(data.archive_label).trim() || this.asText(data.eyebrow).trim()
+      || `${this.asText(data._mnCharacterName || data.title).trim()} / ARCHIVE`;
+    el.style.setProperty("--mn-sk-folio", JSON.stringify(label.toUpperCase()));
+  }
+
+  ensureVariantTintLayer() {
+    if (this._mnTintLayer || typeof document === "undefined" || !document.head) return;
+    this._mnTintLayer = (async () => {
+      const dir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
+      const css = await this.app.vault.adapter.read(normalizePath(`${dir}/styles.css`));
+      const style = document.createElement("style");
+      style.id = "mn-codex-sk-tint";
+      style.textContent = buildVariantTintCss(css, (name) => this.pluginAssetUrl(name));
+      document.head.appendChild(style);
+      if (typeof this.register === "function") this.register(() => style.remove());
+    })().catch((error) => console.warn("MN Codex: 지면 색 덧층을 만들지 못했어요", error));
   }
 
   addSnippetCommand(id, name, snippet) {
@@ -1341,7 +1619,12 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     root.setAttr("data-mn-kind", kind);
     // layout_variant 를 처음부터 뿌리에 (본문을 그릴 때 그 지면 전용 정리를 할 수 있게). 실험실 추가 2026-10-27
     const variant = this.asText(data.layout_variant).trim().toLowerCase();
-    if (/^[a-z0-9-]{1,40}$/u.test(variant)) root.addClass(`mn-codex--variant-${variant}`);
+    if (/^[a-z0-9-]{1,40}$/u.test(variant)) {
+      root.addClass(`mn-codex--variant-${variant}`);
+      host.classList.add("mn-codex-host--has-variant");
+    }
+    if (kind === "spread") this.markCodexView(host, component);
+    this.applyVariantLook(root, data, sourcePath);
     const brand = this.asText(data.brand || data.archive_brand).trim().toUpperCase();
     if (brand) root.setAttr("data-mn-brand", brand);
 
@@ -1502,6 +1785,21 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     if (counter && !counter.textContent) counter.setText("01 / --");
     if (title && !title.textContent) title.setText("CHARACTER FILE");
     this.linkMelyChapterStrip(cover, sourcePath);
+    // 렉 줄이기: 표지를 보는 동안 쉬는 틈에 책장을 화면 밖에서 미리 만들어 둠 → NEXT 를 누르면 바로 열림
+    // (처음 넘길 때 책장 전체를 그 자리에서 만드느라 0.4초쯤 멈칫했음). 캐릭터 전용 지면만. 실험실 추가 2026-10-28
+    const deckData = cover._mnMelyDeckData;
+    if (deckData && this.asText(deckData.layout_variant).trim() && !cover._mnPrebuildQueued) {
+      cover._mnPrebuildQueued = true;
+      const view = cover.ownerDocument.defaultView || window;
+      const idle = typeof view.requestIdleCallback === "function"
+        ? (fn) => view.requestIdleCallback(fn, { timeout: 4000 })
+        : (fn) => setTimeout(fn, 600);
+      setTimeout(() => idle(() => {
+        if (!cover.isConnected || cover._mnMelyInlineBook || cover._mnMelyInlineBookPending) return;
+        this.createMelyInlineBook(cover, sourcePath, { prebuild: true })
+          .catch((error) => console.warn("MN Codex: 책장 미리 만들기 실패", error));
+      }), 1200);
+    }
     if (next) {
       next.disabled = false;
       next.onclick = async (event) => {
@@ -1542,8 +1840,20 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     return inlineBook;
   }
 
-  async createMelyInlineBook(cover, sourcePath) {
+  /** 표지 다음 책장. 만드는 중이면 그걸 기다려 씀(미리 만들기와 NEXT 가 겹쳐도 한 번만 만듦) */
+  async createMelyInlineBook(cover, sourcePath, options = {}) {
+    if (cover?._mnMelyInlineBookPending) return cover._mnMelyInlineBookPending;
     if (cover?._mnMelyInlineBook?.isConnected) return cover._mnMelyInlineBook;
+    const pending = this.buildMelyInlineBook(cover, sourcePath, Boolean(options.prebuild));
+    if (cover) cover._mnMelyInlineBookPending = pending;
+    try {
+      return await pending;
+    } finally {
+      if (cover && cover._mnMelyInlineBookPending === pending) cover._mnMelyInlineBookPending = null;
+    }
+  }
+
+  async buildMelyInlineBook(cover, sourcePath, prebuild) {
     const sourceData = cover?._mnMelyDeckData;
     const component = cover?._mnMelyDeckComponent;
     if (!cover?.parentElement || !sourceData || !component) return null;
@@ -1594,6 +1904,14 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     book.setAttr("data-mn-mely-sequence-role", "book");
     book.setAttr("data-mn-source-path", this.asText(sourcePath));
     book.setAttr("data-mn-sequence-title", this.asText(data.title, "Mely 기록"));
+    // 지면 이름표는 쪽을 나누기 전에 (나중에 붙이면 나누는 동안 다른 지면용 오른쪽 여백 · 높이 규칙으로 좁게 나뉘었음). 2026-10-28
+    const earlyVariant = this.asText(sourceData.layout_variant).trim().toLowerCase();
+    if (/^[a-z0-9-]{1,40}$/u.test(earlyVariant)) book.classList.add(`mn-codex-host--variant-${earlyVariant}`);
+    // 미리 만들기: 표지와 같은 폭으로 화면 밖에서 그려 쪽을 나누고, 다 되면 숨겨 둠 (NEXT 를 누르면 바로 보임)
+    if (prebuild) {
+      book.classList.add("mn-codex-host--prebuilding");
+      book.style.cssText = `position:fixed;left:-30000px;top:0;width:${Math.round(cover.getBoundingClientRect().width)}px;visibility:hidden;pointer-events:none;`;
+    }
     cover.insertAdjacentElement("afterend", book);
     cover._mnMelyInlineBook = book;
 
@@ -1605,9 +1923,16 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       if (bookRoot && /^[a-z0-9-]{1,40}$/u.test(variant)) {
         bookRoot.classList.add(`mn-codex--variant-${variant}`);
         book.classList.add(`mn-codex-host--variant-${variant}`);
+        this.applyVariantLook(bookRoot, sourceData, sourcePath);
+        this.applyVariantLook(book, sourceData, sourcePath);
       }
       const brand = this.asText(sourceData.brand || sourceData.archive_brand).trim().toUpperCase();
       if (bookRoot && brand) bookRoot.setAttr("data-mn-brand", brand);
+      if (prebuild) {
+        book.style.cssText = "";
+        book.classList.remove("mn-codex-host--prebuilding");
+        if (!book.classList.contains("is-active")) book.hidden = true;
+      }
     } catch (error) {
       cover._mnMelyInlineBook = null;
       book.remove();
@@ -1693,6 +2018,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     nav.classList.add("mn-mely-showcase__navigation--chapters");
     nav.setAttr("aria-label", "장 바로가기");
     nav.style.setProperty("--mn-strip-count", String(Math.max(5, titles.length + 1)));
+    // 칸이 5개보다 많으면 바탕 그림의 칸 구분선(5칸 기준)과 어긋나서 구분선을 따로 그림(styles.css 「장이 많은 띠」)
+    nav.setAttr("data-mn-strip-many", titles.length + 1 > 5 ? "true" : null);
     const cell = (index, label, onClick) => {
       const button = nav.createEl("button", {
         cls: "mn-mely-showcase__chapter",
@@ -1916,9 +2243,11 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const showcaseTitle = this.asText(data.title, "Mely 관측 기록").trim();
     const eyebrowText = this.asText(data.eyebrow).trim();
     const inferredBrand = eyebrowText.split(/\s*(?:\/|·|\||—)\s*/u)[0].trim();
-    const showcaseBrand = this.asText(data.brand || data.archive_brand, inferredBrand || "MELY")
+    // 캐릭터 전용 지면은 brand 를 안 적으면 다른 인물 이름(MELY)을 빌리지 않고 비워 둠. 실험실 추가 2026-10-28
+    const showcaseBrand = this.asText(data.brand || data.archive_brand, inferredBrand || (this.asText(data.layout_variant).trim() ? "" : "MELY"))
       .trim()
       .toUpperCase();
+    const brandPrefix = showcaseBrand ? `${showcaseBrand} / ` : "";
     scene.setAttr("data-mn-brand", showcaseBrand);
     const visualDataTextSize = this.asText(data.visual_data_text_size).trim();
     if (/^(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|cqi|%)$/iu.test(visualDataTextSize)) {
@@ -1929,8 +2258,12 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const layoutVariant = this.asText(data.layout_variant).trim().toLowerCase();
     if (/^[a-z0-9-]{1,40}$/u.test(layoutVariant)) {
       scene.addClass(`mn-mely-showcase--variant-${layoutVariant}`);
+      this.applyVariantLook(scene, data, sourcePath);
       const codexRoot = typeof scene.closest === "function" ? scene.closest(".mn-codex") : null;
-      if (codexRoot) codexRoot.classList.add(`mn-codex--variant-${layoutVariant}`);
+      if (codexRoot) {
+        codexRoot.classList.add(`mn-codex--variant-${layoutVariant}`);
+        this.applyVariantLook(codexRoot, data, sourcePath);
+      }
     }
     if (layoutMode === "ribbon-slash" && showcaseTitle && !/\s/u.test(showcaseTitle)) {
       scene.addClass("mn-mely-showcase--single-title");
@@ -1959,15 +2292,15 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         });
       }
     } else {
-      scene.createDiv({ cls: "mn-mely-showcase__ghost", text: showcaseBrand });
+      if (showcaseBrand) scene.createDiv({ cls: "mn-mely-showcase__ghost", text: showcaseBrand });
     }
 
     const indexRail = scene.createDiv({ cls: "mn-mely-showcase__index" });
-    indexRail.createSpan({ text: this.asText(data.plate_label, `${showcaseBrand} / ARCHIVE`) });
+    indexRail.createSpan({ text: this.asText(data.plate_label, `${brandPrefix}ARCHIVE`) });
     indexRail.createSpan({ text: "OBSERVATION RECORD" });
 
     const utility = scene.createDiv({ cls: "mn-mely-showcase__utility" });
-    utility.createSpan({ cls: "mn-mely-showcase__utility-kicker", text: `${showcaseBrand} / SUBJECT DATA` });
+    utility.createSpan({ cls: "mn-mely-showcase__utility-kicker", text: `${brandPrefix}SUBJECT DATA` });
     utility.createSpan({ cls: "mn-mely-showcase__barcode", attr: { "aria-hidden": "true" } });
     utility.createSpan({ cls: "mn-mely-showcase__utility-code", text: this.asText(data.caption, "VISUAL IDENTIFICATION · VERIFIED") });
 
@@ -2355,6 +2688,11 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     root.classList.toggle("mn-codex--book-has-sections", hasBookSections);
     const reader = root.createDiv({ cls: "mn-codex__reader" });
     reader.setAttr("aria-label", this.asText(data.title, "넘기는 설정집"));
+    // 한 쪽 보기 판: 캐릭터 전용 지면이 좁으면(760px 이하, 옵시디언에 옆 막대를 연 창 등) 쪽 나누기부터 한 쪽 크기로 하고,
+    // 리더를 두 배 폭 크기 기준(컨테이너)으로 잡아 한 쪽 안의 글자 · 여백 비율을 넓은 화면의 한 쪽과 같게. 실험실 추가 2026-10-28
+    const singleEdition = Boolean(this.asText(data.layout_variant).trim()) && root.getBoundingClientRect().width <= 760;
+    root.classList.toggle("mn-codex--single-edition", singleEdition);
+    if (singleEdition) reader.classList.add("mn-codex__reader--single", "mn-codex__reader--flowing");
     const track = reader.createDiv({ cls: "mn-codex__book-track" });
     const spreads = [];
     const contentPageQueue = [];
@@ -2438,6 +2776,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         if ((pageData._mnBookTemplate === "relation" || pageData._mnBookTemplate === "personal") && pageData._mnBookPageKind === "section") entryBreak.setAttr("data-mn-next-spread", "true");
         // 능력 하위 쪽(전용 지면)은 그림 띠가 두 쪽 위를 가로질러서 역시 새 펼침의 왼쪽 쪽에서 시작
         if (pageData._mnBookTemplate === "ability" && pageData._mnBookPageKind === "entry" && this.asText(data.layout_variant).trim()) entryBreak.setAttr("data-mn-next-spread", "true");
+        // 쪽 그림을 단 장 · 쪽도 새 펼침의 왼쪽 석판 쪽에서 시작 (오른쪽 종이 쪽에 놓이면 그림이 안 보여서). 실험실 추가 2026-10-28
+        if (this.hasPageArt(pageData, data)) entryBreak.setAttr("data-mn-next-spread", "true");
         const heading = prepareBookHeading(pageData, firstBody, pageIndex);
         this.createBookIllustration(pageData, firstBody, sourcePath, component);
         await this.renderMarkdownWithPageBreaks(pageData.content, firstBody, sourcePath, component);
@@ -2480,6 +2820,9 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       page.frame.setAttr("data-mn-book-page-mode", mode);
       page.frame.classList.remove("mn-codex__page-frame--mode-leaf", "mn-codex__page-frame--mode-spread");
       page.frame.addClass(`mn-codex__page-frame--mode-${mode}`);
+      // 쪽 자체에도 표시 (펼침 쪽 규칙이 예전엔 :has() 로 찾아서 느렸음). 2026-10-28
+      const modePage = typeof page.frame.closest === "function" ? page.frame.closest(".mn-codex__page") : null;
+      if (modePage) modePage.classList.toggle("mn-codex__page--mode-spread", mode === "spread");
       if (mode === "spread") page.spread.book.addClass("mn-codex__book--logical-spread");
     };
     applyConfiguredPageMode(contentPages[0], 0);
@@ -2558,17 +2901,20 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
           return;
         }
         // 관계도는 다음 쪽으로 밀기 전에 남은 자리에 맞춰 작게 해 봄 (다음 쪽은 고른 사람 글 자리라서). 실험실 추가 2026-10-27
+        // 폭은 그대로 두고 높이만 줄여 봄 — 쪽에 놓인 뒤 관계도가 남은 높이까지 다시 늘리고 반지름 · 동그라미 크기를 잡음(shapeRelation layout),
+        // 그래서 여기선 아주 작게(1/4)까지 줄여서라도 관계 장 첫 쪽에 붙여 둠. 2026-10-28
         if (remainder.nodeType === 1 && remainder.classList.contains("mn-codex__orbit")) {
-          for (const scale of [0.9, 0.8, 0.7, 0.6, 0.5]) {
-            remainder.style.width = `${scale * 100}%`;
-            remainder.style.marginInline = "auto";
+          const naturalHeight = remainder.offsetHeight;
+          for (const scale of [0.9, 0.8, 0.7, 0.6, 0.5, 0.44, 0.38, 0.32, 0.25]) {
+            remainder.style.aspectRatio = "auto";
+            remainder.style.height = `${Math.round(naturalHeight * scale)}px`;
             if (!this.isPageOverflowing(currentPage.body)) {
               currentHasContent = true;
               return;
             }
           }
-          remainder.style.width = "";
-          remainder.style.marginInline = "";
+          remainder.style.aspectRatio = "";
+          remainder.style.height = "";
         }
 
         remainder.remove();
@@ -2779,7 +3125,49 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
           right.setAttr("data-mn-section-repeat", "true");
         }
       });
+      // 빈 쪽(다음 펼침 왼쪽에서 시작하는 장 앞 등)은 텅 비워 두지 않고 다음 장을 조용히 알림 (캐릭터 전용 지면). 실험실 추가 2026-10-28
+      if (this.asText(data.layout_variant).trim()) {
+        const used = contentPages.slice(0, usedContentPageCount);
+        used.forEach((page, index) => {
+          if (String(page.body.textContent || "").trim() || page.body.querySelector("img, svg, canvas, .mn-codex__orbit")) return;
+          const pageNode = typeof page.frame.closest === "function" ? page.frame.closest(".mn-codex__page") : null;
+          if (!pageNode || pageNode.querySelector(":scope > .mn-codex__page-art")) return;
+          const later = used.slice(index + 1).find((candidate) => candidate.frame.querySelector("[data-mn-book-page-index]"));
+          const heading = later && later.frame.querySelector("[data-mn-book-page-index]");
+          const nextData = heading ? configuredPages[Number(heading.getAttribute("data-mn-book-page-index"))] : null;
+          if (!nextData) return;
+          const doc = pageNode.ownerDocument;
+          const mark = doc.createElement("div");
+          mark.className = "mn-codex__page-next";
+          mark.setAttribute("aria-hidden", "true");
+          const kicker = doc.createElement("span");
+          kicker.className = "mn-codex__page-next-kicker";
+          kicker.textContent = "NEXT";
+          const number = doc.createElement("b");
+          number.textContent = String(Math.max(0, nextData._mnBookSectionIndex) + 1).padStart(2, "0");
+          const title = doc.createElement("span");
+          title.className = "mn-codex__page-next-title";
+          const sectionTitle = this.asText(nextData._mnBookSectionTitle, nextData.title);
+          title.textContent = sectionTitle;
+          mark.append(kicker, number, title);
+          const pageTitle = this.asText(nextData.title).trim();
+          if (pageTitle && pageTitle !== sectionTitle) {
+            const sub = doc.createElement("span");
+            sub.className = "mn-codex__page-next-sub";
+            sub.textContent = pageTitle.replace(/\s*[:：]\s*/u, " · ");
+            mark.appendChild(sub);
+          }
+          pageNode.appendChild(mark);
+          pageNode.setAttr("data-mn-page-empty", "true");
+        });
+      }
     }
+    contentPages.forEach((page) => {
+      this.markLoneParagraph(page.body);
+      const pageNode = typeof page.frame.closest === "function" ? page.frame.closest(".mn-codex__page") : null;
+      if (pageNode) pageNode.classList.toggle("mn-codex__page--mode-spread", page.frame.classList.contains("mn-codex__page-frame--mode-spread"));
+    });
+    reader.classList.remove("mn-codex__reader--flowing");
 
     const usedLeafCount = (hasImage ? 1 : 0) + usedContentPageCount;
     const usedSpreadCount = Math.max(1, Math.ceil(usedLeafCount / 2));
@@ -2937,6 +3325,20 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         updateSpreadState(spreadIndex);
       }
       activeSpreadIndex = spreadIndex;
+      // 지금 펼침에서 두 칸 넘게 떨어진 펼침은 그리지 않음(content-visibility) — 투명하게 겹쳐 둔 펼침까지 늘 그리던 걸 덜어 렉을 줄임.
+      // 지금 · 앞뒤 펼침의 그림은 미리 읽어 둠(넘기는 순간 큰 그림을 읽느라 버벅이지 않게). 실험실 추가 2026-10-28
+      spreads.forEach((spread, index) => {
+        if (!spread || !spread.book) return;
+        const far = Math.abs(index - spreadIndex) > 1;
+        if (spread.book.classList.contains("is-far") !== far) spread.book.classList.toggle("is-far", far);
+        if (!far && !spread._mnWarm) {
+          spread._mnWarm = true;
+          spread.book.querySelectorAll("img").forEach((img) => {
+            img.loading = "eager";
+            if (typeof img.decode === "function") img.decode().catch(() => {});
+          });
+        }
+      });
 
       previous.disabled = step === 0 && !beforeFirst;
       next.disabled = step >= total - 1;
@@ -2998,7 +3400,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
 
       if (targetSpread) {
         const targetSnapshot = targetSpread.book.cloneNode(true);
-        targetSnapshot.classList.remove("is-active", "is-before", "is-after");
+        targetSnapshot.classList.remove("is-active", "is-before", "is-after", "is-far");
         targetSnapshot.classList.add("mn-codex__flip-target");
         targetSnapshot.setAttribute("aria-hidden", "true");
         stage.appendChild(targetSnapshot);
@@ -3006,7 +3408,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
 
       if (leaving) {
         const snapshot = leaving.book.cloneNode(true);
-        snapshot.classList.remove("is-active", "is-before", "is-after");
+        snapshot.classList.remove("is-active", "is-before", "is-after", "is-far");
         snapshot.classList.add("mn-codex__flip-snapshot");
         snapshot.setAttribute("aria-hidden", "true");
         stage.appendChild(snapshot);
@@ -3124,6 +3526,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         coverTag = null;
       }
       strip.style.setProperty("--mn-strip-count", String(Math.max(5, strip.children.length)));
+      strip.setAttr("data-mn-strip-many", strip.children.length > 5 ? "true" : null);
     };
     syncCoverTag();
 
@@ -3649,7 +4052,39 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     }
   }
 
+  /** 목록 · 표가 없고 문단이 하나뿐인 쪽 표시. 예전엔 CSS :has() 로 골랐는데, 쪽 나누기 중 글을 넣을 때마다 쪽 스타일을
+   *  통째로 다시 계산하게 해서 책장 열기가 느렸음(렉). 실험실 추가 2026-10-28 */
+  markLoneParagraph(body) {
+    if (!body || !body.classList || !body.classList.contains("mn-codex__prose--page")) return;
+    const lone = !body.querySelector(".mn-codex__sheet, ul, ol") && body.querySelectorAll(":scope > p").length === 1;
+    if (body.classList.contains("mn-codex__prose--lone") !== lone) body.classList.toggle("mn-codex__prose--lone", lone);
+  }
+
+  /** 지면이 든 노트 화면 · 지면이 든 칸 표시 (보정 · 전체 화면 조각 CSS 가 예전엔 :has() 로 찾았는데, 지면 안에 글을 넣을 때마다
+   *  노트 화면 전체 스타일을 다시 계산하게 해서 느렸음). 노트를 닫거나 바꾸면 표시를 거둠 */
+  markCodexView(host, component) {
+    let tries = 0;
+    const mark = () => {
+      const view = typeof host.closest === "function" ? host.closest(".markdown-preview-view, .markdown-source-view") : null;
+      if (!view) {
+        tries += 1;
+        if (tries < 40) setTimeout(mark, 50);
+        return;
+      }
+      view.classList.add("mn-codex-has-spread");
+      const section = host.closest(".markdown-preview-sizer > div");
+      if (section) section.classList.add("mn-codex-section");
+      if (component && typeof component.register === "function") {
+        component.register(() => setTimeout(() => {
+          if (!view.querySelector(".mn-codex--spread")) view.classList.remove("mn-codex-has-spread");
+        }, 0));
+      }
+    };
+    mark();
+  }
+
   isPageOverflowing(body) {
+    this.markLoneParagraph(body);
     const height = Number(body.clientHeight || 0);
     if (!height) return false;
     return Number(body.scrollHeight || 0) > height + 2;
@@ -4235,7 +4670,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       row.appendChild(el("em", "", String(index + 1).padStart(2, "0")));
       const text = el("div", "mn-codex__pe-text");
       if (li) Array.from(li.childNodes).forEach((node) => text.appendChild(node));
-      else { text.textContent = "—"; text.classList.add("is-empty"); }
+      else { text.textContent = "—"; text.classList.add("is-empty"); row.classList.add("is-empty"); }
       row.appendChild(text);
       trivia.appendChild(row);
     });
@@ -4413,10 +4848,14 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
 
   /** 쪽 그림(장 · 쪽의 visual): 능력 하위 쪽(띠 펼침)을 뺀 모든 쪽. 제목이 왼쪽 석판 쪽에 놓이면 그 쪽 전체 바닥에 은은하게 깔고
    *  글 자리만 살짝 어둡게 눌러 읽히게 함(오른쪽 종이 쪽은 글만). 캐릭터 전용 지면만. 실험실 추가 2026-10-28 */
+  hasPageArt(pageData, data) {
+    if (!pageData || !this.asText(pageData.visual).trim()) return false;
+    if (!this.asText(data && data.layout_variant).trim()) return false;
+    return !(pageData._mnBookTemplate === "ability" && pageData._mnBookPageKind === "entry");
+  }
+
   preparePageArt(pageData, heading, data, sourcePath) {
-    if (!heading || !pageData || !this.asText(pageData.visual).trim()) return;
-    if (!this.asText(data && data.layout_variant).trim()) return;
-    if (pageData._mnBookTemplate === "ability" && pageData._mnBookPageKind === "entry") return;
+    if (!heading || !this.hasPageArt(pageData, data)) return;
     const art = this.abilityVisualImage(heading.ownerDocument, pageData, sourcePath, this.asText(pageData.title));
     if (!art) return;
     const backdrop = heading.ownerDocument.createElement("div");
@@ -4530,7 +4969,9 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     if (!band || !spread || !spread.book || !spread.leftPage) return;
     const book = spread.book;
     const page = spread.leftPage;
-    const ratio = band.classList.contains("mn-codex__ab-band--compact") ? 0.36 : 0.45;
+    // 한 쪽 보기 판은 책이 낮아서 이름 자리를 조금 더 높게 (번호와 이름 묶음이 포개지지 않게)
+    const single = typeof book.closest === "function" && book.closest(".mn-codex--single-edition");
+    const ratio = band.classList.contains("mn-codex__ab-band--compact") ? (single ? 0.44 : 0.36) : (single ? 0.53 : 0.45);
     const height = Math.round((book.offsetHeight || book.clientHeight || 640) * ratio);
     book.style.setProperty("--mn-ab-band-h", `${height}px`);
     book.classList.add("mn-codex__book--ab-band");
@@ -4619,6 +5060,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         src: ref ? this.resolveImage(ref, file.path) : "",
         focus: face && Array.isArray(data.detail_focus) && data.detail_focus[0] ? this.asText(data.detail_focus[0]) : "50% 18%",
         scale: face && Array.isArray(data.detail_scale) && Number(data.detail_scale[0]) > 1 ? Number(data.detail_scale[0]) : 1,
+        // 그 인물 지면의 색(page_tint) — 캐릭터 전용 지면이 아니면 없음. 실험실 추가 2026-10-28
+        look: data && this.asText(data.layout_variant).trim() ? (VARIANT_TINTS[this.asText(data.page_tint).trim()] || [0, 1]) : null,
       });
     }
     people.sort((a, b) => Number(a.test) - Number(b.test) || a.name.localeCompare(b.name, "ko"));
@@ -4650,6 +5093,12 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       if (!shown.length) grid.createDiv({ cls: "mn-roster__none", text: "조건에 맞는 인물이 없어요." });
       shown.forEach((person, index) => {
         const card = grid.createEl("button", { cls: `mn-roster__card${person.test ? " is-test" : ""}`, attr: { type: "button", title: `${person.name} 인물 페이지 열기` } });
+        if (person.look) {
+          const [hue, chroma] = person.look;
+          card.addClass("has-look");
+          card.style.setProperty("--mn-roster-accent", `oklch(from #4e6382 l calc(c * ${chroma}) calc(h + ${hue}))`);
+          card.style.setProperty("--mn-roster-slate", `oklch(from #1d2433 l calc(c * ${chroma}) calc(h + ${hue}))`);
+        }
         const figure = card.createDiv({ cls: "mn-roster__figure" });
         if (person.src) {
           const img = figure.createEl("img", { attr: { src: person.src, alt: "", loading: "lazy" } });
@@ -4743,7 +5192,76 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         }
       }
     }
+    // 노트 속성 「관계」(세계판 마을 카드 · 관계 장 저장이 적음)에 이 사람이 있으면 그 노트 주인도 (관계 장에 이미 적었으면 그쪽 글이 우선). 실험실 추가 2026-10-28
+    const vault = this.app && this.app.vault;
+    const cache = this.app && this.app.metadataCache;
+    const files = vault && typeof vault.getMarkdownFiles === "function" && cache ? vault.getMarkdownFiles() : [];
+    for (const file of files) {
+      if (file.path === sourcePath) continue;
+      const front = cache.getFileCache(file)?.frontmatter;
+      if (!front || front["관계"] === undefined) continue;
+      const entry = this.parseRelationProperty(front["관계"]).find((item) => item.name === selfName);
+      if (!entry) continue;
+      const owner = this.asText(front["이름"]).trim() || file.basename;
+      if (owner === selfName) continue;
+      const same = out.find((item) => item._mnFromPath === file.path);
+      if (same) {
+        if (!this.asText(same.relation).trim()) same.relation = this.relationPropertyLine(entry);
+        continue;
+      }
+      out.push({ title: owner, relation: this.relationPropertyLine(entry), content: "", _mnFrom: owner, _mnFromPath: file.path, _mnFromProp: true });
+    }
     return out;
+  }
+
+  /** 노트 속성 「관계」 → [{ name, word, favor }]. 세계판 마을 카드는 「[[이름]] 친구 (+3), [[이름]] 적」 한 줄로, 인물 노트는 목록으로 적음 */
+  parseRelationProperty(value) {
+    const items = Array.isArray(value) ? value : value === undefined || value === null ? [] : String(value).split(/,\s*(?=\[\[)/u);
+    const out = [];
+    for (const item of items) {
+      const match = this.asText(item).trim().match(/^\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]\s*(.*?)\s*(?:\(([+-]?\d+)\))?\s*$/u);
+      if (!match) continue;
+      out.push({ name: match[1].trim().split("/").pop().replace(/\.md$/u, ""), word: match[2].trim(), favor: match[3] === undefined ? null : Number(match[3]) });
+    }
+    return out;
+  }
+
+  /** 관계 한 줄: 관계 낱말 · 우호도(세계판과 같은 이름: −5 원수 … +5 맹우) */
+  relationPropertyLine(entry) {
+    const names = ["원수", "증오", "적대", "경계", "냉담", "중립", "호감", "호의", "우호", "신뢰", "맹우"];
+    const favor = Number.isInteger(entry.favor) && Math.abs(entry.favor) <= 5 ? `${entry.favor > 0 ? "+" : ""}${entry.favor} ${names[entry.favor + 5]}` : "";
+    return [entry.word, favor].filter(Boolean).join(" · ");
+  }
+
+  /** 관계 장의 사람들을 노트 속성 「관계」에도 [[이름]]으로 남김 (없는 사람만 더하고, 속성에만 있는 사람 · 우호도는 그대로). 실험실 추가 2026-10-28 */
+  async syncRelationProperty(path, data) {
+    const file = this.app.vault.getAbstractFileByPath(normalizePath(path || ""));
+    const manager = this.app && this.app.fileManager;
+    if (!(file instanceof TFile) || !manager || typeof manager.processFrontMatter !== "function") return;
+    const pages = [];
+    for (const section of Array.isArray(data && data.book_sections) ? data.book_sections : []) {
+      if (!section || typeof section !== "object") continue;
+      const explicit = this.asText(section.template ?? section["틀"]).trim();
+      const isRelation = explicit ? /^(관계|relation)$/iu.test(explicit) : /관계|인연/u.test(this.asText(section.title));
+      if (!isRelation) continue;
+      for (const page of Array.isArray(section.pages) ? section.pages : []) {
+        const name = this.asText(page && page.title).trim();
+        if (name) pages.push({ name, word: this.asText(page.relation).trim() });
+      }
+    }
+    if (!pages.length) return;
+    await manager.processFrontMatter(file, (front) => {
+      const current = front["관계"];
+      const entries = this.parseRelationProperty(current);
+      const keep = Array.isArray(current) ? current.map((item) => this.asText(item)) : current ? String(current).split(/,\s*(?=\[\[)/u) : [];
+      let changed = false;
+      for (const page of pages) {
+        if (entries.some((entry) => entry.name === page.name)) continue;
+        keep.push(`[[${page.name}]]${page.word ? ` ${page.word}` : ""}`);
+        changed = true;
+      }
+      if (changed) front["관계"] = keep;
+    });
   }
 
   /** 관계도에서 새 인물 노트 만들기: 지금 노트와 같은 지면 틀(전용 지면은 임시로 빌려 씀), 값은 모두 「미정」. 만든 뒤 엶 */
@@ -4760,16 +5278,17 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     }
     const sourceName = this.asText(sourceData && (sourceData._mnCharacterName || sourceData.title)).trim() || "원래";
     const variant = this.asText(sourceData && sourceData.layout_variant).trim();
-    const brand = this.asText(sourceData && (sourceData.brand || sourceData.archive_brand)).trim();
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     const q = (value) => JSON.stringify(value);
     const lines = [
       "---", "분류: 인물", "상태: 작가 작성 중", "하는 일: 미정", "시점: 미정", `만든날: ${today}`, "cssclasses:", "  - mn-codex-fullpage", "---", "",
       "```mn-codex", "type: spread", "theme: mely", "layout_mode: black-tide",
-      variant ? `layout_variant: ${variant} # 임시: ${sourceName} 지면(바탕 · 색${brand ? " · 글자" : ""})을 빌려 씀 — 이 인물 것이 생기면 바꿔요` : null,
+      variant ? `layout_variant: ${variant} # ${sourceName} 지면의 틀(배치)만 빌려 씀 — 색 · 무늬 · 문장은 아래 칸 (✎ 글 고치기 → 지면)` : null,
+      variant ? `page_tint: 먹 # 지면 색: ${VARIANT_TINT_NAMES.join(" · ")} (은회 = ${sourceName} 지면 색 그대로)` : null,
+      variant ? "page_pattern: 없음 # 바탕 무늬: 검(떠 있는 검) · 없음" : null,
+      variant ? "page_emblem: 없음 # 문장(표지 왼쪽 위 · 개요 그림 메달): 그림 경로 · 없음" : null,
       "visual_mode: live", "deck: auto",
-      variant && brand ? `brand: ${brand}` : null,
       `title: ${q(safe)}`, `book_title: ${q(safe)}`, 'book_eyebrow: ""', 'book_subtitle: ""', "book_page_style: archive", "book_page_mode: left",
       "book_sections:",
       '  - title: "개요"', "    subtitle: BASE . RECORD", "    content: |", `      이름 : ${safe}`, "      소속 : 미정", "      종족 : 미정",
@@ -4783,6 +5302,102 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     new Notice(`「${safe}」 인물 노트를 만들었어요 (값은 모두 미정).`);
     if (this.app.workspace && typeof this.app.workspace.openLinkText === "function") await this.app.workspace.openLinkText(path, sourcePath, false);
     return path;
+  }
+
+  /** 이 노트의 관계 장에 사람 쪽(제목 · 빈 관계 한 줄 · 빈 글)을 넣음. 블록을 통째로 다시 쓰지 않고 줄만 끼워 넣어 노트의 주석을 지킴 */
+  async addRelationPage(sourcePath, data, sectionIndex, sectionTitle, name, relation = "") {
+    const file = this.app.vault.getAbstractFileByPath(normalizePath(sourcePath || ""));
+    if (!(file instanceof TFile)) {
+      new Notice("이 노트를 찾지 못했어요.");
+      return false;
+    }
+    let result = "";
+    await this.app.vault.process(file, (text) => {
+      const next = this.insertRelationPageText(text, data, sectionIndex, sectionTitle, name, relation);
+      result = !next ? "" : next === text ? "same" : "ok";
+      return next || text;
+    });
+    if (result === "ok") {
+      try {
+        await this.syncRelationProperty(sourcePath, { book_sections: [{ title: sectionTitle, template: "관계", pages: [{ title: name, relation }] }] });
+      } catch (error) {
+        console.warn("MN Codex: 속성 「관계」에 남기지 못했어요", error);
+      }
+    }
+    new Notice(result === "ok" ? `「${name}」 쪽을 이 노트 관계 장에 빈 칸으로 넣었어요. ✎ 글 고치기에서 채워요.`
+      : result === "same" ? `「${name}」 쪽은 이미 이 노트 관계 장에 있어요.`
+      : "관계 장 자리를 찾지 못해 넣지 않았어요. ✎ 글 고치기에서 직접 넣어 주세요.");
+    return result === "ok";
+  }
+
+  insertRelationPageText(text, data, sectionIndex, sectionTitle, name, relation = "") {
+    const eol = text.includes("\r\n") ? "\r\n" : "\n";
+    const lines = text.split(/\r?\n/);
+    const blocks = [];
+    for (let i = 0; i < lines.length; i += 1) {
+      const fence = (lines[i].match(/^\s*(`{3,}|~{3,})\s*mn-codex\b/) || [])[1];
+      if (!fence) continue;
+      const closer = new RegExp(`^\\s*${fence[0] === "`" ? "`" : "~"}{${fence.length},}\\s*$`);
+      let j = i + 1;
+      while (j < lines.length && !closer.test(lines[j])) j += 1;
+      blocks.push([i + 1, j]);
+      i = j;
+    }
+    const parse = (from, to, source = lines) => { try { return parseYaml(source.slice(from, to).join("\n")); } catch (error) { return null; } };
+    const title = this.asText(data && data.title).trim();
+    const block = blocks.length === 1 ? blocks[0] : blocks.find(([from, to]) => this.asText((parse(from, to) || {}).title).trim() === title);
+    if (!block) return "";
+    const [from, to] = block;
+    const parsed = parse(from, to);
+    const sections = parsed && Array.isArray(parsed.book_sections) ? parsed.book_sections : [];
+    let pick = sections.findIndex((section) => this.asText(section && section.title).trim() === this.asText(sectionTitle).trim());
+    if (pick < 0) pick = Number(sectionIndex);
+    const section = sections[pick];
+    if (!section) return "";
+    if ((Array.isArray(section.pages) ? section.pages : []).some((page) => this.asText(page && page.title).trim() === name)) return text;
+    // book_sections 의 항목 줄들
+    const head = lines.findIndex((line, k) => k >= from && k < to && /^book_sections:\s*$/u.test(line));
+    if (head < 0) return "";
+    const items = [];
+    let itemIndent = -1;
+    let end = to;
+    for (let k = head + 1; k < to; k += 1) {
+      const line = lines[k];
+      if (!line.trim() || /^\s*#/u.test(line)) continue;
+      const indent = line.match(/^\s*/u)[0].length;
+      if (indent === 0 && !/^- /u.test(line)) { end = k; break; }
+      if (itemIndent < 0 && /^\s*- /u.test(line)) itemIndent = indent;
+      if (indent === itemIndent && /^\s*- /u.test(line)) items.push(k);
+    }
+    if (pick >= items.length) return "";
+    const start = items[pick];
+    const stop = pick + 1 < items.length ? items[pick + 1] : end;
+    const keyIndent = " ".repeat(itemIndent + 2);
+    const lastFilled = (k) => { while (k > start && !lines[k - 1].trim()) k -= 1; return k; };
+    const q = (value) => JSON.stringify(value);
+    const entry = (indent) => [`${indent}- title: ${q(name)}`, `${indent}  relation: ${q(this.asText(relation))}`, `${indent}  content: ""`];
+    const next = lines.slice();
+    const pagesAt = lines.findIndex((line, k) => k > start && k < stop && new RegExp(`^${keyIndent}pages:\\s*(\\[\\s*\\])?\\s*$`, "u").test(line));
+    if (pagesAt < 0) {
+      next.splice(lastFilled(stop), 0, `${keyIndent}pages:`, ...entry(`${keyIndent}  `));
+    } else {
+      next[pagesAt] = `${keyIndent}pages:`;
+      const firstItem = lines.slice(pagesAt + 1, stop).find((line) => /^\s*- /u.test(line));
+      const pageIndent = firstItem ? firstItem.match(/^\s*/u)[0] : `${keyIndent}  `;
+      let k = pagesAt + 1;
+      for (; k < stop; k += 1) {
+        const line = lines[k];
+        if (!line.trim()) continue;
+        const indent = line.match(/^\s*/u)[0].length;
+        if (indent < pageIndent.length || (indent === pageIndent.length && !/^\s*- /u.test(line))) break;
+      }
+      next.splice(lastFilled(k), 0, ...entry(pageIndent));
+    }
+    // 넣은 뒤 다시 읽어 그 장에 그 사람 쪽이 생겼는지 확인 (아니면 쓰지 않음)
+    const added = parse(from, to + next.length - lines.length, next);
+    const check = added && Array.isArray(added.book_sections) ? added.book_sections[pick] : null;
+    if (!check || !(Array.isArray(check.pages) ? check.pages : []).some((page) => this.asText(page && page.title).trim() === name)) return "";
+    return next.join(eol);
   }
 
   /** 관계 쪽 사람 그림: 쪽의 portrait → 그 이름의 인물 노트 속성 「초상」 → 없으면 첫 글자 */
@@ -4830,6 +5445,11 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     // 다른 인물 노트의 관계 장에 이 사람이 적혀 있으면 이 관계도에도 띄움 (그쪽 글 그대로, 「○○ 노트에서」 표시). 실험실 추가 2026-10-28
     const incoming = await this.incomingRelations(this.asText(data._mnCharacterName || data.title).trim(), sourcePath);
     const people = own.slice();
+    // 내 노트 속성 「관계」(세계판 카드 등)에만 있는 사람도 띄움. 실험실 추가 2026-10-28
+    for (const entry of this.parseRelationProperty((this.noteFrontmatter(sourcePath) || {})["관계"])) {
+      if (!entry.name || people.some((person) => this.asText(person.title).trim() === entry.name)) continue;
+      people.push({ title: entry.name, relation: this.relationPropertyLine(entry), content: "", _mnProp: true });
+    }
     for (const item of incoming) {
       const same = people.find((person) => this.asText(person.title).trim() === item.title);
       if (same) same._mnAlso = (same._mnAlso || []).concat(item);
@@ -4931,7 +5551,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       if (note) { const span = doc.createElement("span"); span.className = "mn-codex__rel-note"; span.textContent = note; button.appendChild(span); }
       const hasNote = Boolean(noteOf(name));
       if (!hasNote) button.classList.add("mn-codex__orbit-node--no-note");
-      if (person._mnFrom) button.classList.add("mn-codex__orbit-node--incoming");
+      if (person._mnFrom || person._mnProp) button.classList.add("mn-codex__orbit-node--incoming");
       button.setAttribute("aria-label", `${name}${note ? ` · ${note}` : ""} · ${hasNote ? "눌러서 인물 노트 열기" : "인물 노트 없음"}`);
       button.title = `${name} · ${hasNote ? "눌러서 인물 노트 열기" : "인물 노트 없음"}`;
       orbit.appendChild(button);
@@ -4955,7 +5575,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       card.hidden = i !== 0;
       const kicker = doc.createElement("div");
       kicker.className = "mn-codex__section-kicker mn-codex__rel-kicker";
-      kicker.textContent = `${sectionNo} / ${sectionTitle} · ${String(i + 1).padStart(2, "0")}${person._mnFrom ? ` · ${person._mnFrom} 노트에서` : ""}`;
+      kicker.textContent = `${sectionNo} / ${sectionTitle} · ${String(i + 1).padStart(2, "0")}${person._mnFrom ? ` · ${person._mnFrom} 노트에서` : person._mnProp ? " · 노트 속성에서" : ""}`;
       const title = doc.createElement("div");
       title.className = "mn-codex__rel-card-name";
       title.textContent = name;
@@ -4994,11 +5614,30 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       body.className = "mn-codex__rel-body";
       card.append(kicker, title, open, pair, body);
       detail.appendChild(card);
-      if (person._mnFrom) {
+      if (person._mnFrom || person._mnProp) {
         const from = doc.createElement("div");
         from.className = "mn-codex__rel-from";
-        from.textContent = `${person._mnFrom} 노트의 관계 장에 적힌 글이에요.`;
+        from.textContent = person._mnProp ? "이 노트 속성 「관계」에 적힌 관계예요 (세계판 카드 등)."
+          : person._mnFromProp ? `${person._mnFrom} 노트 속성 「관계」에 적힌 관계예요.` : `${person._mnFrom} 노트의 관계 장에 적힌 글이에요.`;
         body.appendChild(from);
+        // 저쪽 노트에만 적힌 관계: 이 노트 관계 장에도 그 사람 쪽을 빈 칸으로 넣어 내 쪽 시선을 따로 적게. 실험실 추가 2026-10-28
+        const mine = doc.createElement("button");
+        mine.type = "button";
+        mine.className = "mn-codex__rel-open mn-codex__rel-mine";
+        mine.textContent = person._mnProp ? "관계 장에도 적기 ＋" : "내 노트에도 적기 ＋";
+        mine.title = `이 노트(${selfName})의 관계 장에 「${name}」 쪽을 빈 칸으로 넣어요. 글은 ✎ 글 고치기에서 채워요`;
+        mine.addEventListener("click", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          mine.disabled = true;
+          try {
+            if (!await this.addRelationPage(sourcePath, data, pageData._mnBookSectionIndex, sectionTitle, name, person._mnProp ? this.asText(person.relation) : "")) mine.disabled = false;
+          } catch (error) {
+            new Notice(`관계를 넣지 못했어요: ${error && error.message ? error.message : error}`);
+            mine.disabled = false;
+          }
+        });
+        body.appendChild(mine);
       }
       const text = doc.createElement("div");
       body.appendChild(text);
@@ -5044,8 +5683,17 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       const room = Math.floor(body.getBoundingClientRect().bottom - orbit.getBoundingClientRect().top - 6);
       if (room > 160 && Math.abs(room - orbit.clientHeight) > 2) orbit.style.height = `${room}px`;
       const height = orbit.clientHeight;
-      let half = 0;
-      for (const button of buttons) half = Math.max(half, button.offsetWidth / 2, button.offsetHeight / 2);
+      // 자리가 좁으면(한 쪽 보기 판 등) 사람 동그라미 · 이름을 같은 비율로 줄여 가운데 동그라미와 포개지지 않게. 2026-10-28
+      const selfHalf = Math.max(center.offsetWidth, center.offsetHeight) / 2;
+      let otherHalf = 0;
+      for (const button of buttons) otherHalf = Math.max(otherHalf, button.offsetWidth / 2, button.offsetHeight / 2);
+      let k = 1;
+      for (const candidate of [1, 0.9, 0.8, 0.7, 0.62, 0.55]) {
+        k = candidate;
+        if (Math.max(40, Math.min(width, height) / 2 - otherHalf * k - 4) * factors[0] >= (selfHalf + otherHalf) * k + 6) break;
+      }
+      orbit.style.setProperty("--mn-orbit-k", String(k));
+      const half = otherHalf * k;
       const maxR = Math.max(40, Math.min(width, height) / 2 - half - 4);
       const cx = width / 2;
       const cy = height / 2;
