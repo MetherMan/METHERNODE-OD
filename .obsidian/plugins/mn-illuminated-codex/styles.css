@@ -8710,3 +8710,72 @@ body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--lef
 body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ov-name,
 body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ov-stat-value { color:var(--mn-sk-ivory); }
 body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__prose--page p.mn-codex__ov-lead { color:#c9d1dc; }
+/* 시안: 책장 넘김 · 은빛 빛줄기 (작가 요청 2026-10-28) ---------------------------------------------------------------------
+   움직임은 회전(transform) · 투명도(opacity)만 — 그래픽 카드가 맡아 프레임 부담이 적음. 「효과 없음」(book_effects) · 움직임 줄이기 설정이면 안 함 */
+body .mn-codex.mn-codex--turning .mn-codex__book--turn { transition:none !important; }
+/* 새로 펼쳐질 쪽은 넘어가는 종이 밑에서 짧게(0.18초) 서서히 나타나게 — 한 번에 보이게 하면 그 쪽의 큰 그림을 처음 그리는 동안
+   브라우저가 화면을 멈추고 기다려서(약 0.3초) 넘김이 늦게 시작했음 */
+body .mn-codex.mn-codex--turning .mn-codex__book--turn.is-active { transition:opacity .18s linear !important; }
+body .mn-codex .mn-codex__book--turn.is-turn-hold { opacity:1 !important; transform:none !important; z-index:5 !important; content-visibility:visible !important; pointer-events:none !important; }
+body .mn-codex .mn-codex__turn-stage { position:absolute; inset:0; z-index:60; pointer-events:none; overflow:hidden; perspective:2400px; perspective-origin:var(--mn-turn-spine, 50%) 50%; }
+body .mn-codex .mn-codex__turn-sheet { position:absolute; top:0; height:100%; z-index:2; transform-style:preserve-3d; transform-origin:left center; will-change:transform;
+  animation:mn-sk-turn-fwd var(--mn-turn-ms, 760ms) cubic-bezier(.22,.12,.24,1) both; }
+body .mn-codex .mn-codex__turn-stage.is-backward .mn-codex__turn-sheet { transform-origin:right center; animation-name:mn-sk-turn-back; }
+body .mn-codex .mn-codex__turn-stage.is-single .mn-codex__turn-sheet { transform-origin:left center; animation-name:mn-sk-lift; animation-timing-function:cubic-bezier(.5,.05,.6,1); }
+body .mn-codex .mn-codex__turn-stage.is-single.is-backward .mn-codex__turn-sheet { animation-name:mn-sk-land; animation-timing-function:cubic-bezier(.2,.6,.3,1); }
+body .mn-codex .mn-codex__turn-face { position:absolute; inset:0; overflow:hidden; backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+body .mn-codex .mn-codex__turn-face--back { transform:rotateY(180deg); }
+body .mn-codex .mn-codex__turn-still { position:absolute; inset:0; z-index:0; overflow:hidden; }
+body .mn-codex .mn-codex__book--turn.mn-codex__turn-ghost {
+  position:absolute !important; top:0 !important; height:100% !important; opacity:1 !important; transform:none !important; transition:none !important;
+  content-visibility:visible !important; will-change:auto !important; z-index:auto !important; pointer-events:none !important; animation:none !important;
+}
+body .mn-codex--layout-book .mn-codex__reader--single .mn-codex__turn-stage .mn-codex__turn-ghost--show-left .mn-codex__page--right,
+body .mn-codex--layout-book .mn-codex__reader--single .mn-codex__turn-stage .mn-codex__turn-ghost--show-right .mn-codex__page--left { display:none !important; }
+body .mn-codex--layout-book .mn-codex__reader--single .mn-codex__turn-stage .mn-codex__turn-ghost--show-left .mn-codex__page--left,
+body .mn-codex--layout-book .mn-codex__reader--single .mn-codex__turn-stage .mn-codex__turn-ghost--show-right .mn-codex__page--right { display:block !important; }
+/* 종이 그늘: 들리는 쪽은 책등 쪽부터 어두워지고, 드러나는 쪽 · 내려앉는 쪽엔 그림자가 잠깐 */
+body .mn-codex .mn-codex__turn-shade { position:absolute; inset:0; pointer-events:none; opacity:0; background:linear-gradient(90deg, rgba(8,12,20,.55), rgba(8,12,20,0) 55%);
+  animation:mn-sk-shade-front var(--mn-turn-ms, 820ms) linear both; }
+body .mn-codex .mn-codex__turn-face--back .mn-codex__turn-shade { background:linear-gradient(270deg, rgba(8,12,20,.55), rgba(8,12,20,0) 55%); animation-name:mn-sk-shade-back; }
+body .mn-codex .mn-codex__turn-stage.is-backward .mn-codex__turn-face .mn-codex__turn-shade { background:linear-gradient(270deg, rgba(8,12,20,.55), rgba(8,12,20,0) 55%); }
+body .mn-codex .mn-codex__turn-stage.is-backward .mn-codex__turn-face--back .mn-codex__turn-shade { background:linear-gradient(90deg, rgba(8,12,20,.55), rgba(8,12,20,0) 55%); }
+body .mn-codex .mn-codex__turn-stage.is-single.is-backward .mn-codex__turn-shade { background:linear-gradient(90deg, rgba(8,12,20,.5), rgba(8,12,20,0) 60%); animation-name:mn-sk-shade-back; }
+body .mn-codex .mn-codex__turn-under,
+body .mn-codex .mn-codex__turn-over { position:absolute; top:0; bottom:0; z-index:1; pointer-events:none; opacity:0; }
+body .mn-codex .mn-codex__turn-under { left:var(--mn-turn-spine); right:0; background:linear-gradient(90deg, rgba(8,12,20,.42), rgba(8,12,20,0) 38%); animation:mn-sk-under var(--mn-turn-ms, 820ms) linear both; }
+body .mn-codex .mn-codex__turn-over { left:0; width:var(--mn-turn-spine); background:linear-gradient(270deg, rgba(8,12,20,.38), rgba(8,12,20,0) 42%); animation:mn-sk-over var(--mn-turn-ms, 820ms) linear both; }
+body .mn-codex .mn-codex__turn-stage.is-backward .mn-codex__turn-under { left:0; right:auto; width:var(--mn-turn-spine); background:linear-gradient(270deg, rgba(8,12,20,.42), rgba(8,12,20,0) 38%); }
+body .mn-codex .mn-codex__turn-stage.is-backward .mn-codex__turn-over { left:var(--mn-turn-spine); right:0; width:auto; background:linear-gradient(90deg, rgba(8,12,20,.38), rgba(8,12,20,0) 42%); }
+@keyframes mn-sk-turn-fwd { from { transform:rotateY(0deg); } to { transform:rotateY(-180deg); } }
+@keyframes mn-sk-turn-back { from { transform:rotateY(0deg); } to { transform:rotateY(180deg); } }
+@keyframes mn-sk-lift { from { transform:rotateY(0deg); opacity:1; } 70% { opacity:1; } to { transform:rotateY(-92deg); opacity:0; } }
+@keyframes mn-sk-land { from { transform:rotateY(-92deg); opacity:0; } 30% { opacity:1; } to { transform:rotateY(0deg); opacity:1; } }
+@keyframes mn-sk-shade-front { 0% { opacity:0; } 50% { opacity:1; } 100% { opacity:1; } }
+@keyframes mn-sk-shade-back { 0% { opacity:1; } 50% { opacity:1; } 100% { opacity:0; } }
+@keyframes mn-sk-under { 0% { opacity:1; } 55% { opacity:0; } 100% { opacity:0; } }
+@keyframes mn-sk-over { 0%, 45% { opacity:0; } 80% { opacity:1; } 100% { opacity:0; } }
+/* 은빛 빛줄기: 쪽이 도착하면 석판 쪽을 비스듬한 은빛 띠가 한 번 스쳐 감 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__sheen-box { position:absolute; inset:0; z-index:3; overflow:hidden; pointer-events:none; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__sheen {
+  position:absolute; top:-12%; bottom:-12%; left:0; width:34%; opacity:0; will-change:transform, opacity;
+  background:linear-gradient(90deg, rgba(230,234,240,0), rgba(230,234,240,.06) 34%, rgba(246,248,252,.2) 50%, rgba(230,234,240,.06) 66%, rgba(230,234,240,0));
+}
+@media (prefers-reduced-motion:reduce) { body .mn-codex .mn-codex__turn-stage, body .mn-codex .mn-codex__sheen-box { display:none; } }
+/* 넘어가는 종이(복제한 펼침)는 가볍게: 바탕의 큰 은빛 그림(210% 확대) · 그림자 필터를 새로 그리느라 첫 0.3초 멈칫해서, 같은 석판색 단색 · 필터 없이 (움직이는 동안이라 차이는 거의 안 보임) */
+body .mn-codex .mn-codex__turn-stage .mn-codex__book--turn.mn-codex__turn-ghost { background:var(--mn-sk-slate, #1f2735) !important; }
+body .mn-codex .mn-codex__turn-stage .mn-codex__turn-ghost * { filter:none !important; }
+/* 렉 줄이기 — 미리 그려 두기 (2026-10-28): 미리 만든 책장은 표지 밑에, 바로 앞뒤 펼침은 지금 펼침 밑에 거의 투명하게(0.4%) 깔아 둠.
+   눈에 안 보이고 누를 수 없지만 브라우저가 미리 그려 둬서, 처음 보이는 순간 큰 그림을 그리느라 멈칫하지 않음 */
+.mn-codex-park-parent { position:relative; isolation:isolate; }
+.mn-codex-host.mn-codex-host--parked { position:absolute !important; left:0; right:0; z-index:-1; opacity:.004; pointer-events:none !important; }
+body .mn-codex.mn-codex--spread.mn-codex--layout-book .mn-codex__book--turn.is-before:not(.is-far),
+body .mn-codex.mn-codex--spread.mn-codex--layout-book .mn-codex__book--turn.is-after:not(.is-far) { opacity:.004; }
+/* 능력 하나(띠 쪽) 도착: 칼빛 한 줄이 띠를 비스듬히 가름 (main.js 도착 효과가 움직임) */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__slash {
+  position:absolute; left:6%; right:6%; top:54%; height:2px; z-index:3; pointer-events:none; opacity:0; transform-origin:center;
+  background:linear-gradient(90deg, rgba(230,234,240,0), rgba(230,234,240,.85) 42%, #fff 50%, rgba(230,234,240,.85) 58%, rgba(230,234,240,0));
+  box-shadow:0 0 12px rgba(214,226,244,.55);
+}
+/* 넘어오는 종이(복제한 새 쪽)에선 도착 효과로 떠오를 것들을 미리 숨김 — 내려앉은 뒤 차례로 떠오름(깜빡임 없게) */
+body .mn-codex .mn-codex__turn-ghost .mn-arrive { opacity:0 !important; }

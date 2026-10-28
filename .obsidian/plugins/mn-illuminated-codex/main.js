@@ -1067,6 +1067,9 @@ class CodexEditModal extends Modal {
     chips("바탕 무늬", [{ value: "검", text: "떠 있는 검" }, { value: "없음", text: "없음 (민무늬)" }],
       /^(없음|민무늬|none|plain)$/iu.test(String(d.page_pattern || "").trim()) ? "없음" : "검",
       (value) => { if (value === "검") delete d.page_pattern; else d.page_pattern = value; });
+    chips("책 효과 (시안)", [{ value: "모두", text: "모두" }, { value: "넘김", text: "책장 넘김만" }, { value: "장 효과", text: "장마다 효과만" }, { value: "없음", text: "없음" }],
+      ["넘김", "장 효과", "없음"].includes(String(d.book_effects || "").trim()) ? String(d.book_effects).trim() : String(d.book_effects || "").trim() === "빛줄기" ? "장 효과" : "모두",
+      (value) => { if (value === "모두") delete d.book_effects; else d.book_effects = value; });
     this.field(group, "문장 (표지 왼쪽 위 · 개요 그림 메달)", d.page_emblem, (v) => { d.page_emblem = v; },
       { pick: true, placeholder: "비우면 케이숑 메달 · 「없음」이면 안 보임 · 세력 심볼 그림을 골라도 돼요" });
     this.field(group, "쪽 아래 글자", d.archive_label, (v) => { d.archive_label = v; },
@@ -1116,7 +1119,7 @@ class CodexEditModal extends Modal {
   clean(d) {
     const out = { ...d };
     for (const k of ["title", "subtitle", "content", "image", "book_image"]) if (out[k] === "") delete out[k];
-    for (const k of ["page_tint", "page_pattern", "page_emblem", "archive_label"]) if (!String(out[k] || "").trim()) delete out[k];
+    for (const k of ["page_tint", "page_pattern", "page_emblem", "archive_label", "book_effects"]) if (!String(out[k] || "").trim()) delete out[k];
     if (Array.isArray(out.detail_images)) {
       const list = out.detail_images.map((v) => (v == null ? "" : String(v).trim()));
       if (list.every((v) => !v)) delete out.detail_images;
@@ -1522,6 +1525,10 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       this.ensureVariantTintLayer();
     }
     if (/^(없음|민무늬|none|plain)$/iu.test(this.asText(data.page_pattern).trim())) el.classList.add("mn-sk-plain");
+    // 책 효과(시안): 비우면 모두, 「넘김」 · 「빛줄기」만, 「없음」
+    const effects = this.asText(data.book_effects).trim();
+    el.classList.toggle("mn-sk-fx-turn", !effects || /모두|넘김|turn/u.test(effects));
+    el.classList.toggle("mn-sk-fx-sheen", !effects || /모두|빛줄기|장|sheen/u.test(effects));
     const emblem = this.asText(data.page_emblem).trim();
     if (/^(없음|none)$/iu.test(emblem)) el.style.setProperty("--mn-onal-keishon-medal", "none");
     else if (emblem) {
@@ -1792,13 +1799,16 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       cover._mnPrebuildQueued = true;
       const view = cover.ownerDocument.defaultView || window;
       const idle = typeof view.requestIdleCallback === "function"
-        ? (fn) => view.requestIdleCallback(fn, { timeout: 4000 })
-        : (fn) => setTimeout(fn, 600);
-      setTimeout(() => idle(() => {
+        ? (fn) => view.requestIdleCallback(fn, { timeout: 1200 })
+        : (fn) => setTimeout(fn, 300);
+      const prebuild = () => {
         if (!cover.isConnected || cover._mnMelyInlineBook || cover._mnMelyInlineBookPending) return;
         this.createMelyInlineBook(cover, sourcePath, { prebuild: true })
           .catch((error) => console.warn("MN Codex: 책장 미리 만들기 실패", error));
-      }), 1200);
+      };
+      // 표지가 먼저 그려지게 0.35초 뒤 쉬는 틈에. 그 전에 마우스가 NEXT 에 올라가면 바로
+      setTimeout(() => idle(prebuild), 350);
+      if (next) next.addEventListener("pointerenter", prebuild, { once: true });
     }
     if (next) {
       next.disabled = false;
@@ -1931,7 +1941,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       if (prebuild) {
         book.style.cssText = "";
         book.classList.remove("mn-codex-host--prebuilding");
-        if (!book.classList.contains("is-active")) book.hidden = true;
+        if (!book.classList.contains("is-active")) this.parkMelyBook(cover, book, true);
       }
     } catch (error) {
       cover._mnMelyInlineBook = null;
@@ -1995,9 +2005,29 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
 
     const showingBook = state.page === "book";
     cover.hidden = showingBook;
-    book.hidden = !showingBook;
+    if (showingBook) {
+      this.parkMelyBook(cover, book, false);
+      book.hidden = false;
+    } else {
+      this.parkMelyBook(cover, book, true);
+    }
     cover.classList.toggle("is-active", !showingBook);
     book.classList.toggle("is-active", showingBook);
+  }
+
+  /** 렉 줄이기: 표지를 보는 동안 책장은 숨기지 않고 표지 바로 밑에 거의 투명하게(0.4%) 깔아 둠 — 브라우저가 미리 그려 둬서
+   *  NEXT 를 누른 순간 큰 그림을 그리느라 멈칫하지 않음 (눈에 안 보이고 누를 수도 없음). 실험실 추가 2026-10-28 */
+  parkMelyBook(cover, book, parked) {
+    if (!cover || !book) return;
+    if (parked) {
+      if (book.parentElement) book.parentElement.classList.add("mn-codex-park-parent");
+      book.classList.add("mn-codex-host--parked");
+      book.style.top = `${cover.offsetTop}px`;
+      book.hidden = false;
+    } else if (book.classList.contains("mn-codex-host--parked")) {
+      book.classList.remove("mn-codex-host--parked");
+      book.style.top = "";
+    }
   }
 
   /** 표지 아래 띠를 책장 아래 장 띠와 같은 칸으로: 「00 표지 · 01 개요 · 02 능력 …」(책장 장 제목 그대로), 누르면 책장의 그 장으로.
@@ -2075,7 +2105,12 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     state.page = page === "book" ? "book" : "cover";
     const showingBook = state.page === "book";
     cover.hidden = showingBook;
-    book.hidden = !showingBook;
+    if (showingBook) {
+      this.parkMelyBook(cover, book, false);
+      book.hidden = false;
+    } else {
+      this.parkMelyBook(cover, book, true);
+    }
     cover.classList.toggle("is-active", !showingBook);
     book.classList.toggle("is-active", showingBook);
 
@@ -3298,7 +3333,155 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       });
     };
 
+    // 시안(작가 요청 2026-10-28): 책장 넘김 · 은빛 빛줄기 — 캐릭터 전용 지면, 「효과 없음」 · 움직임 줄이기 설정이면 안 함.
+    // 움직임은 회전 · 투명도만(그래픽 카드가 맡아 프레임 부담이 적음)
+    let currentTurn = null;
+    // 넘어가는 종이용 가벼운 그림: 큰 그림(폭 700px 넘음)은 넘어가는 종이에 넣으면 그 크기로 다시 풀어야 해서 첫 0.3초 멈칫함 →
+    // 쉬는 틈에 폭 640px 로 줄인 그림 데이터(ImageBitmap)를 만들어 두고, 종이에서만 그림 대신 캔버스에 그려 씀 (다 넘어가면 원래 그림 그대로)
+    const turnBitmaps = [];
+    cleanups.push(() => turnBitmaps.forEach((bitmap) => bitmap.close && bitmap.close()));
+    const makeTurnImage = (img) => {
+      const view = img && img.ownerDocument && img.ownerDocument.defaultView;
+      if (!img || img._mnTurnBitmap || img._mnTurnBusy || !(img.naturalWidth > 700) || !view || typeof view.createImageBitmap !== "function") return;
+      img._mnTurnBusy = true;
+      view.createImageBitmap(img, { resizeWidth: 640, resizeHeight: Math.max(1, Math.round(img.naturalHeight * 640 / img.naturalWidth)), resizeQuality: "medium" })
+        .then((bitmap) => { turnBitmaps.push(bitmap); img._mnTurnBitmap = bitmap; })
+        .catch(() => {});
+    };
+    const TURN_IMAGE_STYLES = ["position", "top", "right", "bottom", "left", "width", "height", "max-width", "max-height", "margin", "object-fit", "object-position",
+      "transform", "transform-origin", "filter", "opacity", "display", "z-index", "border-radius", "clip-path", "mask-image", "-webkit-mask-image", "vertical-align"];
+    const fxOn = (name) => root.classList.contains(`mn-sk-fx-${name}`) && !(reducedMotionQuery && reducedMotionQuery.matches);
+    const playSheen = (delay) => {
+      if (!fxOn("sheen") || marking) return;
+      const single = isSinglePage();
+      const spread = spreads[single ? Math.floor(step / 2) : step];
+      if (!spread || !spread.leftPage || (single && step % 2)) return;
+      const page = spread.leftPage;
+      let sheen = page.querySelector(":scope > .mn-codex__sheen-box > .mn-codex__sheen");
+      if (!sheen) {
+        const box = page.ownerDocument.createElement("div");
+        box.className = "mn-codex__sheen-box";
+        box.setAttribute("aria-hidden", "true");
+        sheen = page.ownerDocument.createElement("div");
+        sheen.className = "mn-codex__sheen";
+        box.appendChild(sheen);
+        page.appendChild(box);
+      }
+      if (typeof sheen.animate !== "function") return;
+      sheen.getAnimations().forEach((animation) => animation.cancel());
+      sheen.animate([
+        { transform: "translateX(-140%) skewX(-16deg)", opacity: 0 },
+        { opacity: 1, offset: 0.25 },
+        { opacity: 1, offset: 0.7 },
+        { transform: "translateX(330%) skewX(-16deg)", opacity: 0 },
+      ], { duration: 1500, delay, easing: "cubic-bezier(.3,.1,.2,1)" });
+    };
+
+    // 장마다 다른 도착 효과 (시안 2026-10-28) — 개요: 기록이 차례로 떠오름 · 능력 목록: 줄이 오른쪽에서 차례로 · 능력 하나: 칼빛 한 줄이 띠를 가르고
+    // 그림이 내려앉음 · 관계: 선이 그어지고 사람이 하나씩 · 여담: 취향 묶음이 천천히 떠오름 · 그 밖의 석판 쪽: 은빛 빛줄기. 위치 · 크기 · 투명도만 움직임
+    let arrivalDelay = 120;
+    // marking: 넘어오는 종이(복제한 새 쪽)에서도 떠오를 것들을 미리 숨기려고, 움직이는 대신 표시(mn-arrive)만 붙임
+    let marking = false;
+    const arriveEase = "cubic-bezier(.2,.7,.2,1)";
+    const visibleEl = (el) => Boolean(el && el.getClientRects().length);
+    const mark = (el) => { if (el) el.classList.add("mn-arrive"); };
+    const rise = (els, { delay = 0, stagger = 60, dx = 0, dy = 12, duration = 520 } = {}) => {
+      let index = 0;
+      for (const el of els) {
+        if (marking) { mark(el); continue; }
+        if (!visibleEl(el) || typeof el.animate !== "function") continue;
+        el.animate([{ opacity: 0, transform: `translate(${dx}px, ${dy}px)` }, { opacity: 1, transform: "translate(0px, 0px)" }],
+          { duration, delay: delay + index * stagger, easing: arriveEase, fill: "backwards" });
+        index += 1;
+      }
+      return index;
+    };
+    const arriveAbility = (page, spread, delay) => {
+      const doc = page.ownerDocument;
+      const backdrop = page.querySelector(".mn-codex__ab-backdrop");
+      if (marking) mark(backdrop);
+      else if (visibleEl(backdrop)) {
+        backdrop.animate([{ transform: "scale(1.07)", opacity: 0.55 }, { transform: "scale(1)", opacity: 1 }],
+          { duration: 1200, delay, easing: "cubic-bezier(.2,.6,.2,1)", fill: "backwards" });
+      }
+      const band = page.querySelector(".mn-codex__ab-band");
+      if (band && !marking) {
+        let slash = band.querySelector(":scope > .mn-codex__slash");
+        if (!slash) {
+          slash = doc.createElement("div");
+          slash.className = "mn-codex__slash";
+          slash.setAttribute("aria-hidden", "true");
+          band.appendChild(slash);
+        }
+        slash.getAnimations().forEach((animation) => animation.cancel());
+        slash.animate([
+          { transform: "translateX(-38%) rotate(-12deg) scaleX(.15)", opacity: 0 },
+          { opacity: 1, offset: 0.35 },
+          { transform: "translateX(38%) rotate(-12deg) scaleX(1)", opacity: 0 },
+        ], { duration: 640, delay: delay + 60, easing: "cubic-bezier(.3,0,.2,1)", fill: "both" });
+        rise(band.querySelectorAll(".mn-codex__ab-band-kicker, .mn-codex__ab-band-type, .mn-codex__ab-band-name, .mn-codex__ab-band-tags"),
+          { delay: delay + 260, stagger: 70, dy: 14, duration: 600 });
+      } else if (band) rise(band.querySelectorAll(".mn-codex__ab-band-kicker, .mn-codex__ab-band-type, .mn-codex__ab-band-name, .mn-codex__ab-band-tags"));
+      rise(spread.book.querySelectorAll(".mn-codex__ab-quote, .mn-codex__ab-lead"), { delay: delay + 460, dy: 10, duration: 600 });
+    };
+    const arriveRelation = (spread, delay) => {
+      const orbit = spread.book.querySelector(".mn-codex__orbit");
+      if (marking && orbit) orbit.querySelectorAll(".mn-codex__orbit-node, .mn-codex__orbit-line, .mn-codex__orbit-ring").forEach(mark);
+      else if (visibleEl(orbit)) {
+        const k = getComputedStyle(orbit).getPropertyValue("--mn-orbit-k").trim() || "1";
+        const base = `translate(-50%, -50%) scale(${k})`;
+        const self = orbit.querySelector(".mn-codex__orbit-node--self");
+        if (self) self.animate([{ opacity: 0, transform: `${base} scale(.7)` }, { opacity: 1, transform: `${base} scale(1)` }], { duration: 460, delay, easing: arriveEase, fill: "backwards" });
+        orbit.querySelectorAll(".mn-codex__orbit-ring").forEach((ring) => ring.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: delay + 120, fill: "backwards" }));
+        Array.from(orbit.querySelectorAll(".mn-codex__orbit-line")).forEach((line, index) => {
+          const length = typeof line.getTotalLength === "function" ? line.getTotalLength() : 0;
+          if (!length) return;
+          line.style.strokeDasharray = String(length);
+          const draw = line.animate([{ strokeDashoffset: length }, { strokeDashoffset: 0 }], { duration: 420, delay: delay + 220 + index * 70, easing: arriveEase, fill: "backwards" });
+          const reset = () => { line.style.strokeDasharray = ""; };
+          draw.onfinish = reset;
+          draw.oncancel = reset;
+        });
+        Array.from(orbit.querySelectorAll(".mn-codex__orbit-node:not(.mn-codex__orbit-node--self)")).forEach((node, index) => {
+          node.animate([{ opacity: 0, transform: `${base} scale(.55)` }, { opacity: 1, transform: `${base} scale(1)` }],
+            { duration: 440, delay: delay + 460 + index * 70, easing: "cubic-bezier(.3,1.45,.5,1)", fill: "backwards" });
+        });
+      }
+      rise(spread.book.querySelectorAll(".mn-codex__rel-card:not([hidden]) > *"), { delay: delay + 320, stagger: 70 });
+    };
+    const playArrival = (delay) => {
+      if (!fxOn("sheen")) return;
+      const single = isSinglePage();
+      const spread = spreads[single ? Math.floor(step / 2) : step];
+      if (!spread || !spread.book) return;
+      const pages = single ? [step % 2 ? spread.rightPage : spread.leftPage] : [spread.leftPage, spread.rightPage];
+      for (const page of pages) {
+        if (!page) continue;
+        const template = page.getAttribute("data-mn-template") || "";
+        const kind = page.getAttribute("data-mn-page-kind") || "";
+        if (page.classList.contains("mn-codex__page--ab-band")) arriveAbility(page, spread, delay);
+        else if (template === "overview" && kind === "section") {
+          rise(page.querySelectorAll(".mn-codex__section-index, .mn-codex__ov-alias, .mn-codex__ov-name, .mn-codex__ov-lead, .mn-codex__ov-stat, .mn-codex__ov-label, .mn-codex__ov-grid > div, .mn-codex__ov-chip"), { delay, stagger: 55 });
+        } else if (template === "ability" && kind === "section") {
+          rise(page.querySelectorAll(".mn-codex__ab-item"), { delay: delay + 80, stagger: 75, dx: 28, dy: 0, duration: 560 });
+        } else if (template === "relation" && kind === "section") arriveRelation(spread, delay);
+        else if (template === "personal") {
+          rise(spread.book.querySelectorAll(".mn-codex__pe-group, .mn-codex__pe-quote, .mn-codex__pe-item"), { delay: delay + 60, stagger: 85, dy: 10, duration: 720 });
+        } else if (page === spread.leftPage) playSheen(delay);
+      }
+    };
+
+    // 넘어오는 종이용: 지금 쪽(이미 넘긴 뒤)의 떠오를 것들에 표시를 붙였다 뗌 — 복제본엔 표시가 남아 숨겨짐(styles.css .mn-arrive)
+    const markArrival = (on) => {
+      if (!fxOn("sheen")) return;
+      if (on) {
+        marking = true;
+        try { playArrival(0); } finally { marking = false; }
+      } else root.querySelectorAll(".mn-arrive").forEach((el) => el.classList.remove("mn-arrive"));
+    };
+
     const activate = (nextStep) => {
+      if (currentTurn) currentTurn.finish();
       const total = totalSteps();
       step = Math.max(0, Math.min(nextStep, total - 1));
       const single = isSinglePage();
@@ -3333,12 +3516,16 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         if (spread.book.classList.contains("is-far") !== far) spread.book.classList.toggle("is-far", far);
         if (!far && !spread._mnWarm) {
           spread._mnWarm = true;
-          spread.book.querySelectorAll("img").forEach((img) => {
+          // 쉬는 틈에 (넘기는 도중에 큰 그림을 풀면 화면 그리기와 겹쳐 멈칫함)
+          const view = root.ownerDocument.defaultView || window;
+          const later = typeof view.requestIdleCallback === "function" ? (fn) => view.requestIdleCallback(fn, { timeout: 1500 }) : (fn) => setTimeout(fn, 900);
+          later(() => spread.book.querySelectorAll("img").forEach((img) => {
             img.loading = "eager";
-            if (typeof img.decode === "function") img.decode().catch(() => {});
-          });
+            if (typeof img.decode === "function") img.decode().then(() => makeTurnImage(img)).catch(() => {});
+          }));
         }
       });
+      playArrival(arrivalDelay);
 
       previous.disabled = step === 0 && !beforeFirst;
       next.disabled = step >= total - 1;
@@ -3377,6 +3564,11 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       clearBookmarkAnimation();
       if (reducedMotion) {
         activate(target);
+        return;
+      }
+      // 책장 넘김 효과(캐릭터 전용 지면)면 장 띠로 건너뛸 때도 종이 한 장이 넘어감 (앞 = 지금 쪽, 뒤 = 갈 장). 2026-10-28
+      if (fxOn("turn")) {
+        turnTo(target, true);
         return;
       }
 
@@ -3429,23 +3621,154 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       if (activeButton) activeButton.button.focus({ preventScroll: true });
     };
 
+    /** 한 장 넘김: 떠나는 펼침의 남는 반쪽은 실제 요소를 잘라 그대로 두고, 넘어가는 종이(앞 = 떠나는 쪽, 뒤 = 새로 올 쪽)만 복제해 책등 축으로 돌림.
+     *  한 쪽 보기 판은 떠나는 쪽이 들려 넘어가고(앞으로), 돌아올 쪽이 내려앉음(뒤로) */
+    const turnTo = (target, jump = false) => {
+      const total = totalSteps();
+      const clamped = Math.max(0, Math.min(target, total - 1));
+      const delta = clamped - step;
+      if (currentTurn) currentTurn.finish();
+      if (!fxOn("turn") || delta === 0 || (Math.abs(delta) !== 1 && !jump)) {
+        activate(target);
+        return;
+      }
+      const single = isSinglePage();
+      const forward = delta > 0;
+      const fromIndex = single ? Math.floor(step / 2) : step;
+      const toIndex = single ? Math.floor(clamped / 2) : clamped;
+      const fromSide = single ? (step % 2 ? "right" : "left") : "";
+      const toSide = single ? (clamped % 2 ? "right" : "left") : "";
+      const from = spreads[fromIndex];
+      const to = spreads[toIndex];
+      const track = root.querySelector(".mn-codex__book-track");
+      if (!from || !to || !track || !from.book.offsetWidth) {
+        activate(target);
+        return;
+      }
+      const doc = root.ownerDocument;
+      const W = from.book.offsetWidth;
+      const spine = from.rightPage ? from.rightPage.offsetLeft : Math.round(W / 2);
+      const ghost = (spread, side) => {
+        const clone = spread.book.cloneNode(true);
+        clone.classList.remove("is-active", "is-before", "is-after", "is-far", "is-turn-hold");
+        clone.style.clipPath = "";
+        clone.classList.add("mn-codex__turn-ghost");
+        if (side) clone.classList.add(`mn-codex__turn-ghost--show-${side}`);
+        clone.setAttribute("aria-hidden", "true");
+        clone.setAttribute("inert", "");
+        clone.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+        const originals = spread.book.querySelectorAll("img");
+        clone.querySelectorAll("img").forEach((img, index) => {
+          const original = originals[index];
+          img.loading = "eager";
+          const bitmap = original && original._mnTurnBitmap;
+          if (!bitmap) return;
+          const canvas = doc.createElement("canvas");
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          canvas.getContext("2d").drawImage(bitmap, 0, 0);
+          canvas.className = img.className;
+          const computed = getComputedStyle(original);
+          TURN_IMAGE_STYLES.forEach((name) => canvas.style.setProperty(name, computed.getPropertyValue(name)));
+          img.replaceWith(canvas);
+        });
+        clone.style.width = `${W}px`;
+        return clone;
+      };
+      const layer = (cls, parent) => {
+        const el = doc.createElement("div");
+        el.className = cls;
+        parent.appendChild(el);
+        return el;
+      };
+      root.classList.add("mn-codex--turning");
+      // 도착 효과는 종이가 내려앉은 뒤에
+      arrivalDelay = single ? 360 : 500;
+      activate(target);
+      arrivalDelay = 120;
+      const stage = layer(`mn-codex__turn-stage${forward ? "" : " is-backward"}${single ? " is-single" : ""}`, track);
+      stage.setAttribute("aria-hidden", "true");
+      stage.style.setProperty("--mn-turn-spine", `${spine}px`);
+      let hold = null;
+      let sheet;
+      if (!single) {
+        // 두 쪽: 떠나는 펼침은 남는 반쪽만 보이게 잡아 둠
+        hold = from.book;
+        hold.classList.add("is-turn-hold");
+        hold.style.clipPath = forward ? `inset(0 ${W - spine}px 0 0)` : `inset(0 0 0 ${spine}px)`;
+        const width = forward ? W - spine : spine;
+        sheet = layer("mn-codex__turn-sheet", stage);
+        sheet.style.left = `${forward ? spine : 0}px`;
+        sheet.style.width = `${width}px`;
+        const front = layer("mn-codex__turn-face", sheet);
+        const frontGhost = ghost(from, "");
+        frontGhost.style.left = `${forward ? -spine : 0}px`;
+        front.appendChild(frontGhost);
+        layer("mn-codex__turn-shade", front);
+        const back = layer("mn-codex__turn-face mn-codex__turn-face--back", sheet);
+        markArrival(true);
+        const backGhost = ghost(to, "");
+        markArrival(false);
+        backGhost.style.left = `${forward ? width - spine : -spine}px`;
+        back.appendChild(backGhost);
+        layer("mn-codex__turn-shade", back);
+        layer("mn-codex__turn-under", stage);
+        layer("mn-codex__turn-over", stage);
+      } else {
+        sheet = layer("mn-codex__turn-sheet", stage);
+        sheet.style.left = "0px";
+        sheet.style.width = `${W}px`;
+        if (!forward) {
+          const still = layer("mn-codex__turn-still", stage);
+          still.appendChild(ghost(from, fromSide));
+          stage.appendChild(sheet);
+        }
+        const face = layer("mn-codex__turn-face", sheet);
+        if (!forward) markArrival(true);
+        face.appendChild(ghost(forward ? from : to, forward ? fromSide : toSide));
+        if (!forward) markArrival(false);
+        layer("mn-codex__turn-shade", face);
+      }
+      const duration = single ? 520 : 760;
+      stage.style.setProperty("--mn-turn-ms", `${duration}ms`);
+      const view = doc.defaultView || window;
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        stage.remove();
+        if (hold) {
+          hold.classList.remove("is-turn-hold");
+          hold.style.clipPath = "";
+        }
+        // 잡아 둔 펼침이 제자리(투명)로 돌아가는 순간 전환 효과가 다시 돌지 않게 한 박자 뒤에 풂
+        view.requestAnimationFrame(() => root.classList.remove("mn-codex--turning"));
+        if (currentTurn === turn) currentTurn = null;
+      };
+      const turn = { finish };
+      currentTurn = turn;
+      sheet.addEventListener("animationend", (event) => { if (event.target === sheet) finish(); });
+      setTimeout(finish, duration + 600);
+    };
+
     const goPrevious = () => {
       if (step === 0 && beforeFirst) {
+        if (currentTurn) currentTurn.finish();
         beforeFirst();
         return;
       }
-      activate(step - 1);
+      turnTo(step - 1);
     };
 
     on(previous, "click", goPrevious);
-    on(next, "click", () => activate(step + 1));
+    on(next, "click", () => turnTo(step + 1));
     on(root, "keydown", (event) => {
       if (event.key === "ArrowLeft" || event.key === "PageUp") {
         event.preventDefault();
         goPrevious();
       } else if (event.key === "ArrowRight" || event.key === "PageDown") {
         event.preventDefault();
-        activate(step + 1);
+        turnTo(step + 1);
       } else if (event.key === "Home") {
         event.preventDefault();
         activate(0);
