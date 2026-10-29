@@ -111,6 +111,409 @@ const buildVariantTintCss = (css, assetUrl) => {
   return walk(source);
 };
 
+// 물감 방울로 그림이 드러나는 효과 — 「특징」(개요 장의 쪽 그림)에만. 작가 요청 2026-10-29: 「툭… 투툭… 툭 불규칙하게 물감 떨어지듯 시작해서
+// 천천히 번지면서 드러나게」. 그림 위에 같은 크기 캔버스를 잠깐 얹어 그래픽 카드(WebGL)로 그리고, 다 번지면 캔버스를 떼고 원래 그림을 보여 줌
+// (CSS 가림막을 움직이면 매 프레임 화면을 새로 그려 렉이 생겨서). 방울마다: 떨어지는 순간 작게 퍼지고(툭) 둘레에 작은 튄 방울 →
+// 천천히 번짐(갓 번진 자리는 색이 먼저, 마르면서 선이 또렷해짐 · 가장자리에 고인 물감 테) → 끝무렵 서로 이어져 다 채움. WebGL을 못 쓰면 그냥 그림이 보임
+const INK_NOISE_SIZE = 256;
+let inkNoiseData = null;
+// 이어 붙여도 이음매가 없는 잡음 세 겹: r = 방울 둘레의 큰 굴곡 · g = 잔 굴곡 · b = 종이 결(가장자리만)
+const inkNoise = () => {
+  if (inkNoiseData) return inkNoiseData;
+  const size = INK_NOISE_SIZE;
+  let seed = 7;
+  const rand = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+  const layer = (octaves) => {
+    const acc = new Float32Array(size * size);
+    for (const [cells, amp] of octaves) {
+      const grid = new Float32Array(cells * cells).map(() => rand());
+      const span = size / cells;
+      for (let y = 0; y < size; y += 1) {
+        const gy = y / span;
+        const y0 = Math.floor(gy);
+        const fy = gy - y0;
+        const sy = fy * fy * (3 - 2 * fy);
+        const r0 = (y0 % cells) * cells;
+        const r1 = ((y0 + 1) % cells) * cells;
+        for (let x = 0; x < size; x += 1) {
+          const gx = x / span;
+          const x0 = Math.floor(gx);
+          const fx = gx - x0;
+          const sx = fx * fx * (3 - 2 * fx);
+          const c0 = x0 % cells;
+          const c1 = (x0 + 1) % cells;
+          const top = grid[r0 + c0] + (grid[r0 + c1] - grid[r0 + c0]) * sx;
+          const bottom = grid[r1 + c0] + (grid[r1 + c1] - grid[r1 + c0]) * sx;
+          acc[y * size + x] += (top + (bottom - top) * sy) * amp;
+        }
+      }
+    }
+    let min = Infinity;
+    let max = -Infinity;
+    for (const value of acc) {
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+    return acc.map((value) => (value - min) / (max - min || 1));
+  };
+  const channels = [layer([[3, 1], [6, 0.4]]), layer([[12, 1], [24, 0.5]]), layer([[64, 1], [128, 0.6]])];
+  inkNoiseData = new Uint8Array(size * size * 3);
+  for (let i = 0; i < size * size; i += 1) {
+    for (let c = 0; c < 3; c += 1) inkNoiseData[i * 3 + c] = Math.round(channels[c][i] * 255);
+  }
+  return inkNoiseData;
+};
+const INK_MAX_DROPS = 16;
+const INK_VERTEX = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main() {
+  vUv = vec2((aPos.x + 1.0) * 0.5, (1.0 - aPos.y) * 0.5);
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+// 방울 반지름 = 떨어질 때 퍼짐(크기 w 까지 0.1초) + 천천히 번짐(w × 2.4 × 지난 초^0.62) + 끝무렵 다 같이 더 번짐(uFlood). main.js 의 inkRadius 와 같은 식
+const INK_FRAGMENT = `
+precision mediump float;
+varying vec2 vUv;
+uniform sampler2D uImg;
+uniform sampler2D uSoft;
+uniform sampler2D uNoise;
+uniform float uTime;
+uniform float uDone;
+uniform float uAspect;
+uniform float uFlood;
+uniform vec4 uDrops[${INK_MAX_DROPS}];
+uniform float uWind;
+uniform vec2 uDir;
+uniform vec2 uSpan;
+void main() {
+  vec2 p = vec2(vUv.x * uAspect, vUv.y);
+  float detail = texture2D(uNoise, p * 0.6 + 0.37).g - 0.5;
+  float D = 10.0;
+  float age = 9.0;
+  if (uWind > 0.5) {
+    // 바람 결: 바람 방향으로 길게 늘어진 결을 따라 걷히듯 드러남 (결은 바람과 수직으로만 촘촘해서 앞자락 뒤에 구멍이 남지 않음)
+    vec2 q = vec2(dot(p, uDir), dot(p, vec2(-uDir.y, uDir.x)));
+    float streak = texture2D(uNoise, vec2(q.x * 0.15, q.y * 1.1) + vec2(0.11, 0.37)).r * 0.75
+      + texture2D(uNoise, vec2(q.x * 0.12, q.y * 2.6) + vec2(0.53, 0.19)).g * 0.25 - 0.5;
+    D = q.x + streak * 0.3 + detail * 0.008 - mix(uSpan.x, uSpan.y, 1.0 - pow(1.0 - uDone, 1.8));
+  }
+  for (int i = 0; i < ${INK_MAX_DROPS}; i++) {
+    vec4 d = uDrops[i];
+    float a = uTime - d.z;
+    if (a <= 0.0) continue;
+    vec2 v = p - vec2(d.x * uAspect, d.y);
+    float len = length(v);
+    vec2 ring = v / max(len, 0.0001);
+    float lobe = texture2D(uNoise, ring * 0.3 + vec2(0.17 + float(i) * 0.137, 0.53)).r * 0.6
+      + texture2D(uNoise, ring * 0.75 + vec2(0.41, 0.09 + float(i) * 0.211)).r * 0.4 - 0.5;
+    float r = d.w * (1.0 - exp(-a / 0.045)) + d.w * 2.4 * pow(a, 0.62);
+    float di = len - r * (1.0 + lobe * 0.5) + detail * 0.012 * min(1.0, r * 4.0) - uFlood;
+    if (di < D) { D = di; age = a; }
+  }
+  float s = -D + (texture2D(uNoise, p + 0.61).b - 0.5) * 0.004;
+  float cover = smoothstep(0.0, mix(0.008, 0.045, uWind), s);
+  float fade = 1.0 - smoothstep(0.8, 1.0, uDone);
+  float rim = smoothstep(0.0, 0.005, s) * (1.0 - smoothstep(0.007, 0.018, s)) * fade;
+  float wet = max(1.0 - smoothstep(0.0, mix(0.07, 0.16, uWind), s), exp(-age / 0.55)) * fade;
+  vec4 c = mix(texture2D(uImg, vUv), texture2D(uSoft, vUv), wet);
+  float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+  vec3 col = mix(vec3(lum), c.rgb, 1.0 + 0.1 * wet + 0.2 * rim) * (1.0 - 0.05 * wet) * (1.0 - 0.18 * rim);
+  float alpha = cover * (1.0 - 0.06 * wet) * c.a;
+  gl_FragColor = vec4(clamp(col, 0.0, 1.0) * alpha, alpha);
+}`;
+const inkRadius = (size, age) => (age <= 0 ? 0 : size * (1 - Math.exp(-age / 0.045)) + size * 2.4 * Math.pow(age, 0.62));
+
+class InkRevealer {
+  constructor(doc) {
+    this.doc = doc;
+    this.surfaces = new Map();
+    this.running = new Set();
+    this.broken = false;
+  }
+
+  makeSurface() {
+    const canvas = this.doc.createElement("canvas");
+    canvas.className = "mn-ink-canvas";
+    canvas.setAttribute("aria-hidden", "true");
+    const gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false });
+    if (!gl) return null;
+    const compile = (type, source) => {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader) || "shader");
+      return shader;
+    };
+    const program = gl.createProgram();
+    gl.attachShader(program, compile(gl.VERTEX_SHADER, INK_VERTEX));
+    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, INK_FRAGMENT));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) || "program");
+    gl.useProgram(program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const position = gl.getAttribLocation(program, "aPos");
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+    const texture = (unit, wrap) => {
+      const tex = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
+      return tex;
+    };
+    texture(1, gl.REPEAT);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, INK_NOISE_SIZE, INK_NOISE_SIZE, 0, gl.RGB, gl.UNSIGNED_BYTE, inkNoise());
+    const soft = texture(2, gl.CLAMP_TO_EDGE);
+    const image = texture(0, gl.CLAMP_TO_EDGE);
+    const loc = {};
+    for (const name of ["uImg", "uSoft", "uNoise", "uTime", "uDone", "uAspect", "uFlood", "uDrops", "uWind", "uDir", "uSpan"]) loc[name] = gl.getUniformLocation(program, name);
+    gl.uniform1i(loc.uImg, 0);
+    gl.uniform1i(loc.uNoise, 1);
+    gl.uniform1i(loc.uSoft, 2);
+    const surface = { canvas, gl, loc, image, soft, key: "", lost: false };
+    canvas.addEventListener("webglcontextlost", (event) => { event.preventDefault(); surface.lost = true; });
+    return surface;
+  }
+
+  /** 그림마다 캔버스 하나를 그 그림 바로 뒤에 붙박이로 둠 — 다 번지면 떼지 않고 투명하게 지우기만 함.
+   *  번지던 캔버스를 문서에서 떼면 그래픽 카드가 0.2초 붙잡혀 넘김 첫머리 · 날던 꽃잎이 멈칫해서. 그림 데이터도 크기가 그대로면 다시 안 올림 */
+  surfaceFor(img) {
+    let surface = this.surfaces.get(img);
+    if (surface && (surface.lost || surface.gl.isContextLost())) {
+      surface.canvas.remove();
+      this.surfaces.delete(img);
+      surface = null;
+    }
+    if (!surface) {
+      if (this.surfaces.size >= 4) return null;
+      try {
+        surface = this.makeSurface();
+      } catch (error) {
+        console.warn("[mn-codex] 물감 번짐을 못 써서 그림을 바로 보여 줘요", error);
+        surface = null;
+      }
+      if (!surface) return null;
+      this.surfaces.set(img, surface);
+    }
+    if (surface.canvas.previousElementSibling !== img) img.after(surface.canvas);
+    return surface;
+  }
+
+  clearSurface(surface) {
+    if (surface.lost) return;
+    surface.gl.clearColor(0, 0, 0, 0);
+    surface.gl.clear(surface.gl.COLOR_BUFFER_BIT);
+    // 쉬는 동안엔 그림자 필터도 걷음(투명한 캔버스에 그림자를 매번 다시 씌우지 않게)
+    surface.canvas.style.filter = "none";
+  }
+
+  /** 방울 자리 · 떨어지는 때 · 크기 (그림마다 늘 같게). 첫 방울은 눈길 가는 자리(object-position) 가까이, 나머지는 서로 떨어진 아무 데나.
+   *  떨어지는 간격은 짧게 · 길게를 섞어 「툭… 투툭… 툭」. 큰 방울 둘레엔 작은 튄 방울 */
+  planDrops(img, aspect, px, py) {
+    let hash = 2166136261;
+    for (const code of String(img.currentSrc || img.src)) hash = Math.imul(hash ^ code.codePointAt(0), 16777619) >>> 0;
+    const rand = () => (hash = (Math.imul(hash, 1664525) + 1013904223) >>> 0) / 4294967296;
+    const mains = [[Math.min(aspect - 0.08, Math.max(0.08, px * aspect + (rand() - 0.5) * 0.12)), Math.min(0.9, Math.max(0.1, py + 0.04 + (rand() - 0.5) * 0.1))]];
+    for (let tries = 0; mains.length < 6 && tries < 200; tries += 1) {
+      const x = 0.07 + rand() * (aspect - 0.14);
+      const y = 0.08 + rand() * 0.84;
+      if (mains.every(([ox, oy]) => Math.hypot(x - ox, y - oy) > 0.3)) mains.push([x, y]);
+    }
+    const drops = [];
+    let land = 0;
+    let longGap = rand() < 0.5;
+    mains.forEach(([x, y], index) => {
+      if (index) {
+        land += longGap ? 0.3 + rand() * 0.18 : 0.1 + rand() * 0.08;
+        longGap = rand() < (longGap ? 0.35 : 0.7);
+      }
+      const size = 0.055 + rand() * 0.03;
+      drops.push([x / aspect, y, land, size]);
+      const splashes = rand() < 0.35 ? 1 : 2;
+      for (let k = 0; k < splashes && drops.length < INK_MAX_DROPS; k += 1) {
+        const angle = rand() * Math.PI * 2;
+        const dist = size + 0.025 + rand() * 0.06;
+        drops.push([(x + Math.cos(angle) * dist) / aspect, y + Math.sin(angle) * dist, land + 0.012 + rand() * 0.03, 0.009 + rand() * 0.009]);
+      }
+    });
+    return drops.slice(0, INK_MAX_DROPS);
+  }
+
+  /** 그림을 바로 숨기고, delay 뒤에 방울이 떨어져 번지며 나타나게 함. 다른 쪽으로 넘기면 finishAll 로 바로 다 보이게.
+   *  준비(그림 데이터 · 그래픽 카드)는 종이가 움직이기 시작한 다음 틈에 해 둠 — 첫 방울이 늦게 떨어지지 않게 */
+  play(img, { delay = 0, mode = "drops", duration = 1500 } = {}) {
+    if (!img || this.broken) return null;
+    const view = this.doc.defaultView || window;
+    if (typeof view.createImageBitmap !== "function") return null;
+    const run = { done: false };
+    let timer = 0;
+    let frame = 0;
+    let surface = null;
+    const finish = () => {
+      if (run.done) return;
+      run.done = true;
+      view.clearTimeout(timer);
+      if (frame) view.cancelAnimationFrame(frame);
+      img.classList.remove("mn-ink-hide");
+      if (surface) this.clearSurface(surface);
+      surface = null;
+      this.running.delete(run);
+    };
+    run.finish = finish;
+    this.running.add(run);
+    img.classList.add("mn-ink-hide");
+    const startAt = view.performance.now() + delay;
+    // 준비(크기 재기 · 그림 자르기 · 그래픽 카드에 올리기)는 종이가 움직이기 시작한 다음 틈에 — 넘기는 순간에 하면 첫 화면이 0.2초쯤 늦어짐
+    const prepare = async () => {
+      try {
+        if (!img.complete || !img.naturalWidth) await img.decode();
+        const cs = view.getComputedStyle(img);
+        // 그림은 안쪽 여백(padding) · 테두리 안쪽에만 그려짐(은빛 기사 초상은 사방 20px) → 캔버스도 그 안쪽 크기로 그림.
+        // 여백까지 꽉 채우면 번지는 동안 그림이 커 보이다 끝나고 진짜 그림으로 바뀔 때 줄어듦
+        const inset = (side) => (parseFloat(cs.getPropertyValue(`padding-${side}`)) || 0) + (parseFloat(cs.getPropertyValue(`border-${side}-width`)) || 0);
+        const w = img.offsetWidth - inset("left") - inset("right");
+        const h = img.offsetHeight - inset("top") - inset("bottom");
+        const nw = img.naturalWidth;
+        const nh = img.naturalHeight;
+        if (run.done || !img.isConnected || w < 1 || h < 1 || !nw || !nh) return finish();
+        // 보이는 만큼만 화면 크기로 잘라 둠(object-fit: cover · object-position 그대로) → 캔버스와 그림이 한 점 한 점 맞음
+        const [px, py] = String(cs.objectPosition || "50% 50%").split(/\s+/).map((part) => (/%$/.test(part) ? parseFloat(part) / 100 : 0.5));
+        const cover = cs.objectFit === "cover";
+        const scale = cover ? Math.max(w / nw, h / nh) : 1;
+        const sx = cover ? Math.max(0, ((nw * scale - w) * px) / scale) : 0;
+        const sy = cover ? Math.max(0, ((nh * scale - h) * py) / scale) : 0;
+        const sw = cover ? Math.min(nw - sx, w / scale) : nw;
+        const sh = cover ? Math.min(nh - sy, h / scale) : nh;
+        // 꽉 채우기(cover)가 아니면(contain 등) 그림 비율 그대로 그리고, 캔버스에도 같은 object-fit · position 을 줘서 같은 자리에 놓임
+        const fit = cover ? 1 : Math.min(w / nw, h / nh);
+        const dw = cover ? w : nw * fit;
+        const dh = cover ? h : nh * fit;
+        const rect = img.getBoundingClientRect();
+        const density = Math.min(2, view.devicePixelRatio || 1) * Math.max(1, rect.width / img.offsetWidth);
+        const cw = Math.max(1, Math.min(2048, Math.round(dw * density)));
+        const ch = Math.max(1, Math.min(2048, Math.round(dh * density)));
+        const crop = [Math.round(sx), Math.round(sy), Math.max(1, Math.round(sw)), Math.max(1, Math.round(sh))];
+        const key = `${img.currentSrc || img.src}|${cw}x${ch}|${crop.join(",")}`;
+        const owned = this.surfaces.get(img);
+        let bitmap = null;
+        let blurred = null;
+        if (!owned || owned.key !== key) {
+          bitmap = await view.createImageBitmap(img, ...crop, { resizeWidth: cw, resizeHeight: ch, resizeQuality: "high", premultiplyAlpha: "none" });
+          // 갓 번진 자리에 쓸 흐린 그림(1/6 크기를 늘려 씀) — 색이 먼저 번지고 선은 마르면서 또렷해지게
+          blurred = await view.createImageBitmap(img, ...crop,
+            { resizeWidth: Math.max(1, Math.round(cw / 6)), resizeHeight: Math.max(1, Math.round(ch / 6)), resizeQuality: "medium", premultiplyAlpha: "none" });
+        }
+        const drop = () => { if (bitmap) bitmap.close(); if (blurred) blurred.close(); };
+        if (run.done || !img.isConnected) { drop(); return finish(); }
+        surface = this.surfaceFor(img);
+        if (!surface) { drop(); return finish(); }
+        const { canvas, gl, loc } = surface;
+        if (surface.key !== key) {
+          if (!bitmap) { surface.key = ""; return finish(); }
+          if (canvas.width !== cw) canvas.width = cw;
+          if (canvas.height !== ch) canvas.height = ch;
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, surface.image);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+          gl.activeTexture(gl.TEXTURE2);
+          gl.bindTexture(gl.TEXTURE_2D, surface.soft);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, blurred);
+          surface.key = key;
+        }
+        drop();
+        canvas.style.cssText = "";
+        canvas.style.left = `${img.offsetLeft}px`;
+        canvas.style.top = `${img.offsetTop}px`;
+        // 상자는 그림과 똑같이(여백 · 테두리 포함) 두고 캔버스 그림만 안쪽에 — 기울임 · 확대 기준점도 그대로 맞음
+        canvas.style.boxSizing = "border-box";
+        canvas.style.width = `${img.offsetWidth}px`;
+        canvas.style.height = `${img.offsetHeight}px`;
+        for (const name of ["padding", "border-width", "border-style", "border-color", "transform", "transform-origin", "filter", "z-index", "border-radius", "mix-blend-mode",
+          "mask-image", "-webkit-mask-image"]) {
+          canvas.style.setProperty(name, cs.getPropertyValue(name));
+        }
+        canvas.style.objectFit = cover ? "fill" : "contain";
+        canvas.style.objectPosition = cover ? "50% 50%" : cs.objectPosition;
+        const aspect = dw / dh;
+        // 바람 결(첫 쪽 꽃잎과 함께): 방울 없이 왼쪽 위에서 오른쪽 아래로 걷힘
+        const wind = mode === "wind";
+        const drops = wind ? [] : this.planDrops(img, aspect, px, py);
+        const packed = new Float32Array(INK_MAX_DROPS * 4).fill(0);
+        for (let i = 0; i < INK_MAX_DROPS; i += 1) packed[i * 4 + 2] = 99;
+        drops.forEach((drop, i) => packed.set(drop, i * 4));
+        // 끝나는 때: 마지막 방울이 떨어지고 1.9초 뒤. 마지막 1초 동안 모든 방울이 함께 더 번져(uFlood) 남은 빈 곳까지 다 채움 —
+        // 그때 가장 늦게 닿는 자리를 미리 재 둠(굴곡이 가장 오목한 쪽 기준)
+        const lastLand = Math.max(0, ...drops.map((drop) => drop[2]));
+        const end = wind ? duration / 1000 : lastLand + 1.9;
+        let gap = 0;
+        for (let gy = 0; gy <= (wind ? -1 : 40); gy += 1) {
+          for (let gx = 0; gx <= 40; gx += 1) {
+            const x = (gx / 40) * aspect;
+            const y = gy / 40;
+            let nearest = Infinity;
+            for (const [dx, dy, land, size] of drops) nearest = Math.min(nearest, Math.hypot(x - dx * aspect, y - dy) - inkRadius(size, end - land) * 0.75);
+            gap = Math.max(gap, nearest);
+          }
+        }
+        const floodTo = Math.max(0, gap) + 0.07 + 0.006 + 0.05;
+        gl.viewport(0, 0, cw, ch);
+        gl.uniform1f(loc.uAspect, aspect);
+        gl.uniform4fv(loc.uDrops, packed);
+        const dir = [0.92, 0.39];
+        const along = [[0, 0], [aspect, 0], [0, 1], [aspect, 1]].map(([x, y]) => x * dir[0] + y * dir[1]);
+        gl.uniform1f(loc.uWind, wind ? 1 : 0);
+        gl.uniform2f(loc.uDir, dir[0], dir[1]);
+        gl.uniform2f(loc.uSpan, Math.min(...along) - 0.2, Math.max(...along) + 0.15 + 0.01 + 0.16 + 0.05 + 0.05);
+        const wait = startAt - view.performance.now();
+        if (wait > 1) await new Promise((resolve) => { timer = view.setTimeout(resolve, wait); });
+        if (run.done || !img.isConnected) return finish();
+        const start = view.performance.now();
+        const draw = () => {
+          frame = 0;
+          if (run.done) return;
+          if (surface.lost) return finish();
+          const time = Math.min(end, (view.performance.now() - start) / 1000);
+          const f = Math.min(1, Math.max(0, (time - (end - 1)) / 1));
+          gl.uniform1f(loc.uTime, time);
+          gl.uniform1f(loc.uDone, time / end);
+          gl.uniform1f(loc.uFlood, wind ? 0 : floodTo * f * f * (3 - 2 * f));
+          gl.clearColor(0, 0, 0, 0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+          if (time >= end) return finish();
+          frame = view.requestAnimationFrame(draw);
+        };
+        draw();
+      } catch (error) {
+        finish();
+      }
+    };
+    frame = view.requestAnimationFrame(() => {
+      frame = 0;
+      timer = view.setTimeout(prepare, 0);
+    });
+    return run;
+  }
+
+  finishAll() {
+    for (const run of [...this.running]) run.finish();
+  }
+
+  destroy() {
+    this.finishAll();
+    for (const surface of this.surfaces.values()) {
+      surface.canvas.remove();
+      surface.gl.getExtension("WEBGL_lose_context")?.loseContext();
+    }
+    this.surfaces.clear();
+  }
+}
+
 /**
  * Small, bounded pool for short-lived DOM objects. The reset callback owns
  * lifecycle cleanup so callers cannot accidentally return dirty nodes.
@@ -869,6 +1272,108 @@ class FocusPickerModal extends Modal {
   }
 }
 
+/** 인물 도감의 「인물 거르기」 창: 왼쪽에 거리(소속 · 종족 · 위치), 오른쪽에 그 거리의 이름 찾기 + 고르기(인원 수와 함께).
+ *  고르면 뒤의 도감이 바로 바뀜. 실험실 추가 2026-10-29 */
+class RosterFilterModal extends Modal {
+  constructor(app, facets, picked, countFor, onChange) {
+    super(app);
+    this.facets = facets.filter((facet) => facet.values.length);
+    this.picked = picked;
+    this.countFor = countFor;
+    this.onChange = onChange;
+    this.tab = this.facets[0] ? this.facets[0].key : "";
+    this.query = "";
+  }
+
+  onOpen() {
+    this.modalEl.addClass("mn-roster-filter");
+    this.titleEl.setText("인물 거르기");
+    const el = this.contentEl;
+    el.empty();
+    if (!this.facets.length) {
+      el.createDiv({ cls: "mn-roster-filter__none", text: "거를 소속 · 종족 · 위치가 아직 없어요." });
+      return;
+    }
+    const body = el.createDiv({ cls: "mn-roster-filter__body" });
+    const tabs = body.createDiv({ cls: "mn-roster-filter__tabs" });
+    const side = body.createDiv({ cls: "mn-roster-filter__side" });
+    const search = side.createEl("input", { cls: "mn-roster-filter__search", attr: { type: "search" } });
+    const list = side.createDiv({ cls: "mn-roster-filter__list" });
+    const chosen = el.createDiv({ cls: "mn-roster-filter__chosen" });
+    const foot = el.createDiv({ cls: "mn-roster-filter__foot" });
+    const total = foot.createDiv({ cls: "mn-roster-filter__total" });
+    const clear = foot.createEl("button", { text: "다 풀기", attr: { type: "button" } });
+    const close = foot.createEl("button", { cls: "mod-cta", text: "닫기", attr: { type: "button" } });
+    const changed = () => {
+      this.onChange();
+      draw();
+    };
+    const draw = () => {
+      const facet = this.facets.find((item) => item.key === this.tab) || this.facets[0];
+      const set = this.picked[facet.key];
+      tabs.empty();
+      this.facets.forEach((item) => {
+        const n = this.picked[item.key].size;
+        const tab = tabs.createEl("button", { cls: `mn-roster-filter__tab${item.key === facet.key ? " is-on" : ""}`, attr: { type: "button" } });
+        tab.createSpan({ text: item.label });
+        tab.createSpan({ cls: "mn-roster-filter__tab-count", text: n ? `${n} / ${item.values.length}` : String(item.values.length) });
+        tab.addEventListener("click", () => {
+          this.tab = item.key;
+          this.query = "";
+          search.value = "";
+          draw();
+          search.focus();
+        });
+      });
+      search.setAttr("placeholder", `${facet.label} 이름 찾기 (${facet.values.length}개)`);
+      const scroll = list.scrollTop;
+      list.empty();
+      const words = this.query.toLowerCase().split(/\s+/u).filter(Boolean);
+      const rows = facet.values.filter((value) => words.every((word) => value.toLowerCase().includes(word)));
+      if (!rows.length) list.createDiv({ cls: "mn-roster-filter__none", text: `「${this.query}」에 맞는 ${facet.label}이 없어요.` });
+      rows.forEach((value) => {
+        const row = list.createEl("label", { cls: `mn-roster-filter__row${set.has(value) ? " is-on" : ""}` });
+        const box = row.createEl("input", { attr: { type: "checkbox" } });
+        box.checked = set.has(value);
+        row.createSpan({ cls: "mn-roster-filter__name", text: value });
+        row.createSpan({ cls: "mn-roster-filter__count", text: `${facet.counts.get(value)}명` });
+        box.addEventListener("change", () => {
+          if (box.checked) set.add(value);
+          else set.delete(value);
+          changed();
+        });
+      });
+      list.scrollTop = scroll;
+      chosen.empty();
+      const tags = this.facets.flatMap((item) => [...this.picked[item.key]].map((value) => ({ item, value })));
+      chosen.toggleClass("is-empty", !tags.length);
+      tags.forEach(({ item, value }) => {
+        const tag = chosen.createEl("button", { cls: "mn-roster-filter__tag", text: `${item.label} · ${value} ✕`, attr: { type: "button" } });
+        tag.addEventListener("click", () => {
+          this.picked[item.key].delete(value);
+          changed();
+        });
+      });
+      total.setText(`${this.countFor()}명이 맞아요`);
+    };
+    search.addEventListener("input", () => {
+      this.query = search.value;
+      draw();
+    });
+    clear.addEventListener("click", () => {
+      this.facets.forEach((item) => this.picked[item.key].clear());
+      changed();
+    });
+    close.addEventListener("click", () => this.close());
+    draw();
+    search.focus();
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 class CodexEditModal extends Modal {
   constructor(app, data, onSave, onExport) {
     super(app);
@@ -1248,7 +1753,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       } catch (error) {
         options = {};
       }
-      const state = { group: "", hideTest: Boolean(options.hide_test) };
+      const state = { group: "", hideTest: Boolean(options.hide_test), view: /^(표|table)$/u.test(String(options.view || "").trim()) ? "table" : "card", sort: null,
+        picked: { groups: new Set(), races: new Set(), places: new Set() }, query: "", more: 0 };
       const draw = async () => {
         el.empty();
         await this.renderRoster(options, el, ctx.sourcePath, state);
@@ -1263,6 +1769,34 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
           if (!front || this.asText(front["분류"]).trim() !== "인물") return;
           clearTimeout(timer);
           timer = setTimeout(draw, 400);
+        }));
+      }
+    });
+
+    // 인물 기록표: ```mn-record 블록 = 이 노트 속성(맨 위 칸)을 한눈에 — 수치 · 항목 · 빈 칸. 값은 속성에만 두고 여기선 읽기만 함.
+    // 속성을 고치면 바로 다시 그림. 실험실 추가 2026-10-29
+    this.registerMarkdownCodeBlockProcessor("mn-record", async (source, el, ctx) => {
+      const child = new MarkdownRenderChild(el);
+      ctx.addChild(child);
+      // 블록 안엔 속성에 아직 없는 값의 초안(투력 기록 · 능력 등위 · 견줘 보기)을 적을 수 있음 → 「미리보기」로 보임
+      let options = {};
+      try {
+        options = parseYaml(source) || {};
+      } catch (error) {
+        options = {};
+      }
+      const draw = async () => {
+        el.empty();
+        await this.renderRecord(el, ctx.sourcePath, options);
+      };
+      await draw();
+      const cache = this.app && this.app.metadataCache;
+      if (cache && typeof cache.on === "function") {
+        let timer = 0;
+        child.registerEvent(cache.on("changed", (file) => {
+          if (!file || file.path !== ctx.sourcePath) return;
+          clearTimeout(timer);
+          timer = setTimeout(draw, 300);
         }));
       }
     });
@@ -3348,9 +3882,80 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         .then((bitmap) => { turnBitmaps.push(bitmap); img._mnTurnBitmap = bitmap; })
         .catch(() => {});
     };
-    const TURN_IMAGE_STYLES = ["position", "top", "right", "bottom", "left", "width", "height", "max-width", "max-height", "margin", "object-fit", "object-position",
+    // box-sizing · padding · border 도 옮김: 은빛 기사 초상은 사방 20px 안쪽 여백 안에만 그려져서, 빠지면 넘기는 동안 그림이 커 보였다 줄어듦
+    const TURN_IMAGE_STYLES = ["position", "top", "right", "bottom", "left", "width", "height", "max-width", "max-height", "margin", "box-sizing", "padding",
+      "border-width", "border-style", "border-color", "object-fit", "object-position",
       "transform", "transform-origin", "filter", "opacity", "display", "z-index", "border-radius", "clip-path", "mask-image", "-webkit-mask-image", "vertical-align"];
     const fxOn = (name) => root.classList.contains(`mn-sk-fx-${name}`) && !(reducedMotionQuery && reducedMotionQuery.matches);
+    // 물감 방울: 「특징」(개요 장의 쪽 그림)이 도착하면 그림이 물감 방울로 툭툭 떨어져 번지며 드러남. 「책 효과」의 장마다 효과에 딸림. 책 내보내기 땐 안 함
+    const ink = new InkRevealer(root.ownerDocument || document);
+    cleanups.push(() => ink.destroy());
+    // 책 내보내기 중이거나, 표지 밑에 미리 만들어 둔(안 보이는) 책장이면 연출을 안 함
+    const quiet = () => {
+      const body = root.ownerDocument && root.ownerDocument.body;
+      return Boolean((body && body.classList.contains("mn-codex-exporting")) || root.closest(".mn-codex-host--parked"));
+    };
+    const inkOn = () => !ink.broken && !quiet();
+    // 첫 쪽(작가 고름 2026-10-29): 흰 꽃잎이 바람에 실려 왼쪽 위에서 쪽을 스쳐 가고, 지나간 자리부터 초상이 드러남 (네이그림의 「흩날리는 꽃잎」).
+    // 꽃잎은 위치 · 회전 · 투명도만 움직임(그래픽 카드 몫), 초상은 InkRevealer 의 바람 결로 걷힘
+    const petalRuns = new Set();
+    const finishPetals = () => { for (const stop of [...petalRuns]) stop(); };
+    const petalGust = (page, delay) => {
+      const doc = page.ownerDocument;
+      const view = doc.defaultView || window;
+      const width = page.clientWidth;
+      const height = page.clientHeight;
+      if (!width || !height) return;
+      const layer = doc.createElement("div");
+      layer.className = "mn-codex__petals";
+      layer.setAttribute("aria-hidden", "true");
+      page.appendChild(layer);
+      const animations = [];
+      let longest = 0;
+      for (let i = 0; i < 16; i += 1) {
+        const petal = doc.createElement("i");
+        petal.className = "mn-codex__petal";
+        const size = 24 + Math.random() * 16;
+        petal.style.width = `${size.toFixed(1)}px`;
+        petal.style.height = `${(size * 0.7).toFixed(1)}px`;
+        layer.appendChild(petal);
+        // 왼쪽 밖에서 들어와 오른쪽 아래로 빠져나감 — 바람에 출렁이며(위아래), 돌고(회전), 뒤집힘(앞뒤)
+        const x0 = -0.08 * width - Math.random() * 0.12 * width;
+        const y0 = (-0.25 + Math.random() * 0.9) * height;
+        const travel = width * (1.2 + Math.random() * 0.25);
+        const fall = travel * (0.32 + Math.random() * 0.22);
+        const sway = (8 + Math.random() * 22) * (Math.random() < 0.5 ? -1 : 1);
+        const waves = 0.8 + Math.random() * 0.9;
+        const spin = (160 + Math.random() * 320) * (Math.random() < 0.5 ? -1 : 1);
+        const flips = 1 + Math.floor(Math.random() * 3);
+        const tilt = 20 + Math.random() * 30;
+        const frames = [];
+        for (let k = 0; k <= 10; k += 1) {
+          const f = k / 10;
+          const x = x0 + travel * f;
+          const y = y0 + fall * f + Math.sin(f * Math.PI * 2 * waves) * sway;
+          frames.push({
+            offset: f,
+            opacity: k === 0 || k === 10 ? 0 : 1,
+            transform: `perspective(420px) translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${(spin * f).toFixed(1)}deg) rotateY(${(flips * 180 * f).toFixed(1)}deg) rotateX(${(tilt * Math.sin(f * Math.PI * 3)).toFixed(1)}deg)`,
+          });
+        }
+        // 앞쪽 한 무리가 먼저 휙, 나머지가 조금씩 늦게 따라옴
+        const start = delay + (i < 9 ? Math.random() * 260 : 220 + Math.random() * 520);
+        const duration = 1500 + Math.random() * 900;
+        animations.push(petal.animate(frames, { duration, delay: start, easing: "cubic-bezier(.3,.55,.45,1)", fill: "both" }));
+        longest = Math.max(longest, start + duration);
+      }
+      let timer = 0;
+      const stop = () => {
+        petalRuns.delete(stop);
+        view.clearTimeout(timer);
+        animations.forEach((animation) => animation.cancel());
+        layer.remove();
+      };
+      timer = view.setTimeout(stop, longest + 60);
+      petalRuns.add(stop);
+    };
     const playSheen = (delay) => {
       if (!fxOn("sheen") || marking) return;
       const single = isSinglePage();
@@ -3380,6 +3985,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     // 장마다 다른 도착 효과 (시안 2026-10-28) — 개요: 기록이 차례로 떠오름 · 능력 목록: 줄이 오른쪽에서 차례로 · 능력 하나: 칼빛 한 줄이 띠를 가르고
     // 그림이 내려앉음 · 관계: 선이 그어지고 사람이 하나씩 · 여담: 취향 묶음이 천천히 떠오름 · 그 밖의 석판 쪽: 은빛 빛줄기. 위치 · 크기 · 투명도만 움직임
     let arrivalDelay = 120;
+    // 넘어가는 종이에 실려 오는 쪽은 종이가 다 내려앉은 뒤에 도착 효과 시작 (종이가 사라지는 순간 반쯤 떠오른 채로 튀지 않게)
+    let arrivalSheet = null;
     // marking: 넘어오는 종이(복제한 새 쪽)에서도 떠오를 것들을 미리 숨기려고, 움직이는 대신 표시(mn-arrive)만 붙임
     let marking = false;
     const arriveEase = "cubic-bezier(.2,.7,.2,1)";
@@ -3398,11 +4005,12 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     };
     const arriveAbility = (page, spread, delay) => {
       const doc = page.ownerDocument;
+      // 그림은 처음부터 다 보이고 크기만 살짝 가라앉음 — 반투명에서 진해지면 그림을 덜 읽은 것처럼 보여서 (작가 2026-10-29)
       const backdrop = page.querySelector(".mn-codex__ab-backdrop");
-      if (marking) mark(backdrop);
+      if (marking) { if (backdrop) backdrop.classList.add("mn-arrive-settle"); }
       else if (visibleEl(backdrop)) {
-        backdrop.animate([{ transform: "scale(1.07)", opacity: 0.55 }, { transform: "scale(1)", opacity: 1 }],
-          { duration: 1200, delay, easing: "cubic-bezier(.2,.6,.2,1)", fill: "backwards" });
+        backdrop.animate([{ transform: "scale(1.05)" }, { transform: "scale(1)" }],
+          { duration: 1400, delay, easing: "cubic-bezier(.2,.6,.2,1)", fill: "backwards" });
       }
       const band = page.querySelector(".mn-codex__ab-band");
       if (band && !marking) {
@@ -3449,7 +4057,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       }
       rise(spread.book.querySelectorAll(".mn-codex__rel-card:not([hidden]) > *"), { delay: delay + 320, stagger: 70 });
     };
-    const playArrival = (delay) => {
+    const playArrival = (baseDelay) => {
       if (!fxOn("sheen")) return;
       const single = isSinglePage();
       const spread = spreads[single ? Math.floor(step / 2) : step];
@@ -3457,9 +4065,17 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       const pages = single ? [step % 2 ? spread.rightPage : spread.leftPage] : [spread.leftPage, spread.rightPage];
       for (const page of pages) {
         if (!page) continue;
+        const delay = arrivalSheet && arrivalSheet.page === page ? arrivalSheet.delay : baseDelay;
         const template = page.getAttribute("data-mn-template") || "";
         const kind = page.getAttribute("data-mn-page-kind") || "";
+        const art = template === "overview" && kind === "entry" ? Array.from(page.querySelectorAll(".mn-codex__page-art img")).filter(visibleEl) : [];
+        const portrait = spreads[0] && page === spreads[0].leftPage ? page.querySelector(".mn-codex__figure--book .mn-codex__art img") : null;
         if (page.classList.contains("mn-codex__page--ab-band")) arriveAbility(page, spread, delay);
+        else if (art.length && !marking && inkOn()) art.forEach((img) => ink.play(img, { delay }));
+        else if (portrait && visibleEl(portrait) && !marking && !quiet()) {
+          petalGust(page, delay);
+          if (inkOn()) ink.play(portrait, { delay: delay + 160, mode: "wind", duration: 1700 });
+        }
         else if (template === "overview" && kind === "section") {
           rise(page.querySelectorAll(".mn-codex__section-index, .mn-codex__ov-alias, .mn-codex__ov-name, .mn-codex__ov-lead, .mn-codex__ov-stat, .mn-codex__ov-label, .mn-codex__ov-grid > div, .mn-codex__ov-chip"), { delay, stagger: 55 });
         } else if (template === "ability" && kind === "section") {
@@ -3477,11 +4093,14 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       if (on) {
         marking = true;
         try { playArrival(0); } finally { marking = false; }
-      } else root.querySelectorAll(".mn-arrive").forEach((el) => el.classList.remove("mn-arrive"));
+      } else root.querySelectorAll(".mn-arrive, .mn-arrive-settle").forEach((el) => el.classList.remove("mn-arrive", "mn-arrive-settle"));
     };
 
     const activate = (nextStep) => {
       if (currentTurn) currentTurn.finish();
+      // 번지던 그림은 바로 다 보이게 · 날던 꽃잎은 거둠 (넘어가는 종이에 반쯤 번진 그림이나 꽃잎이 찍히지 않게)
+      ink.finishAll();
+      finishPetals();
       const total = totalSteps();
       step = Math.max(0, Math.min(nextStep, total - 1));
       const single = isSinglePage();
@@ -3648,6 +4267,14 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       const doc = root.ownerDocument;
       const W = from.book.offsetWidth;
       const spine = from.rightPage ? from.rightPage.offsetLeft : Math.round(W / 2);
+      // 떠나는 쪽 그림 모양은 넘기기 전에 재 둠 — 종이는 activate 뒤에 복제하는데, 그때 재면 그 쪽이 이미 숨어 있어
+      // 크기 · 확대가 빠진 값(100% · none)이 나와 넘기기 시작할 때 그림이 작아짐
+      const turnStyles = new Map();
+      from.book.querySelectorAll("img").forEach((img) => {
+        if (!img._mnTurnBitmap) return;
+        const computed = getComputedStyle(img);
+        turnStyles.set(img, TURN_IMAGE_STYLES.map((name) => [name, computed.getPropertyValue(name)]));
+      });
       const ghost = (spread, side) => {
         const clone = spread.book.cloneNode(true);
         clone.classList.remove("is-active", "is-before", "is-after", "is-far", "is-turn-hold");
@@ -3668,8 +4295,12 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
           canvas.height = bitmap.height;
           canvas.getContext("2d").drawImage(bitmap, 0, 0);
           canvas.className = img.className;
-          const computed = getComputedStyle(original);
-          TURN_IMAGE_STYLES.forEach((name) => canvas.style.setProperty(name, computed.getPropertyValue(name)));
+          let styles = turnStyles.get(original);
+          if (!styles) {
+            const computed = getComputedStyle(original);
+            styles = TURN_IMAGE_STYLES.map((name) => [name, computed.getPropertyValue(name)]);
+          }
+          styles.forEach(([name, value]) => canvas.style.setProperty(name, value));
           img.replaceWith(canvas);
         });
         clone.style.width = `${W}px`;
@@ -3681,11 +4312,15 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         parent.appendChild(el);
         return el;
       };
+      const duration = single ? 520 : 760;
       root.classList.add("mn-codex--turning");
-      // 도착 효과는 종이가 내려앉은 뒤에
+      // 도착 효과: 종이 밑에서 드러나는 쪽은 종이가 걷힐 즈음, 종이에 실려 오는 쪽(두 쪽 판의 뒷면 · 한 쪽 판에서 뒤로)은 종이가 다 내려앉은 뒤에
+      const sheetPage = single ? (forward ? null : (toSide === "right" ? to.rightPage : to.leftPage)) : (forward ? to.leftPage : to.rightPage);
       arrivalDelay = single ? 360 : 500;
+      arrivalSheet = sheetPage ? { page: sheetPage, delay: duration } : null;
       activate(target);
       arrivalDelay = 120;
+      arrivalSheet = null;
       const stage = layer(`mn-codex__turn-stage${forward ? "" : " is-backward"}${single ? " is-single" : ""}`, track);
       stage.setAttribute("aria-hidden", "true");
       stage.style.setProperty("--mn-turn-spine", `${spine}px`);
@@ -3724,12 +4359,13 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
           stage.appendChild(sheet);
         }
         const face = layer("mn-codex__turn-face", sheet);
+        // 표시는 복제한 뒤 · 붙이기 전에 뗌 (붙인 뒤에 떼면 종이 속 복제본의 표시까지 지워져 다 보였다가 꺼짐)
         if (!forward) markArrival(true);
-        face.appendChild(ghost(forward ? from : to, forward ? fromSide : toSide));
+        const faceGhost = ghost(forward ? from : to, forward ? fromSide : toSide);
         if (!forward) markArrival(false);
+        face.appendChild(faceGhost);
         layer("mn-codex__turn-shade", face);
       }
-      const duration = single ? 520 : 760;
       stage.style.setProperty("--mn-turn-ms", `${duration}ms`);
       const view = doc.defaultView || window;
       let done = false;
@@ -5380,6 +6016,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         time: this.plainLink(front["시점"]),
         test: /시험/u.test(this.asText(front["시점"])),
         place: this.plainLink(front["위치"]),
+        front,
         src: ref ? this.resolveImage(ref, file.path) : "",
         focus: face && Array.isArray(data.detail_focus) && data.detail_focus[0] ? this.asText(data.detail_focus[0]) : "50% 18%",
         scale: face && Array.isArray(data.detail_scale) && Number(data.detail_scale[0]) > 1 ? Number(data.detail_scale[0]) : 1,
@@ -5395,27 +6032,168 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     titles.createDiv({ cls: "mn-roster__title", text: this.asText(options.title, "인물 도감") });
     const count = head.createDiv({ cls: "mn-roster__count" });
 
+    // 찾기 · 정렬 줄: 인물이 많아져도 바로 찾게. 이 줄은 다시 그리지 않음(글 쓰는 중에 칸이 사라지지 않게)
+    const tools = el.createDiv({ cls: "mn-roster__tools" });
+    const search = tools.createEl("input", { cls: "mn-roster__search", attr: { type: "search", placeholder: "이름 · 이명 · 소속 · 종족 · 위치 · 신탁 · 신기로 찾기", "aria-label": "인물 찾기" } });
+    search.value = state.query || "";
+    const order = tools.createEl("select", { cls: "mn-roster__order", attr: { "aria-label": "정렬" } });
     const filters = el.createDiv({ cls: "mn-roster__filters" });
-    const groups = [...new Set(people.flatMap((person) => person.groups))].sort((a, b) => a.localeCompare(b, "ko"));
+    // 소속 · 종족 목록: 사람 많은 차례(같으면 이름 차례), 인원 수와 함께
+    const tally = (valuesOf) => {
+      const counts = new Map();
+      people.forEach((person) => valuesOf(person).forEach((value) => counts.set(value, (counts.get(value) || 0) + 1)));
+      return { counts, values: [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b, "ko")) };
+    };
+    // 거르기 창에서 고를 거리: 소속 · 종족 · 위치. 한 거리 안에선 고른 것 중 하나라도(또는), 거리끼리는 모두(그리고)
+    const FACETS = [
+      { key: "groups", label: "소속", of: (person) => person.groups },
+      { key: "races", label: "종족", of: (person) => (person.race ? [person.race] : []) },
+      { key: "places", label: "위치", of: (person) => (person.place ? [person.place] : []) },
+    ].map((facet) => ({ ...facet, ...tally(facet.of) }));
     const grid = el.createDiv({ cls: "mn-roster__grid" });
     const chip = (label, active, onClick, extra = "") => {
       const button = filters.createEl("button", { cls: `mn-roster__filter${active ? " is-on" : ""}${extra}`, text: label, attr: { type: "button" } });
       button.addEventListener("click", onClick);
       return button;
     };
+    // 표로 보기: 여러 인물을 한 줄씩 나란히. 머리 줄을 누르면 정렬(투력 · 항력은 수로, 빈 칸은 늘 아래). 칸은 값이 하나라도 있는 것만
+    const openPerson = (person, event) => {
+      event.preventDefault();
+      const workspace = this.app && this.app.workspace;
+      if (workspace && typeof workspace.openLinkText === "function") workspace.openLinkText(person.file.path, sourcePath, event.ctrlKey || event.metaKey ? "tab" : false);
+    };
+    const cellText = (person, key) => (key === "소속" ? person.groups.join(" · ") : (Array.isArray(person.front[key]) ? person.front[key] : [person.front[key]])
+      .map((item) => this.plainLink(item)).filter(Boolean).join(" · "));
+    const NUMERIC = new Set(["투력", "항력"]);
+    const columns = ["소속", "종족", "투력", "항력", "신탁", "신기", "위치", "하는 일"].filter((key) => people.some((person) => cellText(person, key)));
+    // 정렬(카드 · 표 같이): 없으면 기본(시험 노트 뒤 · 이름 차례). 투력 · 항력은 수로, 「최근」은 노트 고친 때, 빈 칸은 늘 아래
+    const sortValue = (person, key) => (key === "이름" ? person.name : key === "최근" ? (person.file.stat && person.file.stat.mtime) || null
+      : NUMERIC.has(key) ? this.recordAmount(cellText(person, key)) : cellText(person, key));
+    const sorted = (list) => {
+      if (!state.sort) return list;
+      const { key, dir } = state.sort;
+      return list.slice().sort((a, b) => {
+        const x = sortValue(a, key);
+        const y = sortValue(b, key);
+        const ex = x === null || x === "";
+        const ey = y === null || y === "";
+        if (ex || ey) return Number(ex) - Number(ey);
+        return (typeof x === "number" ? x - y : String(x).localeCompare(String(y), "ko")) * dir;
+      });
+    };
+    const ORDERS = [["", "기본 차례"], ["이름:1", "이름 차례"], ["투력:-1", "투력 높은 차례"], ["최근:-1", "최근 고친 차례"]];
+    const drawOrder = () => {
+      order.empty();
+      const now = state.sort ? `${state.sort.key}:${state.sort.dir}` : "";
+      const options = ORDERS.some(([value]) => value === now) ? ORDERS : [...ORDERS, [now, `「${state.sort.key}」 ${state.sort.dir < 0 ? "높은" : "낮은"} 차례`]];
+      options.forEach(([value, label]) => order.createEl("option", { text: label, attr: { value } }));
+      order.value = now;
+    };
+    order.addEventListener("change", () => {
+      const [key, dir] = order.value.split(":");
+      state.sort = key ? { key, dir: Number(dir) } : null;
+      state.more = 0;
+      drawGrid();
+    });
+    let searchTimer = 0;
+    search.addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { state.query = search.value; state.more = 0; drawGrid(); }, 120);
+    });
+    // 찾기: 띄어 쓴 낱말이 모두 들어 있는 사람(이름 · 이명 · 소속 · 종족 · 위치 · 하는 일 · 신탁 · 신기 · 노트 이름)
+    const matches = (person) => {
+      const words = String(state.query || "").toLowerCase().split(/\s+/u).filter(Boolean);
+      if (!words.length) return true;
+      const hay = [person.name, person.alias, person.job, person.race, person.place, person.file.basename, ...person.groups, cellText(person, "신탁"), cellText(person, "신기")]
+        .join(" ").toLowerCase();
+      return words.every((word) => hay.includes(word));
+    };
+    const passes = (person) => !(state.hideTest && person.test) && matches(person)
+      && FACETS.every((facet) => !state.picked[facet.key].size || facet.of(person).some((value) => state.picked[facet.key].has(value)));
+    const drawTable = (rows) => {
+      const wrap = grid.createDiv({ cls: "mn-roster__table-wrap" });
+      const table = wrap.createEl("table", { cls: "mn-roster__table" });
+      const headRow = table.createEl("thead").createEl("tr");
+      ["이름", ...columns].forEach((key) => {
+        const on = state.sort && state.sort.key === key;
+        const th = headRow.createEl("th", { cls: `${NUMERIC.has(key) ? "is-number" : ""}${on ? " is-sorted" : ""}`, attr: { tabindex: "0", title: `${key}로 정렬` } });
+        th.createSpan({ text: key });
+        th.createSpan({ cls: "mn-roster__sort", text: on ? (state.sort.dir < 0 ? "↓" : "↑") : "" });
+        const sortBy = () => {
+          state.sort = on ? { key, dir: -state.sort.dir } : { key, dir: NUMERIC.has(key) ? -1 : 1 };
+          state.more = 0;
+          drawGrid();
+        };
+        th.addEventListener("click", sortBy);
+        th.addEventListener("keydown", (event) => { if (event.key === "Enter") sortBy(); });
+      });
+      const body = table.createEl("tbody");
+      rows.forEach((person) => {
+        const tr = body.createEl("tr", { cls: person.test ? "is-test" : "", attr: { tabindex: "0", title: `${person.name} 인물 페이지 열기` } });
+        const nameCell = tr.createEl("td", { cls: "mn-roster__cell-name" });
+        if (person.alias) nameCell.createDiv({ cls: "mn-roster__cell-alias", text: person.alias });
+        const nameLine = nameCell.createDiv({ cls: "mn-roster__cell-title", text: person.name });
+        if (person.test) nameLine.createSpan({ cls: "mn-roster__cell-badge", text: "시험" });
+        columns.forEach((key) => {
+          const text = cellText(person, key);
+          const wrap = ["소속", "위치", "하는 일"].includes(key) ? " is-wrap" : "";
+          tr.createEl("td", { cls: `${NUMERIC.has(key) ? "is-number" : ""}${wrap}${text ? "" : " is-empty"}`, text: text || "—" });
+        });
+        tr.addEventListener("click", (event) => openPerson(person, event));
+        tr.addEventListener("keydown", (event) => { if (event.key === "Enter") openPerson(person, event); });
+      });
+    };
+    // 한 번에 그리는 수: 카드 24명 · 표 60줄, 그다음은 「더 보기」 (그림을 한꺼번에 수백 장 풀지 않게)
+    const PAGE = { card: 24, table: 60 };
     const drawGrid = () => {
       filters.empty();
-      chip("전체", !state.group, () => { state.group = ""; drawGrid(); });
-      groups.forEach((group) => chip(group, state.group === group, () => { state.group = state.group === group ? "" : group; drawGrid(); }));
-      if (people.some((person) => person.test)) {
-        chip(state.hideTest ? "시험 노트 보기" : "시험 노트 숨기기", false, () => { state.hideTest = !state.hideTest; drawGrid(); }, " mn-roster__filter--toggle");
+      drawOrder();
+      // 소속 · 종족 · 위치는 따로 뜨는 「인물 거르기」 창에서 찾아 고름 — 여기엔 단추와 고른 것 꼬리표(3개까지, 넘으면 +n)만
+      const tags = FACETS.flatMap((facet) => [...state.picked[facet.key]].map((value) => ({ facet, value })));
+      const openFilter = () => {
+        new RosterFilterModal(this.app, FACETS, state.picked, () => people.filter(passes).length, () => { state.more = 0; drawGrid(); }).open();
+      };
+      chip(tags.length ? `거르기 · ${tags.length}` : "거르기", tags.length > 0, openFilter, " mn-roster__filter--open");
+      tags.slice(0, 3).forEach(({ facet, value }) => {
+        const tag = chip(`${value} ✕`, false, () => { state.picked[facet.key].delete(value); state.more = 0; drawGrid(); }, " mn-roster__filter--tag");
+        tag.setAttr("title", `${facet.label} 「${value}」 빼기`);
+      });
+      if (tags.length > 3) chip(`+${tags.length - 3}`, false, openFilter, " mn-roster__filter--tag");
+      if (state.query || tags.length) {
+        chip("거르기 풀기", false, () => {
+          state.query = "";
+          search.value = "";
+          FACETS.forEach((facet) => state.picked[facet.key].clear());
+          state.more = 0;
+          drawGrid();
+        }, " mn-roster__filter--clear");
       }
+      if (people.some((person) => person.test)) {
+        chip(state.hideTest ? "시험 노트 보기" : "시험 노트 숨기기", false, () => { state.hideTest = !state.hideTest; state.more = 0; drawGrid(); }, " mn-roster__filter--toggle");
+      }
+      chip(state.view === "table" ? "카드로 보기" : "표로 보기", false, () => { state.view = state.view === "table" ? "card" : "table"; state.more = 0; drawGrid(); }, " mn-roster__filter--view");
       grid.empty();
-      const shown = people.filter((person) => (!state.group || person.groups.includes(state.group)) && !(state.hideTest && person.test));
-      count.setText(`${String(shown.length).padStart(2, "0")} / ${String(people.length).padStart(2, "0")}`);
-      if (!shown.length) grid.createDiv({ cls: "mn-roster__none", text: "조건에 맞는 인물이 없어요." });
+      grid.classList.toggle("is-table", state.view === "table");
+      const found = sorted(people.filter(passes));
+      const page = PAGE[state.view === "table" ? "table" : "card"];
+      const limit = page * (1 + (state.more || 0));
+      const shown = found.slice(0, limit);
+      count.setText(`${String(found.length).padStart(2, "0")} / ${String(people.length).padStart(2, "0")}`);
+      const drawMore = () => {
+        if (found.length <= limit) return;
+        const rest = found.length - limit;
+        const more = grid.createEl("button", { cls: "mn-roster__more", text: `${Math.min(page, rest)}명 더 보기 · 남은 ${rest}명`, attr: { type: "button" } });
+        more.addEventListener("click", () => { state.more = (state.more || 0) + 1; drawGrid(); });
+      };
+      if (!found.length) grid.createDiv({ cls: "mn-roster__none", text: state.query ? `「${state.query}」에 맞는 인물이 없어요.` : "조건에 맞는 인물이 없어요." });
+      else if (state.view === "table") drawTable(shown);
+      if (state.view === "table") {
+        drawMore();
+        return;
+      }
+      const cards = grid.createDiv({ cls: "mn-roster__cards" });
       shown.forEach((person, index) => {
-        const card = grid.createEl("button", { cls: `mn-roster__card${person.test ? " is-test" : ""}`, attr: { type: "button", title: `${person.name} 인물 페이지 열기` } });
+        const card = cards.createEl("button", { cls: `mn-roster__card${person.test ? " is-test" : ""}`, attr: { type: "button", title: `${person.name} 인물 페이지 열기` } });
         if (person.look) {
           const [hue, chroma] = person.look;
           card.addClass("has-look");
@@ -5457,8 +6235,243 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
           if (workspace && typeof workspace.openLinkText === "function") workspace.openLinkText(person.file.path, sourcePath, event.ctrlKey || event.metaKey ? "tab" : false);
         });
       });
+      drawMore();
     };
     drawGrid();
+  }
+
+  /** 「160만~163만」 · 「2,600」 · 「3.4」 → 앞쪽 수(정렬용). 수가 없으면 null */
+  recordAmount(value) {
+    const match = this.plainLink(value).replace(/,/gu, "").match(/(\d+(?:\.\d+)?)\s*(억|만|천)?/u);
+    if (!match) return null;
+    return Number(match[1]) * ({ 억: 1e8, 만: 1e4, 천: 1e3 }[match[2]] || 1);
+  }
+
+  /** 속성 값 칸: 링크([[…|…]])는 눌러서 그 노트로, 여러 개면 「 · 」로 */
+  recordValue(parent, value, sourcePath) {
+    const items = (Array.isArray(value) ? value : [value]).map((item) => this.asText(item).trim()).filter(Boolean);
+    items.forEach((item, index) => {
+      if (index) parent.appendText(" · ");
+      const link = item.match(/^\[\[([^\]|]+)\|?([^\]]*)\]\]$/u);
+      if (!link) {
+        parent.appendText(item);
+        return;
+      }
+      const span = parent.createSpan({ cls: "mn-record__link", text: link[2] || link[1], attr: { role: "link", tabindex: "0", title: `${link[1]} 열기` } });
+      const open = (event) => {
+        event.preventDefault();
+        const workspace = this.app && this.app.workspace;
+        if (workspace && typeof workspace.openLinkText === "function") workspace.openLinkText(link[1], sourcePath, event.ctrlKey || event.metaKey ? "tab" : false);
+      };
+      span.addEventListener("click", open);
+      span.addEventListener("keydown", (event) => { if (event.key === "Enter") open(event); });
+    });
+  }
+
+  /** 인물 기록표 그리기: 이름 · 이명 → 수치(투력 · 항력) → 나머지 속성(노트에 적힌 차례) → 비어 있는 칸(속성 「미정」 · 책의 빈 줄) */
+  async renderRecord(el, sourcePath, options = {}) {
+    el.addClass("mn-record");
+    const vault = this.app && this.app.vault;
+    const cache = this.app && this.app.metadataCache;
+    const file = vault && typeof vault.getAbstractFileByPath === "function" ? vault.getAbstractFileByPath(sourcePath) : null;
+    const front = (file && cache && cache.getFileCache(file)?.frontmatter) || {};
+    const data = file ? await this.readCodexData(file) : null;
+    const name = this.asText(data && data.title).trim() || sourcePath.split("/").pop().replace(/\.md$/u, "");
+    const has = (value) => (Array.isArray(value) ? value : [value]).some((item) => this.plainLink(item) !== "");
+    const unset = (value) => !has(value) || (Array.isArray(value) ? value : [value]).every((item) => /^(미정|\?|-|—)$/u.test(this.plainLink(item)));
+    const test = /시험/u.test(this.asText(front["시점"]));
+
+    const head = el.createDiv({ cls: "mn-record__head" });
+    const titles = head.createDiv();
+    titles.createDiv({ cls: "mn-record__kicker", text: "CHARACTER RECORD" });
+    if (has(front["이명"])) titles.createDiv({ cls: "mn-record__alias", text: this.plainLink(front["이명"]) });
+    titles.createDiv({ cls: "mn-record__title", text: name });
+    const tags = head.createDiv({ cls: "mn-record__tags" });
+    if (test) tags.createSpan({ cls: "mn-record__tag is-test", text: "시험" });
+    if (has(front["상태"])) tags.createSpan({ cls: "mn-record__tag", text: this.plainLink(front["상태"]) });
+
+    const sheet = el.createDiv({ cls: "mn-record__sheet" });
+    const STATS = ["투력", "항력"];
+    const stats = STATS.filter((key) => key in front);
+    if (stats.length) {
+      const row = sheet.createDiv({ cls: "mn-record__stats" });
+      stats.forEach((key) => {
+        const cell = row.createDiv({ cls: `mn-record__stat${unset(front[key]) ? " is-unset" : ""}` });
+        cell.createDiv({ cls: "mn-record__label", text: key });
+        cell.createDiv({ cls: "mn-record__number", text: unset(front[key]) ? "미정" : this.plainLink(front[key]) });
+      });
+    }
+
+    // 스테이터스(작가와 의논 중 2026-10-29) — 속성에 있으면 속성, 없으면 블록에 적은 초안을 「미리보기」로
+    //  ① 관측 기록: 투력 · 항력을 잰 때(시점)와 함께. 맨 위 줄이 최신, 오르면 위에 한 줄 더하고 옛 값은 성장 기록으로 남김
+    //  ② 능력 등위: 능력마다 「그것만 보면 어느 등위 수준인지」(아래에서 그림으로)
+    const present = (value) => (Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "");
+    const sourceOf = (key) => (present(front[key]) ? front[key] : options && present(options[key]) ? options[key] : null);
+    const draft = (key) => !present(front[key]) && options && present(options[key]);
+    const listOf = (key) => {
+      const value = sourceOf(key);
+      return Array.isArray(value) ? value : value ? [value] : [];
+    };
+    const sectionHead = (box, label, sub, key) => {
+      const head = box.createDiv({ cls: "mn-record__section-head" });
+      head.createSpan({ cls: "mn-record__label", text: label });
+      head.createSpan({ cls: "mn-record__section-sub", text: sub });
+      if (draft(key)) head.createSpan({ cls: "mn-record__draft", text: "미리보기", attr: { title: "속성에 아직 없고 기록표 블록에 적은 초안이에요" } });
+    };
+    // 「시점 · 투력 · 항력」 글 한 줄 또는 { 시점, 투력, 항력 }
+    const log = listOf("투력 기록").map((item) => {
+      if (item && typeof item === "object") return { time: this.plainLink(item["시점"]), power: this.plainLink(item["투력"]), resist: this.plainLink(item["항력"]) };
+      const [time, power, resist] = this.plainLink(item).split(/\s*·\s*/u);
+      return { time, power, resist };
+    }).filter((row) => row.power || row.resist);
+    if (log.length) {
+      const box = sheet.createDiv({ cls: "mn-record__section" });
+      sectionHead(box, "관측 기록", "잰 때와 함께 쌓아요 · 오르면 위에 한 줄 더하고 옛 값은 성장 기록으로", "투력 기록");
+      const rows = box.createDiv({ cls: "mn-record__log" });
+      log.forEach((row, index) => {
+        const line = rows.createDiv({ cls: `mn-record__log-row${index === 0 ? " is-latest" : ""}` });
+        line.createSpan({ cls: "mn-record__log-time", text: !row.time || row.time === "미정" ? "시점 미정" : row.time });
+        line.createSpan({ cls: "mn-record__log-value", text: row.power ? `투력 ${row.power}` : "" });
+        line.createSpan({ cls: "mn-record__log-value", text: row.resist ? `항력 ${row.resist}` : "" });
+        line.createSpan({ cls: "mn-record__log-tag", text: index === 0 ? "최신" : "" });
+      });
+      if (log.length === 1) rows.createDiv({ cls: "mn-record__log-next", text: "다음에 잰 값이 생기면 이 위에 한 줄 더해요" });
+    }
+    // 능력 등위: 「축: 등위 — 메모」 — 그 능력만 놓고 보면 어느 등위 수준인지(미력 · 일반 · 은 · 귀 · 화명 · 신료, 넘으면 논외).
+    // 고리가 등위 사다리라 모양(무엇을 잘하나)과 크기(얼마나 센가)가 한 그림에 보임. 등위는 차례만 쓰고 수치 범위는 안 씀
+    const RANKS = ["미력", "일반", "은", "귀", "화명", "신료", "논외"];
+    const parseAbility = (item) => {
+      if (item && typeof item === "object" && "축" in item) return { axis: this.plainLink(item["축"]), grade: this.plainLink(item["등위"] || item["평가"]), note: this.plainLink(item["메모"]) };
+      const text = item && typeof item === "object" ? Object.entries(item).map(([key, value]) => `${key}: ${this.asText(value)}`)[0] || "" : this.plainLink(item);
+      const match = text.match(/^([^:：]+)[:：]\s*([^—]*?)\s*(?:—\s*(.*))?$/u);
+      const row = match ? { axis: match[1].trim(), grade: match[2].trim(), note: (match[3] || "").trim() } : { axis: text, grade: "", note: "" };
+      const rank = RANKS.indexOf(row.grade);
+      return { ...row, level: rank < 0 ? null : rank + 1 };
+    };
+    const abilities = listOf("능력 등위").map(parseAbility).filter((row) => row.axis);
+    // 견줘 보기: 다른 인물(또는 예시)의 모양을 옅게 겹침 — { 이름, 능력 등위: [...] }
+    const compareSource = sourceOf("견줘 보기");
+    const compare = compareSource && typeof compareSource === "object" && !Array.isArray(compareSource)
+      ? { name: this.plainLink(compareSource["이름"]) || "견줘 보기", rows: (Array.isArray(compareSource["능력 등위"]) ? compareSource["능력 등위"] : []).map(parseAbility) }
+      : null;
+    if (abilities.length) {
+      const box = sheet.createDiv({ cls: "mn-record__section" });
+      sectionHead(box, "능력 등위", "그 능력만 놓고 보면 어느 등위 수준인지 · 모양은 잘하는 것, 크기는 세기", "능력 등위");
+      const viz = box.createDiv({ cls: "mn-record__profile-viz" });
+      if (abilities.length >= 3) {
+        const other = compare ? abilities.map((row) => (compare.rows.find((item) => item.axis === row.axis) || { level: null }).level) : null;
+        viz.appendChild(this.recordRadar(abilities, el.ownerDocument || document, RANKS, other));
+      }
+      const bars = viz.createDiv({ cls: "mn-record__profile-bars" });
+      abilities.forEach((row) => {
+        const line = bars.createDiv({ cls: `mn-record__bar-row${row.level === RANKS.length ? " is-beyond" : ""}` });
+        line.createSpan({ cls: "mn-record__profile-axis", text: row.axis });
+        const ladder = line.createSpan({ cls: "mn-record__ladder", attr: { title: row.level ? row.grade : "미정" } });
+        RANKS.forEach((rank, index) => {
+          const level = index + 1;
+          ladder.createSpan({ cls: `mn-record__rung${row.level !== null && level <= row.level ? " is-on" : ""}${level === RANKS.length ? " is-beyond" : ""}` });
+        });
+        line.createSpan({ cls: `mn-record__rank${row.level ? "" : " is-unset"}`, text: row.level ? row.grade : row.grade || "미정" });
+        line.createSpan({ cls: "mn-record__profile-note", text: row.note });
+      });
+      const legend = box.createDiv({ cls: "mn-record__scale" });
+      legend.createSpan({ text: "고리 = 등위 (안쪽부터 미력 · 일반 · 은 · 귀 · 화명 · 신료) · 바깥 점선 = 논외" });
+      if (compare) {
+        legend.createSpan({ cls: "mn-record__legend-me", text: name });
+        legend.createSpan({ cls: "mn-record__legend-other", text: compare.name });
+      }
+    }
+    // 속성 칸: 노트에 적힌 차례 그대로. 지면 · 관리용 칸은 뺌. 세계판이 쓰는 칸(소속 · 종족 · 하는 일 · 위치 · 시점)은 없어도 「미정」으로 보임
+    const HIDDEN = new Set(["분류", "상태", "이명", "초상", "공개", "만든날", "정리", "cssclasses", "cssclass", "tags", "aliases", "position", "투력 기록", "능력 등위", "견줘 보기", ...STATS]);
+    const keys = Object.keys(front).filter((key) => !HIDDEN.has(key));
+    ["소속", "종족", "하는 일", "위치", "시점"].forEach((key) => { if (!keys.includes(key)) keys.push(key); });
+    const grid = sheet.createDiv({ cls: "mn-record__grid" });
+    keys.forEach((key) => {
+      const cell = grid.createDiv({ cls: `mn-record__cell${unset(front[key]) ? " is-unset" : ""}` });
+      // 긴 값(소속 여럿 등)은 두 칸 너비로 — 한 칸에선 이름 가운데서 꺾임
+      const length = (Array.isArray(front[key]) ? front[key] : [front[key]]).map((item) => this.plainLink(item)).filter(Boolean).join(" · ").length;
+      if (length > 11) cell.addClass("is-wide");
+      cell.createDiv({ cls: "mn-record__label", text: key });
+      const value = cell.createDiv({ cls: "mn-record__value" });
+      if (unset(front[key])) value.setText("미정");
+      else this.recordValue(value, front[key], sourcePath);
+    });
+
+    // 비어 있는 칸: 속성의 「미정」 + 책 글에서 「이름 :」 뒤가 빈 줄(여담의 좋아하는 것 · 싫어하는 것 …)
+    const gaps = [...stats, ...keys].filter((key) => unset(front[key]));
+    const blank = [];
+    const scan = (title, content) => {
+      const empty = this.asText(content).split(/\r?\n/u).map((line) => line.match(/^\s*([^:：\n]{1,24}?)\s*[:：]\s*$/u)).filter(Boolean).map((match) => match[1].trim());
+      if (empty.length) blank.push(`${title} — ${empty.join(" · ")}`);
+    };
+    (Array.isArray(data && data.book_sections) ? data.book_sections : []).forEach((section) => {
+      const title = this.asText(section && section.title).trim() || "장";
+      scan(title, section && section.content);
+      (Array.isArray(section && section.pages) ? section.pages : []).forEach((page) => scan(`${title} · ${this.asText(page && page.title).trim()}`, page && page.content));
+    });
+    if (gaps.length || blank.length) {
+      const foot = el.createDiv({ cls: "mn-record__gaps" });
+      foot.createDiv({ cls: "mn-record__kicker", text: `비어 있는 칸 ${gaps.length + blank.length}` });
+      const list = foot.createDiv({ cls: "mn-record__gap-list" });
+      gaps.forEach((key) => list.createSpan({ cls: "mn-record__gap", text: `속성 — ${key}` }));
+      blank.forEach((text) => list.createSpan({ cls: "mn-record__gap", text: `책 ${text}` }));
+    }
+    el.createDiv({ cls: "mn-record__note", text: "값은 노트 맨 위 속성에서 고쳐요. 고치면 이 표와 인물 도감 표가 바로 바뀌어요." });
+  }
+
+  /** 능력 등위 다각형: 고리 = 등위 사다리(미력 … 신료), 바깥 점선 = 논외(넘으면 테두리 밖으로). other 가 있으면 옅게 겹침 */
+  recordRadar(rows, doc, ranks, other = null) {
+    const NS = "http://www.w3.org/2000/svg";
+    const size = 300;
+    const center = size / 2;
+    const frame = 92;
+    const steps = ranks.length - 1;
+    const svg = doc.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+    svg.setAttribute("class", "mn-record__radar");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", rows.map((row) => `${row.axis} ${row.grade || "미정"}`).join(", "));
+    // 논외는 신료 테두리에서 한참 밖(1.34배) — 규격외로 튀어나와 보이게
+    const at = (index, level, extra = 0) => {
+      const angle = -Math.PI / 2 + (index * 2 * Math.PI) / rows.length;
+      const distance = (level <= steps ? (frame * level) / steps : frame * 1.34) + extra;
+      return [center + Math.cos(angle) * distance, center + Math.sin(angle) * distance];
+    };
+    const add = (tag, attrs, text) => {
+      const node = doc.createElementNS(NS, tag);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
+      if (text) node.textContent = text;
+      svg.appendChild(node);
+      return node;
+    };
+    const points = (list) => list.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+    for (let level = 1; level <= ranks.length; level += 1) {
+      const cls = level === ranks.length ? " is-beyond" : level === steps ? " is-frame" : "";
+      add("polygon", { points: points(rows.map((_, index) => at(index, level))), class: `mn-record__radar-ring${cls}` });
+    }
+    rows.forEach((_, index) => {
+      const [x, y] = at(index, ranks.length);
+      add("line", { x1: center, y1: center, x2: x.toFixed(1), y2: y.toFixed(1), class: "mn-record__radar-axis" });
+    });
+    // 고리 이름: 맨 위 축 오른쪽에 작게
+    ranks.forEach((rank, index) => {
+      const [x, y] = at(0, index + 1);
+      add("text", { x: (x + 4).toFixed(1), y: (y + 3).toFixed(1), class: `mn-record__radar-rank${index + 1 === ranks.length ? " is-beyond" : ""}` }, rank);
+    });
+    if (other && other.some((level) => level !== null)) {
+      add("polygon", { points: points(other.map((level, index) => at(index, level ?? 0))), class: "mn-record__radar-other" });
+    }
+    add("polygon", { points: points(rows.map((row, index) => at(index, row.level ?? 0))), class: "mn-record__radar-shape" });
+    rows.forEach((row, index) => {
+      if (row.level === null) return;
+      const [x, y] = at(index, row.level);
+      add("circle", { cx: x.toFixed(1), cy: y.toFixed(1), r: row.level === ranks.length ? 3.6 : 2.6, class: `mn-record__radar-dot${row.level === ranks.length ? " is-beyond" : ""}` });
+    });
+    rows.forEach((row, index) => {
+      const [x, y] = at(index, ranks.length, 16);
+      add("text", { x: x.toFixed(1), y: y.toFixed(1), class: "mn-record__radar-label", "text-anchor": Math.abs(x - center) < 12 ? "middle" : x > center ? "start" : "end", "dominant-baseline": "middle" }, row.axis);
+    });
+    return svg;
   }
 
   /** 인물 노트들(속성 「분류: 인물」) */
