@@ -83,6 +83,16 @@ html body .mn-codex-fullpage .mn-codex-host--variant-silver-knight .mn-codex--la
   height: max(650px, calc(100cqi / var(--mn-cover-ratio) * .904)) !important;
 }
 
+/* 화면에 맞춤 (실험실 2026-10-29): 캐릭터 전용 지면(표지 · 책장)은 노트 칸 높이에 맞는 폭으로 가운데에.
+   지면 높이가 폭에 비례해서(폭 ÷ 1.5), 왼쪽 패널을 닫으면 지면이 화면 높이를 넘어 아래가 잘렸고 여닫을 때마다 크기 · 쪽 나누기가 달라졌음.
+   폭은 플러그인이 노트 칸을 재서 --mn-fit-w 로 줌 (칸 폭 · 칸 높이 × 1.5 중 작은 쪽). 양옆 남는 자리는 어두운 바탕 */
+html body .mn-codex-fullpage .mn-codex-park-parent > .mn-codex-host--has-variant,
+html body .mn-codex-fullpage .mn-codex-park-parent > .mn-codex-host--variant-silver-knight {
+  width: min(var(--mn-fit-w, 100%), 100%) !important;
+  margin-inline: auto !important;
+}
+html body .mn-codex-fullpage .mn-codex-park-parent { background: #10141b; } /* :has() 는 느려서 안 씀 — 일반 지면은 폭 가득이라 안 보임 */
+
 /* 한 쪽 보기 판(지면 폭 760px 이하): 쪽 높이는 창 높이에 맞춤(아래 장 띠까지 한 화면에) — 리더가 두 배 폭 크기 기준이라 위 식(100cqi)을 쓰면 너무 길어짐 */
 html body .mn-codex-fullpage .mn-codex-host .mn-codex.mn-codex--single-edition.mn-codex--layout-book > .mn-codex__reader .mn-codex__book-track {
   height: clamp(600px, calc(100vh - 150px), 880px) !important;

@@ -1733,6 +1733,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         }
 
         try {
+          if (this.asText(data.layout_variant).trim()) this.fitCodexPane(ctx.sourcePath);
           await this.renderCodex(data, el, ctx.sourcePath, child);
           this.registerMelyDeckCandidate(data, el, ctx.sourcePath, child);
           this.addEditButton(el, data, ctx);
@@ -3001,6 +3002,34 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     return img;
   }
 
+  /** 캐릭터 전용 지면(전체 화면 노트의 표지 · 책장)은 노트 칸에 맞는 폭으로: 폭 = min(칸 폭, 칸 높이 × 표지 비율 1.5).
+   *  지면 높이가 폭에 비례해서, 왼쪽 패널을 닫으면 지면이 화면 높이를 넘어 아래가 잘렸고 여닫을 때마다 크기 · 쪽 나누기가 달라졌음.
+   *  이제 칸 높이가 그대로면 패널을 여닫아도 지면 크기가 같아 다시 그리지 않음. 폭은 --mn-fit-w 로 (mn-codex-fullpage.css). 2026-10-29 */
+  fitCodexPane(sourcePath) {
+    if (typeof ResizeObserver === "undefined") return;
+    this.fitPanes = this.fitPanes || new WeakMap();
+    const leaves = this.app.workspace.getLeavesOfType("markdown").filter((leaf) => leaf.view && leaf.view.file && leaf.view.file.path === sourcePath);
+    for (const leaf of leaves) {
+      const pane = leaf.view.contentEl;
+      if (!pane) continue;
+      if (this.fitPanes.has(pane)) { this.fitPanes.get(pane)(); continue; }
+      const update = () => {
+        const w = pane.clientWidth, h = pane.clientHeight;
+        if (!w || !h) return;
+        // 아래 26px 는 옵시디언 상태 표시줄 자리(지면 아래 장 띠를 덮지 않게).
+        // 칸이 아주 낮으면(창을 낮게 줄임) 900px 아래로는 줄이지 않음 — 한 쪽 보기 판(760px 이하)으로 넘어가지 않게
+        const fit = Math.round(Math.min(w, Math.max((h - 26) * 1.5, Math.min(w, 900))));
+        if (pane.style.getPropertyValue("--mn-fit-w") !== `${fit}px`) pane.style.setProperty("--mn-fit-w", `${fit}px`);
+      };
+      update();
+      let frame = 0;
+      const observer = new ResizeObserver(() => { cancelAnimationFrame(frame); frame = requestAnimationFrame(update); });
+      observer.observe(pane);
+      this.fitPanes.set(pane, update);
+      this.register(() => { observer.disconnect(); pane.style.removeProperty("--mn-fit-w"); });
+    }
+  }
+
   async renderPaginatedSpread(data, root, sourcePath, component) {
     const positionInput = this.asText(data.image_position, "left").toLowerCase();
     const position = IMAGE_POSITIONS.has(positionInput) ? positionInput : "left";
@@ -3021,6 +3050,12 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       }
       building = true;
       rebuildQueued = false;
+      // 다시 그릴 때(폭이 바뀜 등): 보던 쪽을 기억했다가 그 쪽으로 돌아가고, 첫 장 도착 효과는 다시 틀지 않고,
+      // 그리는 동안 높이를 붙잡아 화면이 비거나 출렁이지 않게. (왼쪽 패널을 여닫으면 첫 장으로 돌아가 효과가 다시 나왔음) 2026-10-29
+      const previous = root._mnBookController;
+      const anchor = previous && previous.anchor ? previous.anchor() : null;
+      if (anchor) root.style.minHeight = `${root.offsetHeight}px`;
+      root._mnBookQuietStart = Boolean(anchor);
       controlsCleanup();
       renderScopeCleanup();
       root.empty();
@@ -3037,12 +3072,15 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         controlsCleanup = controller.cleanup;
         controller.setBeforeFirst(root._mnBookBeforeFirst || null);
         controller.setStatusOffset(root._mnBookStatusOffset || 0);
+        if (anchor && controller.restore) controller.restore(anchor);
       } catch (error) {
         renderScopeCleanup();
         renderScopeCleanup = () => {};
         throw error;
       } finally {
         building = false;
+        root._mnBookQuietStart = false;
+        root.style.minHeight = "";
       }
       if (rebuildQueued && !disposed) {
         await build();
@@ -3985,6 +4023,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     // 장마다 다른 도착 효과 (시안 2026-10-28) — 개요: 기록이 차례로 떠오름 · 능력 목록: 줄이 오른쪽에서 차례로 · 능력 하나: 칼빛 한 줄이 띠를 가르고
     // 그림이 내려앉음 · 관계: 선이 그어지고 사람이 하나씩 · 여담: 취향 묶음이 천천히 떠오름 · 그 밖의 석판 쪽: 은빛 빛줄기. 위치 · 크기 · 투명도만 움직임
     let arrivalDelay = 120;
+    let hushed = false; // 도착 효과를 잠깐 끔 (다시 그린 책이 보던 쪽으로 돌아갈 때)
     // 넘어가는 종이에 실려 오는 쪽은 종이가 다 내려앉은 뒤에 도착 효과 시작 (종이가 사라지는 순간 반쯤 떠오른 채로 튀지 않게)
     let arrivalSheet = null;
     // marking: 넘어오는 종이(복제한 새 쪽)에서도 떠오를 것들을 미리 숨기려고, 움직이는 대신 표시(mn-arrive)만 붙임
@@ -4058,7 +4097,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       rise(spread.book.querySelectorAll(".mn-codex__rel-card:not([hidden]) > *"), { delay: delay + 320, stagger: 70 });
     };
     const playArrival = (baseDelay) => {
-      if (!fxOn("sheen")) return;
+      if (hushed || !fxOn("sheen")) return;
       const single = isSinglePage();
       const spread = spreads[single ? Math.floor(step / 2) : step];
       if (!spread || !spread.book) return;
@@ -4563,11 +4602,44 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       sourcePath,
     });
 
+    // 다시 그린 책이면 처음 펼침(0번)에서 도착 효과를 틀지 않음 — 곧 보던 쪽으로 돌아감 (restore)
+    hushed = Boolean(root._mnBookQuietStart);
     activate(0);
+    // 그 걸음에 보이는 쪽들 · 그 쪽들에 시작하는 장 · 쪽 번호(data-mn-book-page-index)
+    const stepPages = (s) => {
+      const single = isSinglePage();
+      const spread = spreads[single ? Math.floor(s / 2) : s];
+      if (!spread) return [];
+      return single ? [s % 2 ? spread.rightPage : spread.leftPage] : [spread.leftPage, spread.rightPage];
+    };
+    const headsAt = (s) => {
+      const out = [];
+      for (const page of stepPages(s)) if (page) page.querySelectorAll("[data-mn-book-page-index]").forEach((h) => out.push(Number(h.getAttribute("data-mn-book-page-index"))));
+      return out;
+    };
     return {
       activate,
       totalSteps,
       getStep: () => step,
+      // 지금 자리: 가장 가까이 앞에서 시작한 장 · 쪽 번호 + 거기서 몇 걸음 더 넘겼는지 (폭이 바뀌어 쪽 나누기가 달라져도 같은 글로 돌아가게)
+      anchor: () => {
+        for (let s = step; s >= 0; s -= 1) {
+          const heads = headsAt(s);
+          if (heads.length) return { step, pageIndex: heads[heads.length - 1], offset: step - s };
+        }
+        return { step, pageIndex: null, offset: 0 };
+      },
+      restore: (anchor) => {
+        let target = anchor.step;
+        if (anchor.pageIndex !== null) {
+          for (let s = 0; s < totalSteps(); s += 1) {
+            if (headsAt(s).includes(anchor.pageIndex)) { target = s + anchor.offset; break; }
+          }
+        }
+        hushed = true;
+        activate(Math.min(Math.max(0, target), totalSteps() - 1));
+        hushed = false;
+      },
       setBeforeFirst: (callback) => {
         beforeFirst = typeof callback === "function" ? callback : null;
         syncCoverTag();
