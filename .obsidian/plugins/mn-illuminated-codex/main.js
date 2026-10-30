@@ -35,6 +35,8 @@ const PAGE_BREAK_PATTERN = /<!--\s*mn-page-break\s*-->/gi;
 const VARIANT_TINTS = Object.freeze({ 먹: [0, 0], 쪽빛: [20, 1.6], 청록: [-65, 1.4], 녹: [-110, 1.2], 자주: [60, 1.4], 적갈: [140, 1.4], 황토: [180, 1.3] });
 const VARIANT_TINT_NAMES = Object.freeze(["은회", ...Object.keys(VARIANT_TINTS)]);
 const VARIANT_TOKEN = /(\.[\w-]*variant-silver-knight)(?![\w-])/gu;
+// 능력 등급 한 단 안의 열 칸: M0 Ⅰ부터, Ⅹ 다음은 다음 단 Ⅰ (작가와 정함 2026-10-30)
+const GRADE_STEPS = Object.freeze(["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ", "Ⅶ", "Ⅷ", "Ⅸ", "Ⅹ"]);
 
 /** 괄호 · 따옴표 밖의 구분자로만 나눔 (선택자 목록 · 선언 목록) */
 const splitTopLevel = (text, separator) => {
@@ -1779,7 +1781,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("mn-record", async (source, el, ctx) => {
       const child = new MarkdownRenderChild(el);
       ctx.addChild(child);
-      // 블록 안엔 속성에 아직 없는 값의 초안(투력 기록 · 능력 등위 · 견줘 보기)을 적을 수 있음 → 「미리보기」로 보임
+      // 블록 안엔 속성에 아직 없는 값의 초안(투력 기록 · 전투 등급 · 의지 · 실현 등급)을 적을 수 있음 → 「미리보기」로 보임
       let options = {};
       try {
         options = parseYaml(source) || {};
@@ -6312,6 +6314,70 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     drawGrid();
   }
 
+  /** 기록표 능력 틀 다각형: 축마다 M 등급 { axis, grade: { tier, step } }. 가운데 = 가장 낮은 단의 시작, 바깥 테 = 가장 높은 단의 Ⅹ, 한 칸 = 한 등급 */
+  recordRadar(rows, doc) {
+    const NS = "http://www.w3.org/2000/svg";
+    const count = rows.length;
+    const at = (grade) => grade.tier * 10 + grade.step;
+    const tiers = rows.map((row) => row.grade.tier);
+    const lo = Math.min(...tiers) * 10, hi = Math.max(...tiers) * 10 + 10;
+    const span = (hi - lo) / 10;
+    const W = 520, R = 112, cx = W / 2, cy = R + 48;
+    const angle = (index) => -Math.PI / 2 + (index * 2 * Math.PI) / count;
+    const lowest = Math.max(...rows.map((_, index) => Math.sin(angle(index))));
+    const H = Math.ceil(cy + lowest * (R + 18) + (lowest > 0.5 ? 6 : -4) + 17 + 12);
+    const svg = doc.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("class", "mn-record__radar");
+    const add = (tag, attrs, text, parent = svg) => {
+      const node = doc.createElementNS(NS, tag);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
+      if (text !== undefined) node.textContent = text;
+      parent.appendChild(node);
+      return node;
+    };
+    const point = (index, r) => [cx + Math.cos(angle(index)) * r, cy + Math.sin(angle(index)) * r];
+    const radius = (value) => (R * (value - lo)) / (hi - lo);
+    const path = (points) => points.map(([x, y], k) => `${k ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ") + " Z";
+    // 테: 한 단이면 한 등급마다, 두 단이면 Ⅴ · Ⅹ, 그 위로는 단 끝(Ⅹ)만
+    const every = span === 1 ? 1 : span === 2 ? 5 : 10;
+    for (let value = lo + 1; value <= hi; value += 1) {
+      const step = ((value - 1) % 10) + 1;
+      if (step % every) continue;
+      add("path", { d: path(rows.map((_, index) => point(index, radius(value)))), class: `mn-record__radar-ring${step === 10 ? " is-tier" : step === 5 ? " is-half" : ""}` });
+    }
+    rows.forEach((_, index) => {
+      const [x, y] = point(index, R);
+      add("line", { x1: cx, y1: cy, x2: x, y2: y, class: "mn-record__radar-spoke" });
+    });
+    // 테 이름: 첫 축과 둘째 축 사이 변 위에. 한 단이면 Ⅴ · Ⅹ(Ⅰ은 가운데 단 이름과 겹쳐 뺌), 여러 단이면 단 끝마다 「M2 Ⅹ」
+    const middle = (angle(0) + angle(1)) / 2, inset = Math.cos(Math.PI / count);
+    const marks = span === 1 ? [[lo + 5, "Ⅴ"], [lo + 10, "Ⅹ"]] : Array.from({ length: span }, (_, k) => [lo + 10 * (k + 1), `M${lo / 10 + k} Ⅹ`]);
+    marks.forEach(([value, text]) => {
+      const r = radius(value) * inset;
+      add("text", { x: cx + Math.cos(middle) * r + 3, y: cy + Math.sin(middle) * r + 3, class: "mn-record__radar-mark" }, text);
+    });
+    add("text", { x: cx, y: cy + 5, "text-anchor": "middle", class: "mn-record__radar-tier" }, `M${lo / 10}`);
+    const shape = rows.map((row, index) => point(index, radius(at(row.grade))));
+    add("path", { d: path(shape), class: "mn-record__radar-shape" });
+    const best = Math.max(...rows.map((row) => at(row.grade)));
+    rows.forEach((row, index) => {
+      const [x, y] = shape[index];
+      add("circle", { cx: x, cy: y, r: 4, class: `mn-record__radar-dot${at(row.grade) === best ? " is-best" : ""}` });
+    });
+    // 축 이름 + 등급: 위 축은 위로, 아래 축은 아래로, 옆 축은 바깥쪽으로 붙임
+    rows.forEach((row, index) => {
+      const [x, y] = point(index, R + 18), cos = Math.cos(angle(index)), sin = Math.sin(angle(index));
+      const anchor = Math.abs(cos) < 0.2 ? "middle" : cos > 0 ? "start" : "end";
+      const dy = sin < -0.5 ? -14 : sin > 0.5 ? 6 : -4;
+      add("text", { x, y: y + dy, "text-anchor": anchor, class: "mn-record__radar-axis" }, row.axis);
+      const grade = add("text", { x, y: y + dy + 17, "text-anchor": anchor, class: "mn-record__radar-grade" });
+      add("tspan", { class: "mn-record__radar-grade-tier" }, `M${row.grade.tier} `, grade);
+      add("tspan", { class: "mn-record__radar-grade-step" }, GRADE_STEPS[row.grade.step - 1], grade);
+    });
+    return svg;
+  }
+
   /** 「160만~163만」 · 「2,600」 · 「3.4」 → 앞쪽 수(정렬용). 수가 없으면 null */
   recordAmount(value) {
     const match = this.plainLink(value).replace(/,/gu, "").match(/(\d+(?:\.\d+)?)\s*(억|만|천)?/u);
@@ -6376,7 +6442,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
 
     // 스테이터스(작가와 의논 중 2026-10-29) — 속성에 있으면 속성, 없으면 블록에 적은 초안을 「미리보기」로
     //  ① 관측 기록: 투력 · 항력을 잰 때(시점)와 함께. 맨 위 줄이 최신, 오르면 위에 한 줄 더하고 옛 값은 성장 기록으로 남김
-    //  ② 능력 등위: 능력마다 「그것만 보면 어느 등위 수준인지」(아래에서 그림으로)
+    //  ② 능력(작가와 정함 2026-10-30): 모든 능력을 M 등급으로, 틀(전투 · 의지 · 실현)마다 따로. 축이 셋 이상이면 다각형
     const present = (value) => (Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "");
     const sourceOf = (key) => (present(front[key]) ? front[key] : options && present(options[key]) ? options[key] : null);
     const draft = (key) => !present(front[key]) && options && present(options[key]);
@@ -6388,7 +6454,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       const head = box.createDiv({ cls: "mn-record__section-head" });
       head.createSpan({ cls: "mn-record__label", text: label });
       head.createSpan({ cls: "mn-record__section-sub", text: sub });
-      if (draft(key)) head.createSpan({ cls: "mn-record__draft", text: "미리보기", attr: { title: "속성에 아직 없고 기록표 블록에 적은 초안이에요" } });
+      if ([].concat(key).some(draft)) head.createSpan({ cls: "mn-record__draft", text: "미리보기", attr: { title: "속성에 아직 없고 기록표 블록에 적은 초안이에요" } });
     };
     // 「시점 · 투력 · 항력」 글 한 줄 또는 { 시점, 투력, 항력 }
     const log = listOf("투력 기록").map((item) => {
@@ -6409,52 +6475,67 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       });
       if (log.length === 1) rows.createDiv({ cls: "mn-record__log-next", text: "다음에 잰 값이 생기면 이 위에 한 줄 더해요" });
     }
-    // 능력 등위: 「축: 등위 — 메모」 — 그 능력만 놓고 보면 어느 등위 수준인지(미력 · 일반 · 은 · 귀 · 화명 · 신료, 넘으면 논외).
-    // 고리가 등위 사다리라 모양(무엇을 잘하나)과 크기(얼마나 센가)가 한 그림에 보임. 등위는 차례만 쓰고 수치 범위는 안 씀
-    const RANKS = ["미력", "일반", "은", "귀", "화명", "신료", "논외"];
-    const parseAbility = (item) => {
-      if (item && typeof item === "object" && "축" in item) return { axis: this.plainLink(item["축"]), grade: this.plainLink(item["등위"] || item["평가"]), note: this.plainLink(item["메모"]) };
+    // ③ 능력 — 남과 비교하지 않고 그 사람 기록만으로 셈이 되게(누가 세져도 안 흔들림, 세지면 시점 줄만 더함).
+    //    「축: M3 Ⅶ — 메모」. M0 Ⅰ부터 한 단에 Ⅰ~Ⅹ, Ⅹ 다음은 다음 단 Ⅰ(M10을 넘어도 그대로 늘어남)
+    //    틀마다 따로: 축이 셋 이상이면 다각형(축 수만큼 각), 둘 이하면 줄로
+    const splitAbility = (item) => {
       const text = item && typeof item === "object" ? Object.entries(item).map(([key, value]) => `${key}: ${this.asText(value)}`)[0] || "" : this.plainLink(item);
       const match = text.match(/^([^:：]+)[:：]\s*([^—]*?)\s*(?:—\s*(.*))?$/u);
-      const row = match ? { axis: match[1].trim(), grade: match[2].trim(), note: (match[3] || "").trim() } : { axis: text, grade: "", note: "" };
-      const rank = RANKS.indexOf(row.grade);
-      return { ...row, level: rank < 0 ? null : rank + 1 };
+      return match ? { axis: match[1].trim(), value: match[2].trim(), note: (match[3] || "").trim() } : { axis: text.trim(), value: "", note: "" };
     };
-    const abilities = listOf("능력 등위").map(parseAbility).filter((row) => row.axis);
-    // 견줘 보기: 다른 인물(또는 예시)의 모양을 옅게 겹침 — { 이름, 능력 등위: [...] }
-    const compareSource = sourceOf("견줘 보기");
-    const compare = compareSource && typeof compareSource === "object" && !Array.isArray(compareSource)
-      ? { name: this.plainLink(compareSource["이름"]) || "견줘 보기", rows: (Array.isArray(compareSource["능력 등위"]) ? compareSource["능력 등위"] : []).map(parseAbility) }
-      : null;
-    if (abilities.length) {
+    const LATIN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+    // 「M2 Ⅶ」 · 「M2 VII」 · 「M2 7」 → { tier: 2, step: 7 }
+    const parseGrade = (value) => {
+      const match = String(value || "").replace(/\s+/gu, "").match(/^M(\d+)[-·]?(.+)$/iu);
+      if (!match) return null;
+      const mark = match[2].toUpperCase();
+      let step = GRADE_STEPS.indexOf(mark);
+      if (step < 0) step = LATIN.indexOf(mark);
+      if (step < 0 && /^\d+$/u.test(mark)) step = Number(mark) - 1;
+      return step >= 0 && step < 10 ? { tier: Number(match[1]), step: step + 1 } : null;
+    };
+    const gradeRow = (parent, row) => {
+      const line = parent.createDiv({ cls: "mn-record__grade-row" });
+      line.createSpan({ cls: "mn-record__profile-axis", text: row.axis });
+      const mark = line.createSpan({ cls: `mn-record__grade${row.grade ? "" : " is-unset"}` });
+      if (row.grade) {
+        mark.createSpan({ cls: "mn-record__grade-tier", text: `M${row.grade.tier}` });
+        mark.createSpan({ cls: "mn-record__grade-step", text: GRADE_STEPS[row.grade.step - 1] });
+      } else {
+        mark.textContent = row.value || "미정";
+      }
+      const pips = line.createSpan({ cls: "mn-record__grade-pips", attr: { title: row.grade ? `M${row.grade.tier} 단 안에서 ${row.grade.step} / 10칸` : "미정" } });
+      for (let i = 1; i <= 10; i += 1) pips.createSpan({ cls: `mn-record__grade-pip${row.grade && i <= row.grade.step ? " is-on" : ""}${row.grade && i === row.grade.step ? " is-last" : ""}` });
+      line.createSpan({ cls: "mn-record__profile-note", text: row.note });
+    };
+    const FRAMES = [["전투", "전투 등급"], ["의지 · 실현", "의지 · 실현 등급"]];
+    const frames = FRAMES.map(([title, key]) => ({ title, key, rows: listOf(key).map(splitAbility).filter((row) => row.axis).map((row) => ({ ...row, grade: parseGrade(row.value) })) })).filter((frame) => frame.rows.length);
+    if (frames.length) {
       const box = sheet.createDiv({ cls: "mn-record__section" });
-      sectionHead(box, "능력 등위", "그 능력만 놓고 보면 어느 등위 수준인지 · 모양은 잘하는 것, 크기는 세기", "능력 등위");
-      const viz = box.createDiv({ cls: "mn-record__profile-viz" });
-      if (abilities.length >= 3) {
-        const other = compare ? abilities.map((row) => (compare.rows.find((item) => item.axis === row.axis) || { level: null }).level) : null;
-        viz.appendChild(this.recordRadar(abilities, el.ownerDocument || document, RANKS, other));
-      }
-      const bars = viz.createDiv({ cls: "mn-record__profile-bars" });
-      abilities.forEach((row) => {
-        const line = bars.createDiv({ cls: `mn-record__bar-row${row.level === RANKS.length ? " is-beyond" : ""}` });
-        line.createSpan({ cls: "mn-record__profile-axis", text: row.axis });
-        const ladder = line.createSpan({ cls: "mn-record__ladder", attr: { title: row.level ? row.grade : "미정" } });
-        RANKS.forEach((rank, index) => {
-          const level = index + 1;
-          ladder.createSpan({ cls: `mn-record__rung${row.level !== null && level <= row.level ? " is-on" : ""}${level === RANKS.length ? " is-beyond" : ""}` });
-        });
-        line.createSpan({ cls: `mn-record__rank${row.level ? "" : " is-unset"}`, text: row.level ? row.grade : row.grade || "미정" });
-        line.createSpan({ cls: "mn-record__profile-note", text: row.note });
+      sectionHead(box, "능력 · 등급", "M0 Ⅰ부터 한 단에 Ⅰ~Ⅹ, Ⅹ 다음은 다음 단 Ⅰ · 틀마다 따로", frames.map((frame) => frame.key));
+      frames.forEach((frame) => {
+        box.createDiv({ cls: "mn-record__frame-title", text: frame.title });
+        const known = frame.rows.filter((row) => row.grade);
+        if (known.length < 3) {
+          frame.rows.forEach((row) => gradeRow(box, row));
+          return;
+        }
+        box.appendChild(this.recordRadar(known, el.ownerDocument || document));
+        box.createDiv({ cls: "mn-record__scale", text: "가운데 = 그 단의 시작 · 바깥 테 = Ⅹ · 한 칸이 한 등급 · 금빛 점 = 가장 높은 축" });
+        frame.rows.filter((row) => !row.grade).forEach((row) => gradeRow(box, row));
+        const notes = known.filter((row) => row.note);
+        if (notes.length) {
+          const list = box.createDiv({ cls: "mn-record__ability-notes" });
+          notes.forEach((row) => {
+            const line = list.createDiv({ cls: "mn-record__ability-note" });
+            line.createSpan({ cls: "mn-record__profile-axis", text: row.axis });
+            line.createSpan({ cls: "mn-record__profile-note", text: row.note });
+          });
+        }
       });
-      const legend = box.createDiv({ cls: "mn-record__scale" });
-      legend.createSpan({ text: "고리 = 등위 (안쪽부터 미력 · 일반 · 은 · 귀 · 화명 · 신료) · 바깥 점선 = 논외" });
-      if (compare) {
-        legend.createSpan({ cls: "mn-record__legend-me", text: name });
-        legend.createSpan({ cls: "mn-record__legend-other", text: compare.name });
-      }
     }
     // 속성 칸: 노트에 적힌 차례 그대로. 지면 · 관리용 칸은 뺌. 세계판이 쓰는 칸(소속 · 종족 · 하는 일 · 위치 · 시점)은 없어도 「미정」으로 보임
-    const HIDDEN = new Set(["분류", "상태", "이명", "초상", "공개", "만든날", "정리", "cssclasses", "cssclass", "tags", "aliases", "position", "투력 기록", "능력 등위", "견줘 보기", ...STATS]);
+    const HIDDEN = new Set(["분류", "상태", "이명", "초상", "공개", "만든날", "정리", "cssclasses", "cssclass", "tags", "aliases", "position", "투력 기록", "전투 등급", "의지 · 실현 등급", ...STATS]);
     const keys = Object.keys(front).filter((key) => !HIDDEN.has(key));
     ["소속", "종족", "하는 일", "위치", "시점"].forEach((key) => { if (!keys.includes(key)) keys.push(key); });
     const grid = sheet.createDiv({ cls: "mn-record__grid" });
@@ -6489,61 +6570,6 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       blank.forEach((text) => list.createSpan({ cls: "mn-record__gap", text: `책 ${text}` }));
     }
     el.createDiv({ cls: "mn-record__note", text: "값은 노트 맨 위 속성에서 고쳐요. 고치면 이 표와 인물 도감 표가 바로 바뀌어요." });
-  }
-
-  /** 능력 등위 다각형: 고리 = 등위 사다리(미력 … 신료), 바깥 점선 = 논외(넘으면 테두리 밖으로). other 가 있으면 옅게 겹침 */
-  recordRadar(rows, doc, ranks, other = null) {
-    const NS = "http://www.w3.org/2000/svg";
-    const size = 300;
-    const center = size / 2;
-    const frame = 92;
-    const steps = ranks.length - 1;
-    const svg = doc.createElementNS(NS, "svg");
-    svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
-    svg.setAttribute("class", "mn-record__radar");
-    svg.setAttribute("role", "img");
-    svg.setAttribute("aria-label", rows.map((row) => `${row.axis} ${row.grade || "미정"}`).join(", "));
-    // 논외는 신료 테두리에서 한참 밖(1.34배) — 규격외로 튀어나와 보이게
-    const at = (index, level, extra = 0) => {
-      const angle = -Math.PI / 2 + (index * 2 * Math.PI) / rows.length;
-      const distance = (level <= steps ? (frame * level) / steps : frame * 1.34) + extra;
-      return [center + Math.cos(angle) * distance, center + Math.sin(angle) * distance];
-    };
-    const add = (tag, attrs, text) => {
-      const node = doc.createElementNS(NS, tag);
-      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
-      if (text) node.textContent = text;
-      svg.appendChild(node);
-      return node;
-    };
-    const points = (list) => list.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-    for (let level = 1; level <= ranks.length; level += 1) {
-      const cls = level === ranks.length ? " is-beyond" : level === steps ? " is-frame" : "";
-      add("polygon", { points: points(rows.map((_, index) => at(index, level))), class: `mn-record__radar-ring${cls}` });
-    }
-    rows.forEach((_, index) => {
-      const [x, y] = at(index, ranks.length);
-      add("line", { x1: center, y1: center, x2: x.toFixed(1), y2: y.toFixed(1), class: "mn-record__radar-axis" });
-    });
-    // 고리 이름: 맨 위 축 오른쪽에 작게
-    ranks.forEach((rank, index) => {
-      const [x, y] = at(0, index + 1);
-      add("text", { x: (x + 4).toFixed(1), y: (y + 3).toFixed(1), class: `mn-record__radar-rank${index + 1 === ranks.length ? " is-beyond" : ""}` }, rank);
-    });
-    if (other && other.some((level) => level !== null)) {
-      add("polygon", { points: points(other.map((level, index) => at(index, level ?? 0))), class: "mn-record__radar-other" });
-    }
-    add("polygon", { points: points(rows.map((row, index) => at(index, row.level ?? 0))), class: "mn-record__radar-shape" });
-    rows.forEach((row, index) => {
-      if (row.level === null) return;
-      const [x, y] = at(index, row.level);
-      add("circle", { cx: x.toFixed(1), cy: y.toFixed(1), r: row.level === ranks.length ? 3.6 : 2.6, class: `mn-record__radar-dot${row.level === ranks.length ? " is-beyond" : ""}` });
-    });
-    rows.forEach((row, index) => {
-      const [x, y] = at(index, ranks.length, 16);
-      add("text", { x: x.toFixed(1), y: y.toFixed(1), class: "mn-record__radar-label", "text-anchor": Math.abs(x - center) < 12 ? "middle" : x > center ? "start" : "end", "dominant-baseline": "middle" }, row.axis);
-    });
-    return svg;
   }
 
   /** 인물 노트들(속성 「분류: 인물」) */
