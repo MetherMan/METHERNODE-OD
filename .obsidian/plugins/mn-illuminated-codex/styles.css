@@ -8968,12 +8968,16 @@ body .mn-codex .mn-codex__petal {
 .mn-record__radar-ring.is-tier { stroke:rgba(29,36,51,.45); stroke-width:1.3; }
 .mn-record__radar-spoke { stroke:rgba(29,36,51,.16); stroke-width:1; }
 .mn-record__radar-mark { fill:#8c97a8; font:700 9.5px "Noto Serif KR","Pretendard",serif; }
-.mn-record__radar-tier { fill:#4e6382; font:700 13px "MN Bodoni Moda",Didot,"Noto Serif KR",serif; }
+.mn-record__radar-tier { fill:#4e6382; font:700 13px "MN Bodoni Moda",Didot,"Noto Serif KR",serif; paint-order:stroke; stroke:#eef1f5; stroke-width:4px; stroke-linejoin:round; }
 .mn-record__radar-shape { fill:rgba(44,58,82,.2); stroke:#2c3a52; stroke-width:1.8; stroke-linejoin:round; }
 .mn-record__radar-dot { fill:#2c3a52; }
 .mn-record__radar-dot.is-best { fill:#9a7b3c; }
 .mn-record__radar-dot.is-derived { fill:#eef1f5; stroke:#2c3a52; stroke-width:1.5; }
 .mn-record__radar-dot.is-best.is-derived { stroke:#9a7b3c; stroke-width:2; }
+/* 고른 단을 넘는 값: 바깥 테 밖 작은 화살촉 */
+.mn-record__radar-over { fill:#2c3a52; opacity:.8; }
+.mn-record__radar-over.is-best { fill:#9a7b3c; }
+.mn-record__radar-over.is-derived { fill:#8c97a8; }
 .mn-record__radar-grade.is-derived { opacity:.5; }
 /* 큰 축 → 세부 (작가 2026-11-01): 오각형의 축 이름을 누르면 그 축의 세부 다각형으로 바뀜(「← 전투」로 돌아감) */
 .mn-record__radar .is-pick { cursor:pointer; outline:none; }

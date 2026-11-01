@@ -6403,28 +6403,21 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     drawGrid();
   }
 
-  /** 기록표 능력 다각형: 축마다 { axis, grade: { tier, step } | null, derived, note }. 한 칸 = 한 등급.
-   *  scale 「단」 = 가운데 가장 낮은 단의 시작 ~ 바깥 테 가장 높은 단의 Ⅹ, 「M0」 · 「M1」 … = 가운데를 그 단의 시작에(더 낮은 값이 있으면 그 단으로 내림),
-   *  「값」 = 적힌 값에 맞춰 당김. 그린 눈금은 svg의 data-center · data-outer에 남김(아래 설명 글).
-   *  등급이 없는 축(미정)은 가운데에 두고 이름 아래 「미정」. 정해진 축이 하나도 없으면 fallbackTier 단으로 테를 그림 */
+  /** 기록표 능력 다각형: 축마다 { axis, grade: { tier, step } | null, derived, note }. 늘 한 단만 그림 —
+   *  가운데 = 그 단의 시작, 테 한 칸 = 한 등급, 바깥 테 = 그 단의 Ⅹ(M10이어도 테는 열 칸).
+   *  scale 「M0」 · 「M1」 … = 그 단(작가 2026-11-01 「M0이면 싹 다 풀 오각형」), 「단」(자동) = 적힌 값 가운데 가장 낮은 단.
+   *  그 단을 넘는 값은 바깥 테, 못 미치는 값은 가운데에 빈 점(이름 아래 등급은 적힌 그대로).
+   *  그린 단은 svg data-tier, 넘침 · 모자람은 data-out(over · under)에 남김(아래 설명 글).
+   *  등급이 없는 축(미정)은 가운데에 두고 이름 아래 「미정」. 정해진 축이 하나도 없으면 fallbackTier 단 */
   recordRadar(rows, doc, fallbackTier = 0, scale = "단") {
     const NS = "http://www.w3.org/2000/svg";
     const count = rows.length;
     const at = (grade) => grade.tier * 10 + grade.step;
     const known = rows.filter((row) => row.grade);
-    const tiers = known.length ? known.map((row) => row.grade.tier) : [fallbackTier];
     const base = /^M(\d+)$/u.exec(scale);
-    let lo = Math.min(...tiers, ...(base ? [Number(base[1])] : [])) * 10, hi = Math.max(...tiers) * 10 + 10;
-    // scale 「값」: 테를 적힌 값에 맞춰 당김 — 가운데 = 가장 낮은 값보다 두 칸 아래, 바깥 테 = 가장 높은 값보다 한 칸 위(적어도 여섯 칸)
-    const fit = scale === "값" && known.length > 0;
-    if (fit) {
-      const values = known.map((row) => at(row.grade));
-      lo = Math.max(0, Math.min(...values) - 2);
-      hi = Math.max(...values) + 1;
-      if (hi - lo < 6) { lo = Math.max(0, hi - 6); hi = lo + 6; }
-    }
-    const span = (hi - lo) / 10;
-    const gradeName = (value) => (value <= 0 ? "M0" : `M${Math.floor((value - 1) / 10)} ${GRADE_STEPS[(value - 1) % 10]}`);
+    const tier = base ? Number(base[1]) : known.length ? Math.min(...known.map((row) => row.grade.tier)) : fallbackTier;
+    const lo = tier * 10, hi = lo + 10;
+    const outside = (row) => at(row.grade) > hi || at(row.grade) <= lo;
     const W = 520, R = 112, cx = W / 2, cy = R + 48;
     const angle = (index) => -Math.PI / 2 + (index * 2 * Math.PI) / count;
     const lowest = Math.max(...rows.map((_, index) => Math.sin(angle(index))));
@@ -6432,8 +6425,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const svg = doc.createElementNS(NS, "svg");
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
     svg.setAttribute("class", "mn-record__radar");
-    svg.setAttribute("data-center", fit || lo % 10 ? gradeName(lo) : `M${lo / 10}`);
-    svg.setAttribute("data-outer", gradeName(hi));
+    svg.setAttribute("data-tier", `M${tier}`);
+    svg.setAttribute("data-out", [known.some((row) => at(row.grade) > hi) && "over", known.some((row) => at(row.grade) <= lo) && "under"].filter(Boolean).join(" "));
     const add = (tag, attrs, text, parent = svg) => {
       const node = doc.createElementNS(NS, tag);
       Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
@@ -6442,39 +6435,38 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       return node;
     };
     const point = (index, r) => [cx + Math.cos(angle(index)) * r, cy + Math.sin(angle(index)) * r];
-    const radius = (value) => (R * (value - lo)) / (hi - lo);
+    const radius = (value) => (R * Math.min(Math.max(value - lo, 0), 10)) / 10;
     const path = (points) => points.map(([x, y], k) => `${k ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ") + " Z";
-    // 테: 한 단이면 한 등급마다, 두 단이면 Ⅴ · Ⅹ, 그 위로는 단 끝(Ⅹ)만
-    const every = fit ? (hi - lo <= 14 ? 1 : 5) : span === 1 ? 1 : span === 2 ? 5 : 10;
-    for (let value = lo + 1; value <= hi; value += 1) {
-      const step = ((value - 1) % 10) + 1;
-      if (step % every && !(fit && value === hi)) continue;
-      add("path", { d: path(rows.map((_, index) => point(index, radius(value)))), class: `mn-record__radar-ring${step === 10 ? " is-tier" : step === 5 ? " is-half" : ""}` });
+    // 테: 한 등급마다(Ⅴ · Ⅹ는 조금 진하게)
+    for (let step = 1; step <= 10; step += 1) {
+      add("path", { d: path(rows.map((_, index) => point(index, radius(lo + step)))), class: `mn-record__radar-ring${step === 10 ? " is-tier" : step === 5 ? " is-half" : ""}` });
     }
     rows.forEach((row, index) => {
       const [x, y] = point(index, R);
       add("line", { x1: cx, y1: cy, x2: x, y2: y, class: `mn-record__radar-spoke${row.grade ? "" : " is-unset"}` });
     });
-    // 테 이름: 첫 축과 둘째 축 사이 변 위에. 한 단이면 Ⅴ · Ⅹ(Ⅰ은 가운데 단 이름과 겹쳐 뺌), 여러 단이면 단 끝마다 「M2 Ⅹ」
+    // 테 이름: 첫 축과 둘째 축 사이 변 위에 Ⅴ · Ⅹ(Ⅰ은 가운데 단 이름과 겹쳐 뺌)
     const middle = (angle(0) + angle(1)) / 2, inset = Math.cos(Math.PI / count);
-    //   「값」 눈금이면 단 끝(Ⅹ)과 바깥 테에 「M2 Ⅹ」 · 「M3 Ⅱ」, 가운데엔 그 자리 등급
-    const marks = fit
-      ? [...Array.from({ length: hi - lo }, (_, k) => lo + k + 1).filter((value) => value % 10 === 0 && hi - value >= 2), hi].map((value) => [value, gradeName(value)])
-      : span === 1 ? [[lo + 5, "Ⅴ"], [lo + 10, "Ⅹ"]] : Array.from({ length: span }, (_, k) => [lo + 10 * (k + 1), `M${lo / 10 + k} Ⅹ`]);
-    marks.forEach(([value, text]) => {
+    [[lo + 5, "Ⅴ"], [lo + 10, "Ⅹ"]].forEach(([value, text]) => {
       const r = radius(value) * inset;
       add("text", { x: cx + Math.cos(middle) * r + 3, y: cy + Math.sin(middle) * r + 3, class: "mn-record__radar-mark" }, text);
     });
-    add("text", { x: cx, y: cy + 5, "text-anchor": "middle", class: "mn-record__radar-tier" }, fit ? gradeName(lo) : `M${lo / 10}`);
     const shape = rows.map((row, index) => point(index, row.grade ? radius(at(row.grade)) : 0));
     if (known.length) add("path", { d: path(shape), class: "mn-record__radar-shape" });
     const best = known.length ? Math.max(...known.map((row) => at(row.grade))) : -1;
     // derived = 큰 축 등급을 안 적어서 세부 중 가장 높은 값을 옅게 보여 줌. data-index로 축을 고름(renderRecord)
+    //   그 단을 넘는 값은 바깥 테 위 점 + 바깥쪽 작은 화살촉(is-out). 못 미치는 값은 점 없이 가운데로(가운데 단 이름을 가리지 않게)
     rows.forEach((row, index) => {
-      if (!row.grade) return;
+      if (!row.grade || at(row.grade) <= lo) return;
       const [x, y] = shape[index];
-      add("circle", { cx: x, cy: y, r: 4, "data-index": index, class: `mn-record__radar-dot${at(row.grade) === best ? " is-best" : ""}${row.derived ? " is-derived" : ""}` });
+      const tone = `${at(row.grade) === best ? " is-best" : ""}${row.derived ? " is-derived" : ""}`;
+      add("circle", { cx: x, cy: y, r: 4, "data-index": index, class: `mn-record__radar-dot${tone}${outside(row) ? " is-out" : ""}` });
+      if (at(row.grade) <= hi) return;
+      const [tx, ty] = point(index, R + 12), [bx, by] = point(index, R + 6), nx = -Math.sin(angle(index)) * 3.5, ny = Math.cos(angle(index)) * 3.5;
+      add("path", { d: `M${tx.toFixed(1)},${ty.toFixed(1)} L${(bx + nx).toFixed(1)},${(by + ny).toFixed(1)} L${(bx - nx).toFixed(1)},${(by - ny).toFixed(1)} Z`, "data-index": index, class: `mn-record__radar-over${tone}` });
     });
+    // 가운데 단 이름은 모양 위에(바탕색 테두리로 선과 겹쳐도 읽히게)
+    add("text", { x: cx, y: cy + 5, "text-anchor": "middle", class: "mn-record__radar-tier" }, `M${tier}`);
     // 축 이름 + 등급: 위 축은 위로, 아래 축은 아래로, 옆 축은 바깥쪽으로 붙임. 메모는 이름에 마우스를 올리면
     rows.forEach((row, index) => {
       const [x, y] = point(index, R + 18), cos = Math.cos(angle(index)), sin = Math.sin(angle(index));
@@ -7254,9 +7246,10 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         node.addEventListener("click", run);
         node.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); run(event); } });
       };
-      // 다각형 기준 드롭다운(작가 2026-11-01 「드롭다운으로 M0 기준으로 볼지」): 자동(가장 낮은 단) · M0 기준 · M1 기준 … · 가까이(적힌 값에 맞춤).
+      // 다각형 기준 드롭다운(작가 2026-11-01 「드롭다운으로 M0 기준으로 볼지」): 자동(가장 낮은 단) · M0 기준 · M1 기준 ….
+      // 다각형은 늘 고른 한 단(Ⅰ~Ⅹ)만 그림 — M0 기준이면 M1 이상은 다 바깥 테(「M0이면 싹 다 풀 오각형」), M10이어도 테는 열 칸.
       // 고른 기준은 모든 인물 기록표에 같이 쓰고 플러그인 데이터에 남김(인물끼리 같은 눈금으로 보게)
-      const SCALE_OK = /^(단|값|M\d+)$/u;
+      const SCALE_OK = /^(단|M\d+)$/u;
       const scaleNow = () => {
         const saved = this.persistedData && this.persistedData.recordScale;
         return SCALE_OK.test(String(saved || "")) ? saved : "단";
@@ -7264,9 +7257,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       const topTier = Math.max(0, ...frames.flatMap((frame) => frame.rows.flatMap((row) => [row.shown, ...row.subs.map((sub) => sub.grade)])).filter(Boolean).map((grade) => grade.tier));
       const tierCount = Math.max(topTier, /^M\d+$/u.test(scaleNow()) ? Number(scaleNow().slice(1)) : 0) + 1;
       const SCALES = [
-        ["단", "자동 기준", "가운데 = 가장 낮은 단의 시작 · 바깥 테 = 가장 높은 단의 Ⅹ"],
-        ...Array.from({ length: tierCount }, (_, tier) => [`M${tier}`, `M${tier} 기준`, `가운데 = M${tier}의 시작(더 낮은 값이 있으면 그 단) · 바깥 테 = 가장 높은 단의 Ⅹ`]),
-        ["값", "가까이 보기", "가운데 = 가장 낮은 값 두 칸 아래 · 바깥 테 = 가장 높은 값 한 칸 위"],
+        ["단", "자동 기준", "적힌 값 가운데 가장 낮은 단의 Ⅰ~Ⅹ로 그려요"],
+        ...Array.from({ length: tierCount }, (_, tier) => [`M${tier}`, `M${tier} 기준`, `M${tier} Ⅰ~Ⅹ로 그려요 · 넘는 값은 바깥 테, 못 미치는 값은 가운데`]),
       ];
       const redraws = [];
       const abilityHead = box.querySelector(":scope > .mn-record__section-head");
@@ -7285,7 +7277,15 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         redraws.forEach((redraw) => redraw(true));
         if (typeof this.saveData === "function") await this.saveData(this.persistedData);
       });
-      const scaleText = (svg) => `가운데 ${svg.getAttribute("data-center")} · 바깥 테 ${svg.getAttribute("data-outer")} · 한 칸이 한 등급 · 금빛 점 = 가장 높은 축`;
+      const scaleText = (svg) => {
+        const out = svg.getAttribute("data-out") || "";
+        return [
+          `${svg.getAttribute("data-tier")} Ⅰ~Ⅹ${scaleNow() === "단" ? "(자동)" : ""} · 한 칸이 한 등급`,
+          out.includes("over") ? "이 단을 넘는 값은 바깥 테 + 화살촉" : "",
+          out.includes("under") ? "못 미치는 값은 가운데" : "",
+          "금빛 점 = 가장 높은 축",
+        ].filter(Boolean).join(" · ");
+      };
       frames.forEach((frame) => {
         box.createDiv({ cls: "mn-record__frame-title", text: frame.title });
         const holder = box.createDiv({ cls: "mn-record__frame" });
