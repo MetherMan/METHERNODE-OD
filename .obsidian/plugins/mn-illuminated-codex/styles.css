@@ -8957,20 +8957,23 @@ body .mn-codex .mn-codex__petal {
 .mn-record__radar-dot.is-derived { fill:#eef1f5; stroke:#2c3a52; stroke-width:1.5; }
 .mn-record__radar-dot.is-best.is-derived { stroke:#9a7b3c; stroke-width:2; }
 .mn-record__radar-grade.is-derived { opacity:.5; }
-/* 큰 축 → 세부 (작가 고름 2026-11-01): 축 이름을 누르면 그 축만 짙게, 나머지는 옅게 */
-.mn-record__radar [data-index] { transition:opacity .15s ease, fill .15s ease; }
+/* 큰 축 → 세부 (작가 2026-11-01): 오각형의 축 이름을 누르면 그 축의 세부 다각형으로 바뀜(「← 전투」로 돌아감) */
 .mn-record__radar .is-pick { cursor:pointer; outline:none; }
 .mn-record__radar-axis.is-pick { text-decoration:underline; text-decoration-color:rgba(78,99,130,.35); text-underline-offset:3px; }
-.mn-record__radar-axis.is-pick:hover, .mn-record__radar-axis.is-pick:focus-visible, .mn-record__radar-axis.is-on { fill:#7a5f2c; text-decoration-color:rgba(154,123,60,.6); }
-.mn-record__radar.is-focus [data-index]:not(.is-on) { opacity:.28; }
-.mn-record__radar-dot.is-on { r:5.5px; }
+.mn-record__radar-axis.is-pick:hover, .mn-record__radar-axis.is-pick:focus-visible { fill:#7a5f2c; text-decoration-color:rgba(154,123,60,.6); }
+.mn-record__radar.is-swap { animation:mn-record-swap .22s ease both; }
+@keyframes mn-record-swap { from { opacity:0; transform:scale(.97); } to { opacity:1; transform:none; } }
+.mn-record__radar-spoke.is-unset { stroke-dasharray:3 3; }
+.mn-record__radar-axis.is-unset { fill:#8c97a8; }
+.mn-record__radar-grade.is-unset { fill:#a3acba; font:600 11px "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.06em; }
+.mn-record__radar.is-sub { max-width:440px; }
 .mn-record__radar-axis { fill:#4e6382; font:700 12px "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; }
 .mn-record__radar-grade-tier { fill:#131b28; font:700 15px "MN Bodoni Moda",Didot,"Noto Serif KR",serif; }
 .mn-record__radar-grade-step { fill:#9a7b3c; font:700 14px "Noto Serif KR","MN Bodoni Moda",serif; }
 .mn-record__scale { margin-top:4px; color:#8c97a8; font:500 11px/1.4 "Pretendard","Noto Sans KR",sans-serif; text-align:center; }
 /* 능력 줄: M 단(크게) + Ⅰ~Ⅹ + 단 안에서 몇 칸 */
 .mn-record__grade-row { display:grid; grid-template-columns:minmax(6em,auto) 5.6em auto minmax(0,1fr); align-items:center; gap:12px; padding:9px 0; border-top:1px solid rgba(29,36,51,.1); }
-.mn-record__axes > :first-child { border-top:0; }
+.mn-record__frame > .mn-record__grade-row:first-child { border-top:0; }
 .mn-record__grade { display:inline-flex; align-items:baseline; gap:6px; color:#131b28; white-space:nowrap; }
 .mn-record__grade.is-unset { color:#8c97a8; font:600 13px/1 "Pretendard","Noto Sans KR",sans-serif; }
 .mn-record__grade-tier { font:700 20px/1 "MN Bodoni Moda",Didot,"Noto Serif KR",serif; letter-spacing:.02em; }
@@ -8980,25 +8983,29 @@ body .mn-codex .mn-codex__petal {
 .mn-record__grade-pip.is-on { background:#2c3a52; }
 .mn-record__grade-pip.is-last { background:#9a7b3c; }
 .mn-record__grade.is-derived > span, .mn-record__grade-pips.is-derived { opacity:.45; }
-/* 큰 축 줄: 다각형 아래에선 축 · 등급 · 메모만, 세부가 있으면 누르면 그 아래로 펼쳐짐 */
-.mn-record__axis-row { display:grid; grid-template-columns:minmax(6em,auto) 5.6em minmax(0,1fr) auto; align-items:center; gap:12px; padding:8px 0; border-top:1px solid rgba(29,36,51,.08); }
-.mn-record__axis-row .mn-record__grade-tier { font-size:16px; }
-.mn-record__axis-row .mn-record__grade-step { font-size:14px; }
-.mn-record__grade-row.has-subs { grid-template-columns:minmax(6em,auto) 5.6em auto minmax(0,1fr) auto; }
-.mn-record__axes .has-subs { cursor:pointer; }
-.mn-record__axes .has-subs:hover > .mn-record__profile-axis,
-.mn-record__axes .has-subs:focus-visible > .mn-record__profile-axis,
-.mn-record__axes .has-subs.is-open > .mn-record__profile-axis { color:#7a5f2c; }
-.mn-record__axes .has-subs:focus-visible { outline:none; background:rgba(154,123,60,.06); }
+/* 세부 보기 머리: ← 전투 · 큰 축 · 등급 · 메모 */
+.mn-record__detail-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; padding:2px 0 8px; border-bottom:1px solid rgba(29,36,51,.1); }
+.mn-record__detail-back { padding:6px 10px; cursor:pointer; border:1px solid rgba(29,36,51,.16); color:#4e6382; font:700 11px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.06em; white-space:nowrap; }
+.mn-record__detail-back:hover, .mn-record__detail-back:focus-visible { border-color:rgba(154,123,60,.55); color:#7a5f2c; outline:none; }
+.mn-record__detail-axis { color:#131b28; font:700 17px/1.2 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:.06em; }
+.mn-record__detail-head .mn-record__profile-note { flex:1 1 16em; min-width:0; }
+.mn-record__sub-notes { margin-top:6px; }
+.mn-record__sub-note { display:grid; grid-template-columns:minmax(6em,auto) 5.6em minmax(0,1fr); align-items:center; gap:12px; padding:7px 0; border-top:1px solid rgba(29,36,51,.08); }
+.mn-record__sub-note .mn-record__grade-tier, .mn-record__subs .mn-record__grade-tier { font-size:16px; }
+.mn-record__sub-note .mn-record__grade-step, .mn-record__subs .mn-record__grade-step { font-size:14px; }
+/* 줄 모양 틀(의지 · 실현 등): 세부가 있는 줄을 누르면 그 아래에 세부 */
+.mn-record__grade-row.has-subs { grid-template-columns:minmax(6em,auto) 5.6em auto minmax(0,1fr) auto; cursor:pointer; }
+.mn-record__grade-row.has-subs:hover > .mn-record__profile-axis,
+.mn-record__grade-row.has-subs:focus-visible > .mn-record__profile-axis,
+.mn-record__grade-row.has-subs.is-open > .mn-record__profile-axis { color:#7a5f2c; }
+.mn-record__grade-row.has-subs:focus-visible { outline:none; background:rgba(154,123,60,.06); }
 .mn-record__axis-toggle { grid-column:-2 / -1; grid-row:1; color:#8c97a8; font:600 11px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; white-space:nowrap; text-align:right; }
-.mn-record__axes .has-subs.is-open > .mn-record__axis-toggle { color:#7a5f2c; }
-.mn-record__subs { margin:0 0 8px; padding:2px 12px 6px 14px; border-left:2px solid rgba(154,123,60,.5); background:rgba(29,36,51,.03); }
+.mn-record__grade-row.has-subs.is-open > .mn-record__axis-toggle { color:#7a5f2c; }
+.mn-record__sub-block { margin:0 0 8px; padding:4px 12px 6px 14px; border-left:2px solid rgba(154,123,60,.5); background:rgba(29,36,51,.03); }
 .mn-record__subs > .mn-record__grade-row:first-child { border-top:0; }
 .mn-record__subs .mn-record__grade-row { padding:7px 0; }
 .mn-record__subs .mn-record__profile-axis { font-weight:600; }
-.mn-record__subs .mn-record__grade-tier { font-size:16px; }
-.mn-record__subs .mn-record__grade-step { font-size:14px; }
-.mn-record__subs-hint { padding:5px 0 1px; border-top:1px dashed rgba(29,36,51,.14); color:#8c97a8; font:500 11px/1.4 "Pretendard","Noto Sans KR",sans-serif; }
+.mn-record__subs-hint { margin-top:4px; padding:5px 0 1px; border-top:1px dashed rgba(29,36,51,.14); color:#8c97a8; font:500 11px/1.4 "Pretendard","Noto Sans KR",sans-serif; text-align:center; }
 /* 내성주 (작가 설명 2026-11-01): 극한의 경험 · 감각 · 충격이 몸에 새긴 고유한 능력. 보유 수는 맨 위 숫자 줄에, 하나씩은 아래 칸에 */
 .mn-record__stat--resist .mn-record__number { color:#7a5f2c; }
 .mn-record__stat-sub { margin-top:6px; color:#5d6878; font:600 11px/1.3 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.06em; }
@@ -9024,6 +9031,30 @@ body .mn-codex .mn-codex__petal {
 .mn-record__resist-toggle { flex:none; margin-left:auto; color:#4e6382; font:700 12px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.08em; white-space:nowrap; }
 .mn-record__resist-panel { padding:4px 14px 8px; border:1px solid rgba(29,36,51,.14); border-top:0; }
 .mn-record__resist-panel[hidden] { display:none; }
+.mn-record__resist-fact.is-count.is-unset .mn-record__resist-fact-value { color:#8c97a8; font:600 13px/1 "Pretendard","Noto Sans KR",sans-serif; }
+.mn-record__resist-adder { padding:10px 0 4px; border-top:1px solid rgba(29,36,51,.1); }
+.mn-record__resist-add { display:inline-block; padding:8px 13px; cursor:pointer; border:1px dashed rgba(154,123,60,.65); color:#7a5f2c; font:700 12px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.06em; }
+.mn-record__resist-add:hover, .mn-record__resist-add:focus-visible { border-style:solid; background:rgba(154,123,60,.08); outline:none; }
+.mn-record__resist-form { padding:11px 13px 12px; border:1px solid rgba(154,123,60,.45); background:#f7f5f0; }
+.mn-record__resist-body .mn-record__resist-form { margin-top:2px; }
+.mn-record__resist-form-title { margin-bottom:9px; color:#131b28; font:700 13px/1.2 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:.06em; }
+.mn-record__resist-form-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:9px 14px; }
+.mn-record__resist-field { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.mn-record__resist-field.is-wide { grid-column:1 / -1; }
+.mn-record__resist-field input[type="text"] {
+  box-sizing:border-box; width:100%; height:30px; margin:0; padding:0 10px; border:1px solid rgba(29,36,51,.2); border-radius:0;
+  background:#fff; color:#131b28; font:500 13px/1 "Pretendard","Noto Sans KR",sans-serif; box-shadow:none;
+}
+.mn-record__resist-field input[type="text"]:focus { border-color:#9a7b3c; outline:none; box-shadow:none; }
+.mn-record__resist-field input[type="text"]::placeholder { color:#a3acba; }
+.mn-record__resist-keep { display:flex; align-items:center; gap:6px; margin-top:9px; color:#5d6878; font:500 12px/1.4 "Pretendard","Noto Sans KR",sans-serif; cursor:pointer; }
+.mn-record__resist-form-foot, .mn-record__resist-row-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; margin-top:10px; }
+.mn-record__resist-row-actions { margin-top:8px; }
+.mn-record__resist-error { margin-right:auto; color:#9b3b2f; font:600 12px/1.4 "Pretendard","Noto Sans KR",sans-serif; }
+.mn-record__resist-button { padding:7px 11px; cursor:pointer; border:1px solid rgba(29,36,51,.18); color:#2c3a52; font:700 11px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.06em; white-space:nowrap; }
+.mn-record__resist-button:hover, .mn-record__resist-button:focus-visible { border-color:rgba(154,123,60,.6); outline:none; }
+.mn-record__resist-button.is-primary { color:#eef1f5; background:#2c3a52; border-color:#2c3a52; }
+.mn-record__resist-button.is-danger { color:#fff; background:#9b3b2f; border-color:#9b3b2f; }
 .mn-record__resist-tools { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; padding:8px 0 10px; border-bottom:1px solid rgba(29,36,51,.1); }
 .mn-record__resist-group { display:inline-flex; flex-wrap:wrap; gap:4px; }
 .mn-record__resist-chip {
@@ -9073,8 +9104,8 @@ body .mn-codex .mn-codex__petal {
   .mn-record__grade-row .mn-record__profile-note { grid-column:1 / -1; }
   .mn-record__grade-row .mn-record__profile-note:empty { display:none; }
   .mn-record__grade-row.has-subs { grid-template-columns:minmax(5em,auto) auto minmax(0,1fr) auto; }
-  .mn-record__axis-row { grid-template-columns:minmax(5em,auto) minmax(0,1fr) auto; row-gap:4px; }
-  .mn-record__axis-row .mn-record__profile-note { grid-column:1 / -1; grid-row:2; }
-  .mn-record__axis-row .mn-record__profile-note:empty { display:none; }
-  .mn-record__subs { padding-left:10px; padding-right:8px; }
+  .mn-record__sub-note { grid-template-columns:minmax(5em,auto) minmax(0,1fr); row-gap:4px; }
+  .mn-record__sub-note .mn-record__profile-note { grid-column:1 / -1; }
+  .mn-record__sub-block { padding-left:10px; padding-right:8px; }
+  .mn-record__resist-form-grid { grid-template-columns:minmax(0,1fr); }
 }
