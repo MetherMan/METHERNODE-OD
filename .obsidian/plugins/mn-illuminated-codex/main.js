@@ -37,6 +37,17 @@ const VARIANT_TINT_NAMES = Object.freeze(["은회", ...Object.keys(VARIANT_TINTS
 const VARIANT_TOKEN = /(\.[\w-]*variant-silver-knight)(?![\w-])/gu;
 // 능력 등급 한 단 안의 열 칸: M0 Ⅰ부터, Ⅹ 다음은 다음 단 Ⅰ (작가와 정함 2026-10-30)
 const GRADE_STEPS = Object.freeze(["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ", "Ⅶ", "Ⅷ", "Ⅸ", "Ⅹ"]);
+// 큰 축과 세부 스테이터스 (작가가 고름 2026-11-01). 「큰 축: 등급」은 다각형에, 「큰 축 > 세부: 등급」은 큰 축을 누르면 펼쳐짐
+const RECORD_AXES = Object.freeze({
+  "전투 등급": [
+    ["무력", ["완력", "각력", "악력"]],
+    ["민첩", ["순발력", "속도", "반응", "몸놀림"]],
+    ["내구", ["맷집", "지구력", "회복력"]],
+    ["기술", ["무기 다루기", "체술", "기교"]],
+    ["감각", ["동체시력", "기척", "간파"]],
+    ["플라즈마", ["출력", "운용", "강화", "방출", "지속"]],
+  ],
+});
 
 /** 괄호 · 따옴표 밖의 구분자로만 나눔 (선택자 목록 · 선언 목록) */
 const splitTopLevel = (text, separator) => {
@@ -6361,17 +6372,18 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const shape = rows.map((row, index) => point(index, radius(at(row.grade))));
     add("path", { d: path(shape), class: "mn-record__radar-shape" });
     const best = Math.max(...rows.map((row) => at(row.grade)));
+    // derived = 큰 축 등급을 안 적어서 세부 중 가장 높은 값을 옅게 보여 줌. data-index로 축을 골라 옅게 / 짙게(renderRecord)
     rows.forEach((row, index) => {
       const [x, y] = shape[index];
-      add("circle", { cx: x, cy: y, r: 4, class: `mn-record__radar-dot${at(row.grade) === best ? " is-best" : ""}` });
+      add("circle", { cx: x, cy: y, r: 4, "data-index": index, class: `mn-record__radar-dot${at(row.grade) === best ? " is-best" : ""}${row.derived ? " is-derived" : ""}` });
     });
     // 축 이름 + 등급: 위 축은 위로, 아래 축은 아래로, 옆 축은 바깥쪽으로 붙임
     rows.forEach((row, index) => {
       const [x, y] = point(index, R + 18), cos = Math.cos(angle(index)), sin = Math.sin(angle(index));
       const anchor = Math.abs(cos) < 0.2 ? "middle" : cos > 0 ? "start" : "end";
       const dy = sin < -0.5 ? -14 : sin > 0.5 ? 6 : -4;
-      add("text", { x, y: y + dy, "text-anchor": anchor, class: "mn-record__radar-axis" }, row.axis);
-      const grade = add("text", { x, y: y + dy + 17, "text-anchor": anchor, class: "mn-record__radar-grade" });
+      add("text", { x, y: y + dy, "text-anchor": anchor, "data-index": index, class: "mn-record__radar-axis" }, row.axis);
+      const grade = add("text", { x, y: y + dy + 17, "text-anchor": anchor, "data-index": index, class: `mn-record__radar-grade${row.derived ? " is-derived" : ""}` });
       add("tspan", { class: "mn-record__radar-grade-tier" }, `M${row.grade.tier} `, grade);
       add("tspan", { class: "mn-record__radar-grade-step" }, GRADE_STEPS[row.grade.step - 1], grade);
     });
@@ -6494,44 +6506,133 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       if (step < 0 && /^\d+$/u.test(mark)) step = Number(mark) - 1;
       return step >= 0 && step < 10 ? { tier: Number(match[1]), step: step + 1 } : null;
     };
-    const gradeRow = (parent, row) => {
-      const line = parent.createDiv({ cls: "mn-record__grade-row" });
-      line.createSpan({ cls: "mn-record__profile-axis", text: row.axis });
-      const mark = line.createSpan({ cls: `mn-record__grade${row.grade ? "" : " is-unset"}` });
-      if (row.grade) {
-        mark.createSpan({ cls: "mn-record__grade-tier", text: `M${row.grade.tier}` });
-        mark.createSpan({ cls: "mn-record__grade-step", text: GRADE_STEPS[row.grade.step - 1] });
+    const DERIVED_TIP = "큰 축 등급을 안 적어서 세부 중 가장 높은 값을 옅게 보여 줘요";
+    const gradeMark = (parent, row, cls = "") => {
+      const grade = row.shown || row.grade;
+      const mark = parent.createSpan({ cls: `mn-record__grade${cls}${grade ? "" : " is-unset"}${row.derived ? " is-derived" : ""}` });
+      if (row.derived) mark.setAttr("title", DERIVED_TIP);
+      if (grade) {
+        mark.createSpan({ cls: "mn-record__grade-tier", text: `M${grade.tier}` });
+        mark.createSpan({ cls: "mn-record__grade-step", text: GRADE_STEPS[grade.step - 1] });
       } else {
         mark.textContent = row.value || "미정";
       }
-      const pips = line.createSpan({ cls: "mn-record__grade-pips", attr: { title: row.grade ? `M${row.grade.tier} 단 안에서 ${row.grade.step} / 10칸` : "미정" } });
-      for (let i = 1; i <= 10; i += 1) pips.createSpan({ cls: `mn-record__grade-pip${row.grade && i <= row.grade.step ? " is-on" : ""}${row.grade && i === row.grade.step ? " is-last" : ""}` });
+      return grade;
+    };
+    const gradeRow = (parent, row) => {
+      const line = parent.createDiv({ cls: "mn-record__grade-row" });
+      line.createSpan({ cls: "mn-record__profile-axis", text: row.axis });
+      const grade = gradeMark(line, row);
+      const pips = line.createSpan({ cls: `mn-record__grade-pips${row.derived ? " is-derived" : ""}`, attr: { title: grade ? `M${grade.tier} 단 안에서 ${grade.step} / 10칸` : "미정" } });
+      for (let i = 1; i <= 10; i += 1) pips.createSpan({ cls: `mn-record__grade-pip${grade && i <= grade.step ? " is-on" : ""}${grade && i === grade.step ? " is-last" : ""}` });
       line.createSpan({ cls: "mn-record__profile-note", text: row.note });
+      return line;
+    };
+    // 틀 하나: 「큰 축: 등급」과 「큰 축 > 세부: 등급」(› 도 됨)을 모아 큰 축마다 { 등급, 세부[] }.
+    //   큰 축 차례 = 정해 둔 차례(RECORD_AXES) → 그 밖에 적은 것. 세부도 정해 둔 것 → 그 밖에 적은 것, 안 적은 정해 둔 세부는 미정
+    //   큰 축 등급은 작가가 직접 적고(작가 고름 2026-11-01), 비워 두고 세부만 적으면 세부 중 가장 높은 값을 옅게(derived)
+    const gradeIndex = (grade) => grade.tier * 10 + grade.step;
+    const buildFrame = (title, key) => {
+      const canon = RECORD_AXES[key] || [];
+      const axes = new Map();
+      const ensure = (name) => {
+        if (!axes.has(name)) axes.set(name, { axis: name, value: "", note: "", grade: null, written: [] });
+        return axes.get(name);
+      };
+      listOf(key).map(splitAbility).filter((row) => row.axis).forEach((row) => {
+        const [big, sub] = row.axis.split(/\s*[>›]\s*/u).map((part) => part.trim());
+        const entry = ensure(big);
+        const grade = parseGrade(row.value);
+        if (sub) entry.written.push({ axis: sub, value: row.value, note: row.note, grade });
+        else Object.assign(entry, { value: row.value, note: row.note, grade });
+      });
+      const canonNames = canon.map(([name]) => name);
+      const order = [...canonNames.filter((name) => axes.has(name)), ...[...axes.keys()].filter((name) => !canonNames.includes(name))];
+      const rows = order.map((name) => {
+        const entry = axes.get(name);
+        const canonSubs = (canon.find(([axis]) => axis === name) || [name, []])[1];
+        const written = new Map(entry.written.map((sub) => [sub.axis, sub]));
+        const subs = [...canonSubs.map((sub) => written.get(sub) || { axis: sub, value: "", note: "", grade: null }), ...entry.written.filter((sub) => !canonSubs.includes(sub.axis))];
+        const top = entry.written.filter((sub) => sub.grade).reduce((best, sub) => (!best || gradeIndex(sub.grade) > gradeIndex(best.grade) ? sub : best), null);
+        const derived = !entry.grade && top ? top.grade : null;
+        return { ...entry, subs, derived, top, shown: entry.grade || derived };
+      });
+      return { title, key, rows };
     };
     const FRAMES = [["전투", "전투 등급"], ["의지 · 실현", "의지 · 실현 등급"]];
-    const frames = FRAMES.map(([title, key]) => ({ title, key, rows: listOf(key).map(splitAbility).filter((row) => row.axis).map((row) => ({ ...row, grade: parseGrade(row.value) })) })).filter((frame) => frame.rows.length);
+    const frames = FRAMES.map(([title, key]) => buildFrame(title, key)).filter((frame) => frame.rows.length);
     if (frames.length) {
       const box = sheet.createDiv({ cls: "mn-record__section" });
       sectionHead(box, "능력 · 등급", "M0 Ⅰ부터 한 단에 Ⅰ~Ⅹ, Ⅹ 다음은 다음 단 Ⅰ · 틀마다 따로", frames.map((frame) => frame.key));
+      // 펼친 큰 축은 노트 · 틀마다 하나씩 기억(속성이 바뀌어 다시 그려도 그대로)
+      if (!this.recordAxisState) this.recordAxisState = new Map();
+      if (!this.recordAxisState.has(sourcePath)) this.recordAxisState.set(sourcePath, {});
+      const opened = this.recordAxisState.get(sourcePath);
+      const press = (node, run) => {
+        node.setAttribute("role", "button");
+        node.setAttribute("tabindex", "0");
+        node.addEventListener("click", run);
+        node.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); run(event); } });
+      };
       frames.forEach((frame) => {
         box.createDiv({ cls: "mn-record__frame-title", text: frame.title });
-        const known = frame.rows.filter((row) => row.grade);
-        if (known.length < 3) {
-          frame.rows.forEach((row) => gradeRow(box, row));
-          return;
+        // 축이 셋 이상 정해지면 다각형(큰 축만), 아래에 큰 축 줄. 둘 이하면 줄만
+        const known = frame.rows.filter((row) => row.shown);
+        const radar = known.length >= 3 ? this.recordRadar(known.map((row) => ({ axis: row.axis, grade: row.shown, derived: !!row.derived })), el.ownerDocument || document) : null;
+        if (radar) {
+          box.appendChild(radar);
+          box.createDiv({ cls: "mn-record__scale", text: "가운데 = 그 단의 시작 · 바깥 테 = Ⅹ · 한 칸이 한 등급 · 금빛 점 = 가장 높은 축 · 축 이름을 누르면 세부" });
         }
-        box.appendChild(this.recordRadar(known, el.ownerDocument || document));
-        box.createDiv({ cls: "mn-record__scale", text: "가운데 = 그 단의 시작 · 바깥 테 = Ⅹ · 한 칸이 한 등급 · 금빛 점 = 가장 높은 축" });
-        frame.rows.filter((row) => !row.grade).forEach((row) => gradeRow(box, row));
-        const notes = known.filter((row) => row.note);
-        if (notes.length) {
-          const list = box.createDiv({ cls: "mn-record__ability-notes" });
-          notes.forEach((row) => {
-            const line = list.createDiv({ cls: "mn-record__ability-note" });
-            line.createSpan({ cls: "mn-record__profile-axis", text: row.axis });
-            line.createSpan({ cls: "mn-record__profile-note", text: row.note });
+        const list = box.createDiv({ cls: `mn-record__axes${radar ? " is-compact" : ""}` });
+        if (opened[frame.key] && !frame.rows.some((row) => row.axis === opened[frame.key] && row.subs.length)) delete opened[frame.key];
+        const toggle = (axis) => {
+          if (opened[frame.key] === axis) delete opened[frame.key]; else opened[frame.key] = axis;
+          draw();
+        };
+        if (radar) {
+          known.forEach((row, index) => {
+            if (!row.subs.length) return;
+            radar.querySelectorAll(`.mn-record__radar-axis[data-index="${index}"], .mn-record__radar-grade[data-index="${index}"]`).forEach((node) => {
+              node.classList.add("is-pick");
+              press(node, () => toggle(row.axis));
+            });
           });
         }
+        const draw = () => {
+          const pick = opened[frame.key] || null;
+          if (radar) {
+            radar.classList.toggle("is-focus", known.some((row) => row.axis === pick)); // 다각형에 없는 축(미정)을 펼치면 옅게 하지 않음
+            radar.querySelectorAll("[data-index]").forEach((node) => node.classList.toggle("is-on", known[Number(node.getAttribute("data-index"))].axis === pick));
+          }
+          list.empty();
+          frame.rows.forEach((row) => {
+            const open = row.axis === pick;
+            const note = row.note || (row.derived ? `큰 축 미정 · 세부 「${row.top.axis}」 값` : "");
+            let line;
+            if (radar) {
+              // 다각형 아래: 큰 축 · 등급 · 메모만(칸 그림은 다각형이 대신)
+              line = list.createDiv({ cls: "mn-record__axis-row" });
+              line.createSpan({ cls: "mn-record__profile-axis", text: row.axis });
+              gradeMark(line, row);
+              line.createSpan({ cls: "mn-record__profile-note", text: note });
+            } else {
+              line = gradeRow(list, { ...row, note });
+            }
+            if (!row.subs.length) return;
+            const filled = row.subs.filter((sub) => sub.grade || (sub.value && !/^(미정|\?|-|—)$/u.test(sub.value))).length;
+            line.addClass("has-subs");
+            line.toggleClass("is-open", open);
+            line.setAttribute("aria-expanded", String(open));
+            line.setAttribute("title", `${row.axis} 세부 ${open ? "접기" : "펼쳐 보기"}`);
+            line.createSpan({ cls: "mn-record__axis-toggle", text: `${filled ? `세부 ${filled} ` : ""}${open ? "▴" : "▾"}` });
+            press(line, () => toggle(row.axis));
+            if (!open) return;
+            const subs = list.createDiv({ cls: "mn-record__subs" });
+            row.subs.forEach((sub) => gradeRow(subs, sub));
+            if (!filled) subs.createDiv({ cls: "mn-record__subs-hint", text: `세부는 「${row.axis} > ${row.subs[0].axis}: M3 Ⅴ — 메모」처럼 적어요` });
+          });
+        };
+        draw();
       });
     }
     // ④ 내성주(작가 설명 2026-11-01): 극한의 경험 · 감각 · 충격으로 몸에 새겨진 고유한 능력(패시브 또는 액티브). 더 강해질 수 있고,
