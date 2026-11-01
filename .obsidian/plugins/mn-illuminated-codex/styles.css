@@ -8926,6 +8926,14 @@ body .mn-codex .mn-codex__petal {
 /* 기록표 스테이터스: 관측 기록 · 능력 (작가와 정함 2026-10-30). 속성에 없고 블록에 적은 초안이면 「미리보기」 표시 */
 .mn-record__section { padding:clamp(12px,2cqi,18px) clamp(14px,2.4cqi,22px) clamp(10px,1.6cqi,14px); border-bottom:1px solid rgba(29,36,51,.16); }
 .mn-record__section-head { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; margin-bottom:8px; }
+/* 다각형 기준 고르기: M0부터 · 단 · 가까이 (작가 2026-11-01) */
+.mn-record__scale-pick { display:inline-flex; align-items:center; gap:3px; margin-left:auto; }
+.mn-record__scale-pick .mn-record__label { margin-right:4px; }
+.mn-record__scale-chip { padding:3px 7px; cursor:pointer; color:#4e6382; border:1px solid rgba(29,36,51,.16); font:700 10px/1.2 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; white-space:nowrap; }
+.mn-record__scale-chip:hover, .mn-record__scale-chip:focus-visible { border-color:rgba(154,123,60,.55); outline:none; }
+.mn-record__scale-chip.is-on { color:#eef1f5; background:#2c3a52; border-color:#2c3a52; }
+.mn-record__scale-pick + .mn-record__edit-link { margin-left:8px; }
+.mn-record__draft + .mn-record__scale-pick { margin-left:10px; }
 .mn-record__edit-link { margin-left:auto; padding:3px 7px; cursor:pointer; color:#7a5f2c; border:1px solid rgba(154,123,60,.4); font:700 10px/1.2 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.08em; white-space:nowrap; }
 .mn-record__draft + .mn-record__edit-link { margin-left:0; }
 .mn-record__edit-link:hover, .mn-record__edit-link:focus-visible { color:#eef1f5; background:#7a5f2c; border-color:#7a5f2c; outline:none; }
