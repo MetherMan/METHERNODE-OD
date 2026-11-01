@@ -6404,7 +6404,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
   }
 
   /** 기록표 능력 다각형: 축마다 { axis, grade: { tier, step } | null, derived, note }. 한 칸 = 한 등급.
-   *  scale 「단」 = 가운데 가장 낮은 단의 시작 ~ 바깥 테 가장 높은 단의 Ⅹ, 「M0」 = 가운데 M0, 「값」 = 적힌 값에 맞춰 당김.
+   *  scale 「단」 = 가운데 가장 낮은 단의 시작 ~ 바깥 테 가장 높은 단의 Ⅹ, 「M0」 · 「M1」 … = 가운데를 그 단의 시작에(더 낮은 값이 있으면 그 단으로 내림),
+   *  「값」 = 적힌 값에 맞춰 당김. 그린 눈금은 svg의 data-center · data-outer에 남김(아래 설명 글).
    *  등급이 없는 축(미정)은 가운데에 두고 이름 아래 「미정」. 정해진 축이 하나도 없으면 fallbackTier 단으로 테를 그림 */
   recordRadar(rows, doc, fallbackTier = 0, scale = "단") {
     const NS = "http://www.w3.org/2000/svg";
@@ -6412,7 +6413,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const at = (grade) => grade.tier * 10 + grade.step;
     const known = rows.filter((row) => row.grade);
     const tiers = known.length ? known.map((row) => row.grade.tier) : [fallbackTier];
-    let lo = scale === "M0" ? 0 : Math.min(...tiers) * 10, hi = Math.max(...tiers) * 10 + 10;
+    const base = /^M(\d+)$/u.exec(scale);
+    let lo = Math.min(...tiers, ...(base ? [Number(base[1])] : [])) * 10, hi = Math.max(...tiers) * 10 + 10;
     // scale 「값」: 테를 적힌 값에 맞춰 당김 — 가운데 = 가장 낮은 값보다 두 칸 아래, 바깥 테 = 가장 높은 값보다 한 칸 위(적어도 여섯 칸)
     const fit = scale === "값" && known.length > 0;
     if (fit) {
@@ -6430,6 +6432,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const svg = doc.createElementNS(NS, "svg");
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
     svg.setAttribute("class", "mn-record__radar");
+    svg.setAttribute("data-center", fit || lo % 10 ? gradeName(lo) : `M${lo / 10}`);
+    svg.setAttribute("data-outer", gradeName(hi));
     const add = (tag, attrs, text, parent = svg) => {
       const node = doc.createElementNS(NS, tag);
       Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
@@ -7250,31 +7254,38 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         node.addEventListener("click", run);
         node.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); run(event); } });
       };
-      // 다각형 기준(작가 2026-11-01 「M0 기준으로 볼지 정하는 건」): M0부터 · 단(낮은 단의 시작 ~ 높은 단의 Ⅹ) · 가까이(적힌 값에 맞춤).
+      // 다각형 기준 드롭다운(작가 2026-11-01 「드롭다운으로 M0 기준으로 볼지」): 자동(가장 낮은 단) · M0 기준 · M1 기준 … · 가까이(적힌 값에 맞춤).
       // 고른 기준은 모든 인물 기록표에 같이 쓰고 플러그인 데이터에 남김(인물끼리 같은 눈금으로 보게)
-      const SCALES = [["M0", "M0부터", "가운데 = M0 · 바깥 테 = 가장 높은 단의 Ⅹ"], ["단", "단", "가운데 = 가장 낮은 단의 시작 · 바깥 테 = 가장 높은 단의 Ⅹ"], ["값", "가까이", "가운데 = 가장 낮은 값 두 칸 아래 · 바깥 테 = 가장 높은 값 한 칸 위"]];
+      const SCALE_OK = /^(단|값|M\d+)$/u;
       const scaleNow = () => {
         const saved = this.persistedData && this.persistedData.recordScale;
-        return SCALES.some(([value]) => value === saved) ? saved : "단";
+        return SCALE_OK.test(String(saved || "")) ? saved : "단";
       };
+      const topTier = Math.max(0, ...frames.flatMap((frame) => frame.rows.flatMap((row) => [row.shown, ...row.subs.map((sub) => sub.grade)])).filter(Boolean).map((grade) => grade.tier));
+      const tierCount = Math.max(topTier, /^M\d+$/u.test(scaleNow()) ? Number(scaleNow().slice(1)) : 0) + 1;
+      const SCALES = [
+        ["단", "자동 기준", "가운데 = 가장 낮은 단의 시작 · 바깥 테 = 가장 높은 단의 Ⅹ"],
+        ...Array.from({ length: tierCount }, (_, tier) => [`M${tier}`, `M${tier} 기준`, `가운데 = M${tier}의 시작(더 낮은 값이 있으면 그 단) · 바깥 테 = 가장 높은 단의 Ⅹ`]),
+        ["값", "가까이 보기", "가운데 = 가장 낮은 값 두 칸 아래 · 바깥 테 = 가장 높은 값 한 칸 위"],
+      ];
       const redraws = [];
-      const picker = box.querySelector(":scope > .mn-record__section-head").createSpan({ cls: "mn-record__scale-pick" });
-      const edit = picker.parentElement.querySelector(".mn-record__edit-link");
-      if (edit) picker.parentElement.insertBefore(picker, edit);
-      picker.createSpan({ cls: "mn-record__label", text: "기준" });
-      const scaleChips = SCALES.map(([value, label, tip]) => {
-        const chip = picker.createSpan({ cls: "mn-record__scale-chip", text: label, attr: { title: tip } });
-        press(chip, async () => {
-          this.persistedData = { ...(this.persistedData || {}), recordScale: value };
-          paintScale();
-          redraws.forEach((redraw) => redraw(true));
-          if (typeof this.saveData === "function") await this.saveData(this.persistedData);
-        });
-        return [chip, value];
-      });
-      const paintScale = () => scaleChips.forEach(([chip, value]) => chip.toggleClass("is-on", value === scaleNow()));
+      const abilityHead = box.querySelector(":scope > .mn-record__section-head");
+      const picker = abilityHead.createEl("select", { cls: "mn-record__scale-select", attr: { "aria-label": "다각형 기준" } });
+      const edit = abilityHead.querySelector(".mn-record__edit-link");
+      if (edit) abilityHead.insertBefore(picker, edit);
+      SCALES.forEach(([value, label, tip]) => picker.createEl("option", { text: label, attr: { value, title: tip } }));
+      const paintScale = () => {
+        picker.value = scaleNow();
+        picker.setAttribute("title", SCALES.find(([value]) => value === scaleNow())[2]);
+      };
       paintScale();
-      const scaleText = () => `${SCALES.find(([value]) => value === scaleNow())[2]} · 한 칸이 한 등급 · 금빛 점 = 가장 높은 축`;
+      picker.addEventListener("change", async () => {
+        this.persistedData = { ...(this.persistedData || {}), recordScale: picker.value };
+        paintScale();
+        redraws.forEach((redraw) => redraw(true));
+        if (typeof this.saveData === "function") await this.saveData(this.persistedData);
+      });
+      const scaleText = (svg) => `가운데 ${svg.getAttribute("data-center")} · 바깥 테 ${svg.getAttribute("data-outer")} · 한 칸이 한 등급 · 금빛 점 = 가장 높은 축`;
       frames.forEach((frame) => {
         box.createDiv({ cls: "mn-record__frame-title", text: frame.title });
         const holder = box.createDiv({ cls: "mn-record__frame" });
@@ -7296,7 +7307,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
             svg.classList.add("is-sub");
             if (swap) svg.classList.add("is-swap");
             parent.appendChild(svg);
-            parent.createDiv({ cls: "mn-record__scale", text: `${row.axis}의 세부 · ${scaleText()} · 미정은 가운데` });
+            parent.createDiv({ cls: "mn-record__scale", text: `${row.axis}의 세부 · ${scaleText(svg)} · 미정은 가운데` });
             const noted = row.subs.filter((sub) => sub.note);
             if (noted.length) {
               const list = parent.createDiv({ cls: "mn-record__sub-notes" });
@@ -7338,7 +7349,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
                 press(node, () => toggle(row.axis));
               });
             });
-            holder.createDiv({ cls: "mn-record__scale", text: `${scaleText()}${onChart.some((row) => row.subs.length) ? " · 축 이름을 누르면 세부" : ""}` });
+            holder.createDiv({ cls: "mn-record__scale", text: `${scaleText(svg)}${onChart.some((row) => row.subs.length) ? " · 축 이름을 누르면 세부" : ""}` });
             if (!frame.fixed) frame.rows.filter((row) => !row.shown).forEach((row) => gradeRow(holder, row));
             return;
           }

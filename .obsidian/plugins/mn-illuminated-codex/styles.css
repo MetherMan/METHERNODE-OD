@@ -8926,14 +8926,19 @@ body .mn-codex .mn-codex__petal {
 /* 기록표 스테이터스: 관측 기록 · 능력 (작가와 정함 2026-10-30). 속성에 없고 블록에 적은 초안이면 「미리보기」 표시 */
 .mn-record__section { padding:clamp(12px,2cqi,18px) clamp(14px,2.4cqi,22px) clamp(10px,1.6cqi,14px); border-bottom:1px solid rgba(29,36,51,.16); }
 .mn-record__section-head { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; margin-bottom:8px; }
-/* 다각형 기준 고르기: M0부터 · 단 · 가까이 (작가 2026-11-01) */
-.mn-record__scale-pick { display:inline-flex; align-items:center; gap:3px; margin-left:auto; }
-.mn-record__scale-pick .mn-record__label { margin-right:4px; }
-.mn-record__scale-chip { padding:3px 7px; cursor:pointer; color:#4e6382; border:1px solid rgba(29,36,51,.16); font:700 10px/1.2 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; white-space:nowrap; }
-.mn-record__scale-chip:hover, .mn-record__scale-chip:focus-visible { border-color:rgba(154,123,60,.55); outline:none; }
-.mn-record__scale-chip.is-on { color:#eef1f5; background:#2c3a52; border-color:#2c3a52; }
-.mn-record__scale-pick + .mn-record__edit-link { margin-left:8px; }
-.mn-record__draft + .mn-record__scale-pick { margin-left:10px; }
+/* 다각형 기준 드롭다운: 자동 · M0 기준 · M1 기준 … · 가까이 (작가 2026-11-01). 옵시디언 기본 select 모양을 덮어씀 */
+.mn-record select.mn-record__scale-select {
+  -webkit-appearance:none; appearance:none; box-sizing:border-box; align-self:center; width:auto; height:auto; margin:0 0 0 auto; padding:3px 22px 3px 8px;
+  border:1px solid rgba(29,36,51,.22); border-radius:0; box-shadow:none; cursor:pointer; color:#2c3a52; background-color:#fff;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0h8L4 5z' fill='%234e6382'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 8px center; background-size:8px 5px;
+  font:700 11px/1.2 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em;
+}
+.mn-record select.mn-record__scale-select:hover { border-color:rgba(154,123,60,.55); background-color:#fff; box-shadow:none; }
+.mn-record select.mn-record__scale-select:focus, .mn-record select.mn-record__scale-select:focus-visible { border-color:#9a7b3c; outline:none; box-shadow:none; }
+.mn-record__scale-select option { color:#131b28; background:#fff; }
+.mn-record__scale-select + .mn-record__edit-link { margin-left:8px; }
+.mn-record .mn-record__draft + select.mn-record__scale-select { margin-left:10px; }
 .mn-record__edit-link { margin-left:auto; padding:3px 7px; cursor:pointer; color:#7a5f2c; border:1px solid rgba(154,123,60,.4); font:700 10px/1.2 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.08em; white-space:nowrap; }
 .mn-record__draft + .mn-record__edit-link { margin-left:0; }
 .mn-record__edit-link:hover, .mn-record__edit-link:focus-visible { color:#eef1f5; background:#7a5f2c; border-color:#7a5f2c; outline:none; }
