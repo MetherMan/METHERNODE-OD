@@ -6534,8 +6534,83 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         }
       });
     }
+    // ④ 내성주(작가 설명 2026-11-01): 극한의 경험 · 감각 · 충격으로 몸에 새겨진 고유한 능력(패시브 또는 액티브). 더 강해질 수 있고,
+    //    몇 개를 가졌는지가 중요한 지표 → 맨 위 투력 · 항력 줄에 보유 수를 함께 두고, 아래 칸에 하나씩.
+    //    한 줄 「통찰안: 패시브 · M3 Ⅳ · 충격 — 메모」 또는 { 이름, 갈래, 등급, 계기, 얻은 때, 메모, 강해진 기록: ["시점 · M2 Ⅶ", …] }
+    const KINDS = ["패시브", "액티브"];
+    const resistSource = sourceOf("내성주");
+    const resists = listOf("내성주").map((item) => {
+      let raw = item;
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const pick = (...keys) => { for (const key of keys) if (present(raw[key])) return raw[key]; return ""; };
+        if (pick("이름", "name")) {
+          return {
+            name: this.plainLink(pick("이름", "name")), kind: this.plainLink(pick("갈래", "종류")), gradeText: this.plainLink(pick("등급")),
+            cause: this.plainLink(pick("계기")), when: this.plainLink(pick("얻은 때", "시점")), note: this.plainLink(pick("메모", "설명")),
+            history: [].concat(pick("강해진 기록") || []).map((entry) => this.plainLink(entry)).filter(Boolean),
+          };
+        }
+        raw = Object.entries(raw).map(([key, value]) => `${key}: ${this.asText(value)}`)[0] || "";
+      }
+      const row = splitAbility(raw);
+      if (!row.axis || /^(미정|\?|-|—)$/u.test(row.axis)) return null;
+      const parts = row.value.split(/\s*·\s*/u).filter(Boolean);
+      const kind = parts.find((part) => KINDS.includes(part)) || "";
+      const gradeText = parts.find((part) => parseGrade(part)) || "";
+      return { name: row.axis, kind, gradeText, cause: parts.filter((part) => part !== kind && part !== gradeText).join(" · "), when: "", note: row.note, history: [] };
+    }).filter(Boolean);
+    if (resistSource !== null) {
+      // 맨 위 숫자 줄에 보유 수
+      let statRow = sheet.querySelector(":scope > .mn-record__stats");
+      if (!statRow) { statRow = sheet.createDiv({ cls: "mn-record__stats" }); sheet.prepend(statRow); }
+      const stat = statRow.createDiv({ cls: `mn-record__stat mn-record__stat--resist${resists.length ? "" : " is-unset"}` });
+      stat.createDiv({ cls: "mn-record__label", text: "내성주" });
+      stat.createDiv({ cls: "mn-record__number", text: resists.length ? `${resists.length}` : "미정" });
+      const tally = KINDS.map((kind) => [kind, resists.filter((r) => r.kind === kind).length]).filter(([, count]) => count);
+      if (tally.length) stat.createDiv({ cls: "mn-record__stat-sub", text: tally.map(([kind, count]) => `${kind} ${count}`).join(" · ") });
+      // 아래 칸: 하나씩
+      const box = sheet.createDiv({ cls: "mn-record__section mn-record__section--resist" });
+      sectionHead(box, "내성주", "극한의 경험 · 감각 · 충격이 몸에 새긴 고유한 능력 · 더 강해질 수 있고, 몇 개를 가졌는지가 중요한 지표", "내성주");
+      if (!resists.length) box.createDiv({ cls: "mn-record__resist-empty", text: "아직 정하지 않았어요 · 「이름: 패시브 · M3 Ⅳ · 충격 — 메모」처럼 한 줄씩 적어요" });
+      resists.forEach((resist, index) => {
+        const card = box.createDiv({ cls: "mn-record__resist" });
+        const top = card.createDiv({ cls: "mn-record__resist-top" });
+        top.createSpan({ cls: "mn-record__resist-no", text: String(index + 1).padStart(2, "0") });
+        top.createSpan({ cls: "mn-record__resist-name", text: resist.name });
+        if (resist.kind) top.createSpan({ cls: `mn-record__resist-kind${resist.kind === "액티브" ? " is-active" : ""}`, text: resist.kind });
+        const grade = parseGrade(resist.gradeText);
+        const mark = top.createSpan({ cls: `mn-record__grade mn-record__resist-grade${grade ? "" : " is-unset"}` });
+        if (grade) {
+          mark.createSpan({ cls: "mn-record__grade-tier", text: `M${grade.tier}` });
+          mark.createSpan({ cls: "mn-record__grade-step", text: GRADE_STEPS[grade.step - 1] });
+          const pips = top.createSpan({ cls: "mn-record__grade-pips", attr: { title: `M${grade.tier} 단 안에서 ${grade.step} / 10칸` } });
+          for (let i = 1; i <= 10; i += 1) pips.createSpan({ cls: `mn-record__grade-pip${i <= grade.step ? " is-on" : ""}${i === grade.step ? " is-last" : ""}` });
+        } else mark.textContent = resist.gradeText || "등급 미정";
+        const meta = [["계기", resist.cause], ["얻은 때", resist.when]].filter(([, value]) => value);
+        if (meta.length) {
+          const line = card.createDiv({ cls: "mn-record__resist-meta" });
+          meta.forEach(([label, value]) => {
+            const item = line.createSpan({ cls: "mn-record__resist-meta-item" });
+            item.createSpan({ cls: "mn-record__label", text: label });
+            item.createSpan({ text: value });
+          });
+        }
+        if (resist.note) card.createDiv({ cls: "mn-record__profile-note mn-record__resist-note", text: resist.note });
+        // 더 강해진 내력: 「시점 · 등급」 → 옛 등급에서 지금까지 화살표로
+        if (resist.history.length) {
+          const trail = card.createDiv({ cls: "mn-record__resist-trail" });
+          trail.createSpan({ cls: "mn-record__label", text: "강해진 기록" });
+          resist.history.forEach((entry) => {
+            const [time, value] = entry.split(/\s*·\s*/u);
+            trail.createSpan({ cls: "mn-record__resist-step", text: value ? `${value}${time && time !== "미정" ? ` (${time})` : ""}` : time });
+            trail.createSpan({ cls: "mn-record__resist-arrow", text: "→" });
+          });
+          trail.createSpan({ cls: "mn-record__resist-step is-now", text: grade ? `M${grade.tier} ${GRADE_STEPS[grade.step - 1]} 지금` : "지금" });
+        }
+      });
+    }
     // 속성 칸: 노트에 적힌 차례 그대로. 지면 · 관리용 칸은 뺌. 세계판이 쓰는 칸(소속 · 종족 · 하는 일 · 위치 · 시점)은 없어도 「미정」으로 보임
-    const HIDDEN = new Set(["분류", "상태", "이명", "초상", "공개", "만든날", "정리", "cssclasses", "cssclass", "tags", "aliases", "position", "투력 기록", "전투 등급", "의지 · 실현 등급", ...STATS]);
+    const HIDDEN = new Set(["분류", "상태", "이명", "초상", "공개", "만든날", "정리", "cssclasses", "cssclass", "tags", "aliases", "position", "투력 기록", "전투 등급", "의지 · 실현 등급", "내성주", ...STATS]);
     const keys = Object.keys(front).filter((key) => !HIDDEN.has(key));
     ["소속", "종족", "하는 일", "위치", "시점"].forEach((key) => { if (!keys.includes(key)) keys.push(key); });
     const grid = sheet.createDiv({ cls: "mn-record__grid" });

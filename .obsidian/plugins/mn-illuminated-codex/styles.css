@@ -8970,6 +8970,29 @@ body .mn-codex .mn-codex__petal {
 .mn-record__grade-pip { width:10px; height:9px; background:rgba(29,36,51,.1); }
 .mn-record__grade-pip.is-on { background:#2c3a52; }
 .mn-record__grade-pip.is-last { background:#9a7b3c; }
+/* 내성주 (작가 설명 2026-11-01): 극한의 경험 · 감각 · 충격이 몸에 새긴 고유한 능력. 보유 수는 맨 위 숫자 줄에, 하나씩은 아래 칸에 */
+.mn-record__stat--resist .mn-record__number { color:#7a5f2c; }
+.mn-record__stat-sub { margin-top:6px; color:#5d6878; font:600 11px/1.3 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.06em; }
+.mn-record__resist-empty { padding:6px 0 4px; color:#8c97a8; font:500 12px/1.5 "Pretendard","Noto Sans KR",sans-serif; }
+.mn-record__resist { padding:10px 0 11px; border-top:1px solid rgba(29,36,51,.1); }
+.mn-record__section-head + .mn-record__resist { border-top:0; }
+.mn-record__resist-top { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; }
+.mn-record__resist-no { color:#8c97a8; font:600 12px/1 "MN Bodoni Moda",Didot,serif; letter-spacing:.06em; }
+.mn-record__resist-name { color:#131b28; font:700 16px/1.2 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:.02em; }
+.mn-record__resist-kind { padding:3px 7px 4px; border:1px solid rgba(78,99,130,.55); color:#4e6382; font:700 10px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.12em; }
+.mn-record__resist-kind.is-active { color:#eef1f5; background:#2c3a52; border-color:#2c3a52; }
+.mn-record__resist-grade { margin-left:auto; }
+.mn-record__resist-meta { display:flex; flex-wrap:wrap; gap:4px 18px; margin:7px 0 0 calc(12px + 1.6em); color:#2c3a52; font:500 12px/1.5 "Pretendard","Noto Sans KR",sans-serif; }
+.mn-record__resist-meta-item { display:inline-flex; align-items:baseline; gap:7px; }
+.mn-record__resist-note { margin:4px 0 0 calc(12px + 1.6em); }
+.mn-record__resist-trail { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; margin:7px 0 0 calc(12px + 1.6em); color:#5d6878; font:500 12px/1.4 "Pretendard","Noto Sans KR",sans-serif; }
+.mn-record__resist-trail .mn-record__label { margin-right:4px; }
+.mn-record__resist-arrow { color:#9a7b3c; }
+.mn-record__resist-step.is-now { color:#131b28; font-weight:700; }
+@container (max-width:560px) {
+  .mn-record__resist-grade { margin-left:0; }
+  .mn-record__resist-meta, .mn-record__resist-note, .mn-record__resist-trail { margin-left:0; }
+}
 @container (max-width:560px) {
   .mn-record__grade-row { grid-template-columns:minmax(5em,auto) auto minmax(0,1fr); row-gap:4px; }
   .mn-record__grade-row .mn-record__profile-note { grid-column:1 / -1; }
