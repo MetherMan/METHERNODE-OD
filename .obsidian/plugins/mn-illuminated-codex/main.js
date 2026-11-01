@@ -6535,7 +6535,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       });
     }
     // ④ 내성주(작가 설명 2026-11-01): 극한의 경험 · 감각 · 충격으로 몸에 새겨진 고유한 능력(패시브 또는 액티브). 더 강해질 수 있고,
-    //    몇 개를 가졌는지가 중요한 지표 → 맨 위 투력 · 항력 줄에 보유 수를 함께 두고, 아래 칸에 하나씩.
+    //    몇 개를 가졌는지가 중요한 지표 → 맨 위 투력 · 항력 줄에 보유 수를 함께 두고, 아래 칸은 많아서 접어 둔 요약 → 펼쳐 보기(작가 2026-11-01).
     //    한 줄 「통찰안: 패시브 · M3 Ⅳ · 충격 — 메모」 또는 { 이름, 갈래, 등급, 계기, 얻은 때, 메모, 강해진 기록: ["시점 · M2 Ⅶ", …] }
     const KINDS = ["패시브", "액티브"];
     const resistSource = sourceOf("내성주");
@@ -6560,54 +6560,153 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       return { name: row.axis, kind, gradeText, cause: parts.filter((part) => part !== kind && part !== gradeText).join(" · "), when: "", note: row.note, history: [] };
     }).filter(Boolean);
     if (resistSource !== null) {
-      // 맨 위 숫자 줄에 보유 수
+      resists.forEach((resist, index) => { resist.no = index + 1; resist.grade = parseGrade(resist.gradeText); });
+      const rank = (resist) => (resist.grade ? resist.grade.tier * 10 + resist.grade.step : -1);
+      const gradeText = (grade) => `M${grade.tier} ${GRADE_STEPS[grade.step - 1]}`;
+      const tally = KINDS.map((kind) => [kind, resists.filter((r) => r.kind === kind).length]).filter(([, count]) => count);
+      const unsorted = resists.filter((r) => !KINDS.includes(r.kind)).length;
+      // 펼침 · 거르기 · 차례는 노트마다 기억(속성이 바뀌어 기록표를 다시 그려도 그대로)
+      if (!this.recordResistState) this.recordResistState = new Map();
+      if (!this.recordResistState.has(sourcePath)) this.recordResistState.set(sourcePath, { open: false, kind: "전체", sort: "적은 차례", query: "", shown: new Set() });
+      const state = this.recordResistState.get(sourcePath);
+      const press = (node, run) => {
+        node.setAttr("role", "button");
+        node.setAttr("tabindex", "0");
+        node.addEventListener("click", run);
+        node.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); run(event); } });
+      };
+
+      // 맨 위 숫자 줄에 보유 수 (누르면 아래 목록을 펼쳐 보여 줌)
       let statRow = sheet.querySelector(":scope > .mn-record__stats");
       if (!statRow) { statRow = sheet.createDiv({ cls: "mn-record__stats" }); sheet.prepend(statRow); }
       const stat = statRow.createDiv({ cls: `mn-record__stat mn-record__stat--resist${resists.length ? "" : " is-unset"}` });
       stat.createDiv({ cls: "mn-record__label", text: "내성주" });
       stat.createDiv({ cls: "mn-record__number", text: resists.length ? `${resists.length}` : "미정" });
-      const tally = KINDS.map((kind) => [kind, resists.filter((r) => r.kind === kind).length]).filter(([, count]) => count);
       if (tally.length) stat.createDiv({ cls: "mn-record__stat-sub", text: tally.map(([kind, count]) => `${kind} ${count}`).join(" · ") });
-      // 아래 칸: 하나씩
+
       const box = sheet.createDiv({ cls: "mn-record__section mn-record__section--resist" });
-      sectionHead(box, "내성주", "극한의 경험 · 감각 · 충격이 몸에 새긴 고유한 능력 · 더 강해질 수 있고, 몇 개를 가졌는지가 중요한 지표", "내성주");
-      if (!resists.length) box.createDiv({ cls: "mn-record__resist-empty", text: "아직 정하지 않았어요 · 「이름: 패시브 · M3 Ⅳ · 충격 — 메모」처럼 한 줄씩 적어요" });
-      resists.forEach((resist, index) => {
-        const card = box.createDiv({ cls: "mn-record__resist" });
-        const top = card.createDiv({ cls: "mn-record__resist-top" });
-        top.createSpan({ cls: "mn-record__resist-no", text: String(index + 1).padStart(2, "0") });
-        top.createSpan({ cls: "mn-record__resist-name", text: resist.name });
-        if (resist.kind) top.createSpan({ cls: `mn-record__resist-kind${resist.kind === "액티브" ? " is-active" : ""}`, text: resist.kind });
-        const grade = parseGrade(resist.gradeText);
-        const mark = top.createSpan({ cls: `mn-record__grade mn-record__resist-grade${grade ? "" : " is-unset"}` });
-        if (grade) {
-          mark.createSpan({ cls: "mn-record__grade-tier", text: `M${grade.tier}` });
-          mark.createSpan({ cls: "mn-record__grade-step", text: GRADE_STEPS[grade.step - 1] });
-          const pips = top.createSpan({ cls: "mn-record__grade-pips", attr: { title: `M${grade.tier} 단 안에서 ${grade.step} / 10칸` } });
-          for (let i = 1; i <= 10; i += 1) pips.createSpan({ cls: `mn-record__grade-pip${i <= grade.step ? " is-on" : ""}${i === grade.step ? " is-last" : ""}` });
-        } else mark.textContent = resist.gradeText || "등급 미정";
-        const meta = [["계기", resist.cause], ["얻은 때", resist.when]].filter(([, value]) => value);
-        if (meta.length) {
-          const line = card.createDiv({ cls: "mn-record__resist-meta" });
-          meta.forEach(([label, value]) => {
-            const item = line.createSpan({ cls: "mn-record__resist-meta-item" });
-            item.createSpan({ cls: "mn-record__label", text: label });
-            item.createSpan({ text: value });
+      sectionHead(box, "내성주", "극한의 경험 · 감각 · 충격이 몸에 새긴 고유한 능력 · 더 강해질 수 있음", "내성주");
+      if (!resists.length) {
+        box.createDiv({ cls: "mn-record__resist-empty", text: "아직 정하지 않았어요 · 「이름: 패시브 · M3 Ⅳ · 충격 — 메모」처럼 한 줄씩 적어요" });
+      } else {
+        // 접힌 요약: 몇 개 · 갈래별 · 가장 높은 등급 · 더 강해진 것
+        const best = resists.reduce((top, r) => (rank(r) > rank(top) ? r : top), resists[0]);
+        const grown = resists.filter((r) => r.history.length).length;
+        const bar = box.createDiv({ cls: "mn-record__resist-bar" });
+        const facts = bar.createDiv({ cls: "mn-record__resist-facts" });
+        const fact = (label, value, cls = "") => {
+          const item = facts.createSpan({ cls: `mn-record__resist-fact${cls}` });
+          item.createSpan({ cls: "mn-record__label", text: label });
+          item.createSpan({ cls: "mn-record__resist-fact-value", text: value });
+        };
+        fact("보유", `${resists.length}`, " is-count");
+        tally.forEach(([kind, count]) => fact(kind, `${count}`));
+        if (unsorted) fact("갈래 미정", `${unsorted}`);
+        if (best.grade) fact("가장 높은", `${gradeText(best.grade)} · ${best.name}`);
+        if (grown) fact("강해진 것", `${grown}`);
+        const toggle = bar.createSpan({ cls: "mn-record__resist-toggle" });
+        const panel = box.createDiv({ cls: "mn-record__resist-panel" });
+        const setOpen = (open) => {
+          state.open = open;
+          box.toggleClass("is-open", open);
+          bar.setAttr("aria-expanded", String(open));
+          toggle.setText(open ? "접기 ▴" : `펼쳐 보기 ▾`);
+          panel.hidden = !open;
+        };
+        press(bar, () => setOpen(!state.open));
+        stat.addClass("is-link");
+        stat.setAttr("title", "눌러서 내성주 목록 펼쳐 보기");
+        press(stat, () => { setOpen(true); box.scrollIntoView({ block: "start", behavior: "smooth" }); });
+
+        // 펼친 목록: 갈래로 거르기 · 등급 순 · 이름 찾기(많을 때) → 줄을 누르면 그 내성주의 자세한 내용
+        const tools = panel.createDiv({ cls: "mn-record__resist-tools" });
+        const list = panel.createDiv({ cls: "mn-record__resist-list" });
+        const kinds = [["전체", resists.length], ...tally, ...(unsorted ? [["갈래 미정", unsorted]] : [])];
+        if (!kinds.some(([kind]) => kind === state.kind)) state.kind = "전체";
+        const chips = [];
+        const chip = (group, value, label) => {
+          const node = group.createSpan({ cls: "mn-record__resist-chip", text: label });
+          chips.push([node, value]);
+          press(node, () => {
+            if (KINDS.includes(value) || value === "전체" || value === "갈래 미정") state.kind = value; else state.sort = value;
+            draw();
           });
+          return node;
+        };
+        if (kinds.length > 2) {
+          const group = tools.createSpan({ cls: "mn-record__resist-group" });
+          kinds.forEach(([kind, count]) => chip(group, kind, `${kind} ${count}`));
         }
-        if (resist.note) card.createDiv({ cls: "mn-record__profile-note mn-record__resist-note", text: resist.note });
-        // 더 강해진 내력: 「시점 · 등급」 → 옛 등급에서 지금까지 화살표로
-        if (resist.history.length) {
-          const trail = card.createDiv({ cls: "mn-record__resist-trail" });
-          trail.createSpan({ cls: "mn-record__label", text: "강해진 기록" });
-          resist.history.forEach((entry) => {
-            const [time, value] = entry.split(/\s*·\s*/u);
-            trail.createSpan({ cls: "mn-record__resist-step", text: value ? `${value}${time && time !== "미정" ? ` (${time})` : ""}` : time });
-            trail.createSpan({ cls: "mn-record__resist-arrow", text: "→" });
+        if (resists.filter((r) => r.grade).length > 1) {
+          const group = tools.createSpan({ cls: "mn-record__resist-group" });
+          ["적은 차례", "등급 순"].forEach((value) => chip(group, value, value));
+        }
+        if (resists.length >= 8) {
+          const search = tools.createEl("input", { cls: "mn-record__resist-search", attr: { type: "search", placeholder: "이름 · 계기 찾기", "aria-label": "내성주 찾기" } });
+          search.value = state.query;
+          search.addEventListener("input", () => { state.query = search.value.trim(); draw(); });
+        }
+        if (!tools.childElementCount) tools.remove();
+
+        const draw = () => {
+          chips.forEach(([node, value]) => node.toggleClass("is-on", value === state.kind || value === state.sort));
+          list.empty();
+          const query = state.query.toLowerCase();
+          let rows = resists.filter((r) => state.kind === "전체" || (state.kind === "갈래 미정" ? !KINDS.includes(r.kind) : r.kind === state.kind));
+          if (query) rows = rows.filter((r) => [r.name, r.cause, r.note, r.when].join(" ").toLowerCase().includes(query));
+          if (state.sort === "등급 순") rows = rows.slice().sort((a, b) => rank(b) - rank(a) || a.no - b.no);
+          if (!rows.length) list.createDiv({ cls: "mn-record__resist-empty", text: query ? `「${state.query}」에 맞는 내성주가 없어요` : "이 갈래의 내성주는 없어요" });
+          rows.forEach((resist) => {
+            const detail = [["계기", resist.cause], ["얻은 때", resist.when]].filter(([, value]) => value);
+            const more = detail.length || resist.note || resist.history.length;
+            const shown = more && state.shown.has(resist.no);
+            const item = list.createDiv({ cls: `mn-record__resist${shown ? " is-shown" : ""}` });
+            const top = item.createDiv({ cls: "mn-record__resist-top" });
+            top.createSpan({ cls: "mn-record__resist-no", text: String(resist.no).padStart(2, "0") });
+            const title = top.createSpan({ cls: "mn-record__resist-title" });
+            title.createSpan({ cls: "mn-record__resist-name", text: resist.name });
+            if (resist.kind) title.createSpan({ cls: `mn-record__resist-kind${resist.kind === "액티브" ? " is-active" : ""}`, text: resist.kind });
+            if (resist.history.length) title.createSpan({ cls: "mn-record__resist-grown", text: `↑ ${resist.history.length}`, attr: { title: `더 강해진 기록 ${resist.history.length}번` } });
+            const mark = top.createSpan({ cls: `mn-record__grade mn-record__resist-grade${resist.grade ? "" : " is-unset"}` });
+            const pips = top.createSpan({ cls: "mn-record__grade-pips" });
+            if (resist.grade) {
+              mark.createSpan({ cls: "mn-record__grade-tier", text: `M${resist.grade.tier}` });
+              mark.createSpan({ cls: "mn-record__grade-step", text: GRADE_STEPS[resist.grade.step - 1] });
+              pips.setAttr("title", `M${resist.grade.tier} 단 안에서 ${resist.grade.step} / 10칸`);
+              for (let i = 1; i <= 10; i += 1) pips.createSpan({ cls: `mn-record__grade-pip${i <= resist.grade.step ? " is-on" : ""}${i === resist.grade.step ? " is-last" : ""}` });
+            } else mark.textContent = resist.gradeText || "등급 미정";
+            top.createSpan({ cls: "mn-record__resist-caret", text: more ? (shown ? "▴" : "▾") : "" });
+            if (more) {
+              item.addClass("has-more");
+              press(top, () => { if (state.shown.has(resist.no)) state.shown.delete(resist.no); else state.shown.add(resist.no); draw(); });
+            }
+            if (!shown) return;
+            const body = item.createDiv({ cls: "mn-record__resist-body" });
+            if (detail.length) {
+              const line = body.createDiv({ cls: "mn-record__resist-meta" });
+              detail.forEach(([label, value]) => {
+                const meta = line.createSpan({ cls: "mn-record__resist-meta-item" });
+                meta.createSpan({ cls: "mn-record__label", text: label });
+                meta.createSpan({ text: value });
+              });
+            }
+            if (resist.note) body.createDiv({ cls: "mn-record__profile-note mn-record__resist-note", text: resist.note });
+            // 더 강해진 내력: 「시점 · 등급」 → 옛 등급에서 지금까지 화살표로
+            if (resist.history.length) {
+              const trail = body.createDiv({ cls: "mn-record__resist-trail" });
+              trail.createSpan({ cls: "mn-record__label", text: "강해진 기록" });
+              resist.history.forEach((entry) => {
+                const [time, value] = entry.split(/\s*·\s*/u);
+                trail.createSpan({ cls: "mn-record__resist-step", text: value ? `${value}${time && time !== "미정" ? ` (${time})` : ""}` : time });
+                trail.createSpan({ cls: "mn-record__resist-arrow", text: "→" });
+              });
+              trail.createSpan({ cls: "mn-record__resist-step is-now", text: resist.grade ? `${gradeText(resist.grade)} 지금` : "지금" });
+            }
           });
-          trail.createSpan({ cls: "mn-record__resist-step is-now", text: grade ? `M${grade.tier} ${GRADE_STEPS[grade.step - 1]} 지금` : "지금" });
-        }
-      });
+        };
+        draw();
+        setOpen(state.open);
+      }
     }
     // 속성 칸: 노트에 적힌 차례 그대로. 지면 · 관리용 칸은 뺌. 세계판이 쓰는 칸(소속 · 종족 · 하는 일 · 위치 · 시점)은 없어도 「미정」으로 보임
     const HIDDEN = new Set(["분류", "상태", "이명", "초상", "공개", "만든날", "정리", "cssclasses", "cssclass", "tags", "aliases", "position", "투력 기록", "전투 등급", "의지 · 실현 등급", "내성주", ...STATS]);
