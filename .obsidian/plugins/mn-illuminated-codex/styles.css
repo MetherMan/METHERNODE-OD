@@ -9129,7 +9129,14 @@ body .mn-codex .mn-codex__petal {
 .mn-status__notice { margin-top:12px; padding:8px 10px; color:#9b3b2f; border:1px solid rgba(155,59,47,.4); font:600 12px/1.4 "Pretendard","Noto Sans KR",sans-serif; }
 .mn-status__lead { padding:14px 0 10px; color:#5d6878; font:500 12px/1.5 "Pretendard","Noto Sans KR",sans-serif; border-bottom:1px solid rgba(29,36,51,.14); }
 .mn-status__section { padding:12px 0 14px; border-bottom:1px solid rgba(29,36,51,.12); }
-.mn-status__title { margin-bottom:8px; color:#131b28; font:700 15px/1.2 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:.08em; }
+.mn-status__head { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; margin-bottom:10px; }
+.mn-status__title { color:#131b28; font:700 15px/1.2 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:.08em; }
+/* 기본 정보: 칸 셋씩, 여러 값(소속 등)은 한 줄 전체에 값마다 한 칸 */
+.mn-status__info { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px 16px; }
+.mn-status__field.is-list { grid-column:1 / -1; }
+.mn-status__items { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
+.mn-status__item { display:flex; align-items:center; gap:2px; flex:1 1 15em; min-width:0; max-width:24em; }
+.mn-status__items .mn-status__add { margin-left:0; }
 .mn-status__pair { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px 16px; }
 .mn-status__field { display:flex; flex-direction:column; gap:5px; min-width:0; }
 .mn-status__input {
@@ -9138,7 +9145,6 @@ body .mn-codex .mn-codex__petal {
 }
 .mn-status__input:focus { border-color:#9a7b3c; outline:none; box-shadow:none; }
 .mn-status__input::placeholder { color:#a3acba; }
-.mn-status__input.is-bad { border-color:#9b3b2f; background:#fbefed; }
 .mn-status__log { margin-top:12px; }
 .mn-status__log-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 12px; margin-bottom:6px; }
 .mn-status__log-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,.6fr) 1.6em; align-items:center; gap:8px; padding:4px 0; }
@@ -9147,28 +9153,44 @@ body .mn-codex .mn-codex__petal {
 .mn-status__add:hover, .mn-status__add:focus-visible { border-style:solid; background:rgba(154,123,60,.08); outline:none; }
 .mn-status__remove { display:flex; align-items:center; justify-content:center; width:1.6em; height:1.6em; cursor:pointer; color:#8c97a8; font:600 15px/1 "Pretendard",sans-serif; }
 .mn-status__remove:hover, .mn-status__remove:focus-visible { color:#9b3b2f; outline:none; }
-.mn-status__row { display:grid; grid-template-columns:minmax(6.5em,auto) auto minmax(0,1fr) 5.4em; align-items:center; gap:10px; padding:5px 0; }
+.mn-status__row { display:grid; grid-template-columns:6.5em auto minmax(0,1fr) 5.4em; align-items:center; gap:12px; padding:5px 0; }
+/* 등급: 단 고르기 + Ⅰ~Ⅹ 칸 (기록표의 칸 그림과 같은 색: 채운 칸 남색, 고른 칸 금색) */
+.mn-status__grade { display:inline-flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.mn-status select.mn-status__tier {
+  box-sizing:border-box; width:4.8em; height:30px; margin:0; padding:0 4px 0 8px; border:1px solid rgba(29,36,51,.22); border-radius:0;
+  background-color:#fff; color:#131b28; font:700 14px/1 "MN Bodoni Moda",Didot,"Noto Serif KR",serif; box-shadow:none; cursor:pointer;
+}
+.mn-status select.mn-status__tier.is-unset { color:#8c97a8; font:600 12px/1 "Pretendard","Noto Sans KR",sans-serif; }
+.mn-status select.mn-status__tier:focus { border-color:#9a7b3c; outline:none; box-shadow:none; }
+.mn-status__steps { display:inline-flex; gap:2px; }
+.mn-status__pick {
+  display:flex; align-items:center; justify-content:center; width:25px; height:28px; cursor:pointer; user-select:none;
+  color:#6b7686; background:#dde2ea; font:700 10.5px/1 "Noto Serif KR","MN Bodoni Moda",serif; transition:background-color .12s ease, color .12s ease;
+}
+.mn-status__pick:hover, .mn-status__pick:focus-visible { color:#131b28; background:#c9d0db; outline:none; }
+.mn-status__pick.is-on { color:#dfe5ee; background:#2c3a52; }
+.mn-status__pick.is-last { color:#fff; background:#9a7b3c; }
+.mn-status__pick.is-on:hover { background:#3b4b66; }
+.mn-status__pick.is-last:hover { background:#a8884a; }
+.mn-status__raw { color:#9b3b2f; font:600 11px/1.3 "Pretendard","Noto Sans KR",sans-serif; }
+.mn-status__raw:empty { display:none; }
 .mn-status__row.is-big { padding:7px 0; border-top:1px solid rgba(29,36,51,.08); }
 .mn-status__axes > .mn-status__row.is-big:first-child { border-top:0; }
 .mn-status__axis { color:#2c3a52; font:700 13px/1.2 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; }
 .mn-status__row.is-big > .mn-status__axis { color:#131b28; font:700 14px/1.2 "Noto Serif KR","MN Bodoni Moda",serif; }
-.mn-status__grade { display:inline-flex; align-items:center; }
-.mn-status__grade .mn-status__input { width:6.4em; text-align:center; font:700 13px/1 "Noto Serif KR","Pretendard",serif; }
-.mn-status__step { display:flex; align-items:center; justify-content:center; width:26px; height:30px; cursor:pointer; color:#4e6382; border:1px solid rgba(29,36,51,.2); background:#e4e8ef; font:700 14px/1 "Pretendard",sans-serif; user-select:none; }
-.mn-status__step:first-child { border-right:0; }
-.mn-status__step:last-child { border-left:0; }
-.mn-status__step:hover, .mn-status__step:focus-visible { color:#eef1f5; background:#2c3a52; border-color:#2c3a52; outline:none; }
 .mn-status__toggle { justify-self:end; padding:5px 8px; cursor:pointer; color:#4e6382; border:1px solid rgba(29,36,51,.16); font:700 11px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; white-space:nowrap; }
 .mn-status__toggle:hover, .mn-status__toggle:focus-visible, .mn-status__toggle.is-open { color:#7a5f2c; border-color:rgba(154,123,60,.55); outline:none; }
 .mn-status__subs { margin:0 0 8px; padding:4px 12px 8px 14px; border-left:2px solid rgba(154,123,60,.5); background:rgba(29,36,51,.03); }
-.mn-status__subs .mn-status__row { grid-template-columns:minmax(6.5em,auto) auto minmax(0,1fr) 1.6em; }
+.mn-status__subs .mn-status__row { grid-template-columns:6.5em auto minmax(0,1fr) 1.6em; }
 .mn-status__more { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; margin-top:6px; }
 .mn-status__more .mn-status__add { margin-left:0; align-self:center; }
 .mn-status__foot { position:sticky; bottom:-20px; display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; margin:0 -24px -20px; padding:12px 24px 16px; background:#e4e8ef; border-top:1px solid rgba(29,36,51,.14); }
 @media (max-width:700px) {
   .mn-record-modal .modal-content { padding:0 14px 16px; }
-  .mn-status__row, .mn-status__row.is-big { grid-template-columns:minmax(4.6em,auto) auto minmax(0,1fr); }
-  .mn-status__row > .mn-status__input:not(.is-grade) { grid-column:1 / -1; grid-row:2; }
+  .mn-status__info { grid-template-columns:repeat(2, minmax(0,1fr)); }
+  .mn-status__row, .mn-status__row.is-big, .mn-status__subs .mn-status__row { grid-template-columns:4.6em minmax(0,1fr) auto; }
+  .mn-status__row > .mn-status__input { grid-column:1 / -1; grid-row:2; }
+  .mn-status__pick { width:22px; }
   .mn-status__toggle, .mn-status__row > .mn-status__remove, .mn-status__row > span:empty { grid-column:3; grid-row:1; justify-self:end; }
   .mn-status__log-row { grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,.6fr) 1.6em; }
   .mn-resist__body { grid-template-columns:minmax(0,1fr); }

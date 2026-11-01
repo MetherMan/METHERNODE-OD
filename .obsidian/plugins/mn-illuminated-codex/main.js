@@ -1439,20 +1439,25 @@ class ResistPanelModal extends Modal {
   }
 }
 
-/** 스테이터스 고치기 패널 (작가 2026-11-01 「옵시디언에서 내가 수정 못 해?」): 투력 · 항력 · 관측 기록 · 전투 · 의지 · 실현을 한 창에서 고쳐 노트 속성에 씀 */
+/** 기록 고치기 패널 (작가 2026-11-01 「옵시디언에서 내가 수정 못 해?」): 기본 정보 · 투력 · 항력 · 관측 기록 · 전투 · 의지 · 실현을 한 창에서 고쳐 노트 속성에 씀. focus = 처음 보여 줄 칸(수치 · 전투) */
 class StatusPanelModal extends Modal {
-  constructor(app, plugin, sourcePath, options, name) {
+  constructor(app, plugin, sourcePath, options, name, focus = "") {
     super(app);
     this.plugin = plugin;
     this.sourcePath = sourcePath;
     this.options = options || {};
     this.name = name;
+    this.focus = focus;
   }
 
   onOpen() {
     this.modalEl.addClass("mn-record-modal", "mn-status-modal");
-    this.titleEl.setText(`${this.name} · 스테이터스 고치기`);
+    this.titleEl.setText(`${this.name} · 기록 고치기`);
     this.plugin.recordStatusEditor(this.contentEl, this.sourcePath, this.options, () => this.close());
+    if (this.focus) {
+      const title = [...this.contentEl.querySelectorAll(".mn-status__title")].find((node) => node.textContent === this.focus);
+      if (title) this.contentEl.scrollTop += title.closest(".mn-status__section").getBoundingClientRect().top - this.contentEl.getBoundingClientRect().top - 8;
+    }
   }
 
   onClose() {
@@ -6471,8 +6476,9 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     return svg;
   }
 
-  /** 스테이터스 고치기 패널 안: 수치(투력 · 항력 · 관측 기록) → 전투(큰 축 · 세부) → 의지 · 실현.
-   *  고친 값은 「저장」 때 한 번에 노트 속성(투력 · 항력 · 투력 기록 · 전투 등급 · 의지 · 실현 등급)에 씀. 블록 초안이었으면 속성으로 옮겨짐 */
+  /** 스테이터스 고치기 패널 안: 기본 정보(이명 · 소속 · 키 …) → 수치(투력 · 항력 · 관측 기록) → 전투(큰 축 · 세부) → 의지 · 실현.
+   *  등급은 단(M0, M1 …)을 고르고 칸(Ⅰ~Ⅹ)을 눌러 정함(작가 2026-11-01: 「+ − 를 언제 다 누르냐」).
+   *  고친 값은 「저장」 때 한 번에 노트 속성에 씀. 블록 초안이었으면 속성으로 옮겨짐 */
   recordStatusEditor(root, sourcePath, options = {}, done = () => {}) {
     const vault = this.app && this.app.vault;
     const cache = this.app && this.app.metadataCache;
@@ -6486,6 +6492,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       return Array.isArray(value) ? value : value ? [value] : [];
     };
     const UNSET = /^(미정|\?|-|—)$/u;
+    const NUMBER = /^-?\d+(\.\d+)?$/u;
     const ALIAS = { 내구: "내구도", 민첩함: "민첩" };
     const DEFAULTS = { "의지 · 실현 등급": ["의지", "실현", "결속", "정신", "인도", "카리스마"] };
     const gradeOf = (value) => {
@@ -6498,6 +6505,18 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       return UNSET.test(text) ? "" : text;
     };
     const drafts = ["투력 기록", "전투 등급", "의지 · 실현 등급"].filter((key) => !present(front[key]) && options && present(options[key]));
+
+    // 기본 정보: 기록표 칸에 보이는 속성(관리용 · 스테이터스 칸 빼고). 링크는 [[노트|보일 이름]] 그대로, 여러 값은 한 칸씩
+    const SKIP = new Set(["분류", "초상", "공개", "만든날", "정리", "cssclasses", "cssclass", "tags", "aliases", "position", "투력 기록", "전투 등급", "의지 · 실현 등급", "내성주", "투력", "항력"]);
+    const basicKeys = ["이명", "상태", ...Object.keys(front).filter((key) => !SKIP.has(key) && key !== "이명" && key !== "상태")];
+    ["소속", "종족", "하는 일", "위치", "시점"].forEach((key) => { if (!basicKeys.includes(key)) basicKeys.push(key); });
+    const asField = (value) => (value === undefined || value === null ? "" : UNSET.test(String(value).trim()) ? "" : String(value));
+    const basic = basicKeys.filter((key) => !(front[key] && typeof front[key] === "object" && !Array.isArray(front[key]))).map((key) => {
+      const value = front[key];
+      const list = Array.isArray(value);
+      const items = list ? value.map(asField) : [asField(value)];
+      return { key, list, items: items.length ? items : [""], had: key in front, number: typeof value === "number", before: JSON.stringify(items) };
+    });
 
     // 고치는 동안의 사본: 큰 축마다 { axis, grade, note, subs: [{ axis, grade, note, custom }] }
     const frameOf = (key) => {
@@ -6547,47 +6566,89 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       input.addEventListener("input", () => onInput(input.value.trim()));
       return input;
     };
-    // 등급 칸: 「M3 Ⅳ」 · 「M3 IV」 · 「M3 4」 다 받음(칸을 떠나면 「M3 Ⅳ」로). − / + 로 한 칸씩
+    // 등급: 왼쪽에서 단(미정 · M0 · M1 …)을 고르고, 오른쪽 Ⅰ~Ⅹ 칸을 눌러 칸을 정함.
+    // 단을 안 골랐는데 칸을 누르면 큰 축(세부면 그 큰 축) 또는 그 틀에서 가장 높은 단으로
     const gradeField = (parent, item, fallback) => {
-      const wrap = parent.createSpan({ cls: "mn-status__grade" });
-      const minus = wrap.createSpan({ cls: "mn-status__step", text: "−", attr: { title: "한 칸 내리기" } });
-      const input = wrap.createEl("input", { cls: "mn-status__input is-grade", attr: { type: "text", placeholder: "미정" } });
-      const plus = wrap.createSpan({ cls: "mn-status__step", text: "+", attr: { title: "한 칸 올리기" } });
-      input.value = item.grade;
-      const check = () => input.toggleClass("is-bad", !!input.value.trim() && !UNSET.test(input.value.trim()) && !parseRecordGrade(input.value));
-      input.addEventListener("input", () => { item.grade = input.value.trim(); check(); });
-      input.addEventListener("blur", () => {
-        const grade = parseRecordGrade(input.value);
-        if (grade) input.value = recordGradeText(grade);
-        else if (UNSET.test(input.value.trim())) input.value = "";
-        item.grade = input.value.trim();
-        check();
+      const wrap = parent.createDiv({ cls: "mn-status__grade" });
+      const tier = wrap.createEl("select", { cls: "mn-status__tier", attr: { "aria-label": "단" } });
+      const now = parseRecordGrade(item.grade);
+      const top = Math.max(12, now ? now.tier + 3 : 0);
+      tier.createEl("option", { text: "미정", attr: { value: "" } });
+      for (let value = 0; value <= top; value += 1) tier.createEl("option", { text: `M${value}`, attr: { value: String(value) } });
+      const steps = wrap.createDiv({ cls: "mn-status__steps" });
+      const picks = GRADE_STEPS.map((mark, index) => {
+        const node = steps.createSpan({ cls: "mn-status__pick", text: mark });
+        press(node, () => {
+          const grade = parseRecordGrade(item.grade) || parseRecordGrade(fallback()) || { tier: 0 };
+          item.grade = recordGradeText({ tier: grade.tier, step: index + 1 });
+          paint();
+        });
+        return node;
       });
-      const bump = (delta) => {
-        const now = parseRecordGrade(input.value);
-        let grade;
-        if (now) {
-          const index = Math.max(0, now.tier * 10 + now.step - 1 + delta);
-          grade = { tier: Math.floor(index / 10), step: (index % 10) + 1 };
-        } else grade = parseRecordGrade(fallback()) || { tier: 0, step: 1 };
-        input.value = recordGradeText(grade);
-        item.grade = input.value;
-        check();
+      // 「M3 Ⅳ」 꼴이 아닌 글이 적혀 있으면 그대로 두고 알려 줌(무엇을 고르면 바뀜)
+      const raw = wrap.createSpan({ cls: "mn-status__raw" });
+      const paint = () => {
+        const grade = parseRecordGrade(item.grade);
+        tier.value = grade ? String(grade.tier) : "";
+        tier.toggleClass("is-unset", !grade);
+        picks.forEach((node, index) => {
+          node.toggleClass("is-on", !!grade && index < grade.step);
+          node.toggleClass("is-last", !!grade && index === grade.step - 1);
+          node.setAttr("title", `${grade ? `M${grade.tier}` : "단 미정"} ${GRADE_STEPS[index]}`);
+        });
+        raw.setText(!grade && item.grade ? `적힌 값: ${item.grade}` : "");
       };
-      press(minus, () => bump(-1));
-      press(plus, () => bump(1));
-      check();
-      return input;
+      tier.addEventListener("change", () => {
+        if (tier.value === "") item.grade = "";
+        else {
+          const grade = parseRecordGrade(item.grade);
+          item.grade = recordGradeText({ tier: Number(tier.value), step: grade ? grade.step : 1 });
+        }
+        paint();
+      });
+      paint();
+      return wrap;
     };
 
     if (!writable) root.createDiv({ cls: "mn-status__notice", text: "이 창에서는 노트 속성에 쓸 수 없어요" });
     root.createDiv({ cls: "mn-status__lead", text: drafts.length
       ? `지금 ${drafts.join(" · ")}은 기록표 블록에 적은 초안(미리보기, 모양을 보이려고 넣은 예시 값 포함)이에요 · 저장하면 노트 속성으로 옮겨져요`
-      : "고친 값은 「저장」을 누르면 노트 속성에 들어가요 · 등급은 「M3 Ⅳ」처럼, − / + 로 한 칸씩" });
+      : "고친 값은 「저장」을 누르면 노트 속성에 들어가요" });
+    const section = (title, hint) => {
+      const box = root.createDiv({ cls: "mn-status__section" });
+      const head = box.createDiv({ cls: "mn-status__head" });
+      head.createSpan({ cls: "mn-status__title", text: title });
+      if (hint) head.createSpan({ cls: "mn-record__section-sub", text: hint });
+      return box;
+    };
 
-    // ① 수치: 투력 · 항력 · 관측 기록(맨 위 줄이 최신)
-    const numbers = root.createDiv({ cls: "mn-status__section" });
-    numbers.createDiv({ cls: "mn-status__title", text: "수치" });
+    // ① 기본 정보
+    const info = section("기본 정보", "링크는 [[노트|보일 이름]]처럼 그대로 · 여러 값은 한 칸씩");
+    const infoGrid = info.createDiv({ cls: "mn-status__info" });
+    basic.forEach((field) => {
+      const wrap = infoGrid.createDiv({ cls: `mn-status__field${field.list ? " is-list" : ""}` });
+      wrap.createSpan({ cls: "mn-record__label", text: field.key });
+      if (!field.list) {
+        textInput(wrap, field.items[0], "미정", (value) => { field.items[0] = value; });
+        return;
+      }
+      const items = wrap.createDiv({ cls: "mn-status__items" });
+      const drawItems = () => {
+        items.empty();
+        field.items.forEach((value, index) => {
+          const line = items.createDiv({ cls: "mn-status__item" });
+          textInput(line, value, "미정", (next) => { field.items[index] = next; });
+          const remove = line.createSpan({ cls: "mn-status__remove", text: "×", attr: { title: "이 값 지우기" } });
+          press(remove, () => { field.items.splice(index, 1); if (!field.items.length) field.items.push(""); drawItems(); });
+        });
+        const add = items.createSpan({ cls: "mn-status__add", text: "＋ 값 더하기" });
+        press(add, () => { field.items.push(""); drawItems(); items.querySelectorAll("input")[field.items.length - 1]?.focus(); });
+      };
+      drawItems();
+    });
+
+    // ② 수치: 투력 · 항력 · 관측 기록(맨 위 줄이 최신)
+    const numbers = section("수치");
     const pair = numbers.createDiv({ cls: "mn-status__pair" });
     [["투력", "power", "예: 160만~163만"], ["항력", "resist", "예: 4"]].forEach(([label, key, placeholder]) => {
       const wrap = pair.createEl("label", { cls: "mn-status__field" });
@@ -6614,10 +6675,9 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     };
     drawLog();
 
-    // ② 틀마다: 큰 축 줄(이름 · 등급 · 메모 · 세부) → 누르면 세부 줄(정해 둔 세부 + 따로 더한 세부)
+    // ③ 틀마다: 큰 축 줄(이름 · 단 · Ⅰ~Ⅹ · 메모 · 세부) → 「세부」를 누르면 그 아래에 세부 줄(정해 둔 세부 + 따로 더한 세부)
     model.frames.forEach((frame) => {
-      const box = root.createDiv({ cls: "mn-status__section" });
-      box.createDiv({ cls: "mn-status__title", text: frame.title });
+      const box = section(frame.title, "단을 고르고 Ⅰ~Ⅹ 칸을 눌러요 · 「세부」를 누르면 그 축의 세부");
       const list = box.createDiv({ cls: "mn-status__axes" });
       const best = () => frame.bigs.map((big) => big.grade).filter((grade) => parseRecordGrade(grade)).sort((a, b) => {
         const x = parseRecordGrade(a), y = parseRecordGrade(b);
@@ -6670,17 +6730,26 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     press(cancel, () => done());
     press(ok, async () => {
       if (!writable) { error.setText("노트 속성에 쓸 수 없어요"); return; }
-      const bad = root.querySelector("input.is-bad");
-      if (bad) { error.setText("등급은 「M3 Ⅳ」처럼 적어요 · 빨간 칸을 고쳐 주세요"); bad.focus(); return; }
       const line = (name, item) => `${name}: ${item.grade || "미정"}${item.note ? ` — ${item.note}` : ""}`;
       const lists = {};
       model.frames.forEach((frame) => {
         lists[frame.key] = frame.bigs.flatMap((big) => [line(big.axis, big), ...big.subs.filter((sub) => sub.grade || sub.note || sub.custom).map((sub) => line(`${big.axis} > ${sub.axis}`, sub))]);
       });
       const log = model.log.filter((row) => row.time || row.power || row.resist).map((row) => `${row.time || "미정"} · ${row.power || "미정"} · ${row.resist || "미정"}`);
-      const number = (value) => (/^-?\d+(\.\d+)?$/u.test(value) ? Number(value) : value);
+      const number = (value) => (NUMBER.test(value) ? Number(value) : value);
       ok.setText("적는 중…");
       await manager.processFrontMatter(file, (fm) => {
+        // 기본 정보는 바뀐 칸만 씀. 비우면 「미정」(원래 없던 칸을 비워 두면 안 씀)
+        basic.forEach((field) => {
+          const values = field.items.map((value) => value.trim());
+          if (JSON.stringify(values) === field.before) return;
+          const kept = values.filter(Boolean);
+          if (field.list) {
+            if (kept.length) fm[field.key] = kept;
+            else if (field.had) fm[field.key] = "미정";
+          } else if (kept[0]) fm[field.key] = field.number || !field.had ? number(kept[0]) : kept[0];
+          else if (field.had) fm[field.key] = "미정";
+        });
         [["투력", model.power], ["항력", model.resist]].forEach(([key, value]) => {
           if (value) fm[key] = number(value);
           else if (key in fm) fm[key] = "미정";
@@ -7034,16 +7103,16 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     if (test) tags.createSpan({ cls: "mn-record__tag is-test", text: "시험" });
     if (has(front["상태"])) tags.createSpan({ cls: "mn-record__tag", text: this.plainLink(front["상태"]) });
     // 스테이터스는 기록표에서 바로 고침(작가 2026-11-01): 읽기 화면에선 속성 칸이 숨겨지고, 초안은 블록 글 안이라 옵시디언에서 고치기 어려웠음
-    const editStatus = (event) => {
+    const editStatus = (event, focus = "") => {
       if (event) { event.preventDefault(); event.stopPropagation(); }
-      new StatusPanelModal(this.app, this, sourcePath, options, name).open();
+      new StatusPanelModal(this.app, this, sourcePath, options, name, focus).open();
     };
-    const editButton = (parent, cls, text) => {
-      const node = parent.createSpan({ cls, text, attr: { role: "button", tabindex: "0", title: "투력 · 항력 · 관측 기록 · 전투 · 의지 · 실현을 고쳐요" } });
-      node.addEventListener("click", editStatus);
-      node.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") editStatus(event); });
+    const editButton = (parent, cls, text, focus = "") => {
+      const node = parent.createSpan({ cls, text, attr: { role: "button", tabindex: "0", title: "기본 정보 · 투력 · 항력 · 관측 기록 · 전투 · 의지 · 실현을 고쳐요" } });
+      node.addEventListener("click", (event) => editStatus(event, focus));
+      node.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") editStatus(event, focus); });
     };
-    editButton(tags, "mn-record__tag mn-record__edit", "✎ 스테이터스 고치기");
+    editButton(tags, "mn-record__tag mn-record__edit", "✎ 기록 고치기");
 
     const sheet = el.createDiv({ cls: "mn-record__sheet" });
     const STATS = ["투력", "항력"];
@@ -7067,12 +7136,12 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       const value = sourceOf(key);
       return Array.isArray(value) ? value : value ? [value] : [];
     };
-    const sectionHead = (box, label, sub, key, edit = false) => {
+    const sectionHead = (box, label, sub, key, edit = "") => {
       const head = box.createDiv({ cls: "mn-record__section-head" });
       head.createSpan({ cls: "mn-record__label", text: label });
       head.createSpan({ cls: "mn-record__section-sub", text: sub });
       if ([].concat(key).some(draft)) head.createSpan({ cls: "mn-record__draft", text: "미리보기", attr: { title: "속성에 아직 없고 기록표 블록에 적은 초안이에요" } });
-      if (edit) editButton(head, "mn-record__edit-link", "✎ 고치기");
+      if (edit) editButton(head, "mn-record__edit-link", "✎ 고치기", edit);
     };
     // 「시점 · 투력 · 항력」 글 한 줄 또는 { 시점, 투력, 항력 }
     const log = listOf("투력 기록").map((item) => {
@@ -7082,7 +7151,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     }).filter((row) => row.power || row.resist);
     if (log.length) {
       const box = sheet.createDiv({ cls: "mn-record__section" });
-      sectionHead(box, "관측 기록", "잰 때와 함께 쌓아요 · 오르면 위에 한 줄 더하고 옛 값은 성장 기록으로", "투력 기록", true);
+      sectionHead(box, "관측 기록", "잰 때와 함께 쌓아요 · 오르면 위에 한 줄 더하고 옛 값은 성장 기록으로", "투력 기록", "수치");
       const rows = box.createDiv({ cls: "mn-record__log" });
       log.forEach((row, index) => {
         const line = rows.createDiv({ cls: `mn-record__log-row${index === 0 ? " is-latest" : ""}` });
@@ -7156,7 +7225,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const frames = FRAMES.map(([title, key]) => buildFrame(title, key)).filter((frame) => frame.written);
     if (frames.length) {
       const box = sheet.createDiv({ cls: "mn-record__section" });
-      sectionHead(box, "능력 · 등급", "M0 Ⅰ부터 한 단에 Ⅰ~Ⅹ, Ⅹ 다음은 다음 단 Ⅰ · 틀마다 따로", frames.map((frame) => frame.key), true);
+      sectionHead(box, "능력 · 등급", "M0 Ⅰ부터 한 단에 Ⅰ~Ⅹ, Ⅹ 다음은 다음 단 Ⅰ · 틀마다 따로", frames.map((frame) => frame.key), "전투");
       // 펼친 큰 축은 노트 · 틀마다 하나씩 기억(속성이 바뀌어 다시 그려도 그대로)
       if (!this.recordAxisState) this.recordAxisState = new Map();
       if (!this.recordAxisState.has(sourcePath)) this.recordAxisState.set(sourcePath, {});
