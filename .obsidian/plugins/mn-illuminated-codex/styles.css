@@ -8810,7 +8810,9 @@ body .mn-codex .mn-codex__petal {
 .mn-record__kicker::before { content:""; width:32px; border-top:1px solid #9aa6b8; }
 .mn-record__alias { margin-top:12px; color:#9fb2cc; font:700 11px/1.2 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.2em; }
 .mn-record__title { margin-top:6px; color:#f2f4f7; font:650 clamp(24px,3.6cqi,38px)/1 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:-.03em; }
-.mn-record__tags { display:flex; gap:6px; margin-left:auto; }
+.mn-record__tags { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; margin-left:auto; }
+.mn-record__tag.mn-record__edit { cursor:pointer; color:#e6d3a8; border-color:rgba(214,186,124,.55); transition:background-color .15s ease, color .15s ease; }
+.mn-record__tag.mn-record__edit:hover, .mn-record__tag.mn-record__edit:focus-visible { color:#1d2433; background:#d6ba7c; outline:none; }
 .mn-record__tag { padding:4px 8px 5px; border:1px solid rgba(159,178,204,.42); color:#9fb2cc; font:600 11px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.06em; }
 .mn-record__tag.is-test { color:#1d2433; background:#c9d1dc; border-color:#c9d1dc; }
 .mn-record__sheet { color:#131b28; background:#eef1f5; border:1px solid rgba(201,209,220,.7); outline:1px solid rgba(154,166,184,.25); outline-offset:3px; }
@@ -8924,6 +8926,9 @@ body .mn-codex .mn-codex__petal {
 /* 기록표 스테이터스: 관측 기록 · 능력 (작가와 정함 2026-10-30). 속성에 없고 블록에 적은 초안이면 「미리보기」 표시 */
 .mn-record__section { padding:clamp(12px,2cqi,18px) clamp(14px,2.4cqi,22px) clamp(10px,1.6cqi,14px); border-bottom:1px solid rgba(29,36,51,.16); }
 .mn-record__section-head { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; margin-bottom:8px; }
+.mn-record__edit-link { margin-left:auto; padding:3px 7px; cursor:pointer; color:#7a5f2c; border:1px solid rgba(154,123,60,.4); font:700 10px/1.2 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.08em; white-space:nowrap; }
+.mn-record__draft + .mn-record__edit-link { margin-left:0; }
+.mn-record__edit-link:hover, .mn-record__edit-link:focus-visible { color:#eef1f5; background:#7a5f2c; border-color:#7a5f2c; outline:none; }
 .mn-record__section-sub { color:#7c8698; font:500 11px/1.4 "Pretendard","Noto Sans KR",sans-serif; }
 .mn-record__draft { margin-left:auto; padding:3px 7px 4px; border:1px dashed #4e6382; color:#4e6382; font:700 10px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.12em; }
 .mn-record__log-row {
@@ -9075,18 +9080,18 @@ body .mn-codex .mn-codex__petal {
 .mn-record__resist-arrow { color:#9a7b3c; }
 .mn-record__resist-step.is-now { color:#131b28; font-weight:700; }
 /* 내성주 관리 패널 (작가 2026-11-01 「별도 패널이 열리게 해서 관리」): 기록표와 같은 종이 · 남색, 왼쪽 목록 · 오른쪽 자세히 */
-.modal.mn-resist-modal {
+.modal.mn-record-modal {
   display:flex; flex-direction:column; width:min(980px, 94vw); max-width:none; max-height:88vh; padding:0; overflow:hidden;
   color:#131b28; background:#eef1f5; border:1px solid rgba(154,166,184,.55); border-radius:0; box-shadow:0 18px 60px rgba(0,0,0,.45);
 }
-.mn-resist-modal .modal-header { margin:0; padding:0; }
-.mn-resist-modal .modal-title {
+.mn-record-modal .modal-header { margin:0; padding:0; }
+.mn-record-modal .modal-title {
   margin:0; padding:18px 56px 16px 24px; color:#f2f4f7; background:linear-gradient(rgba(23,30,43,.92), rgba(23,30,43,.96)), #1d2433;
   font:650 21px/1.2 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:-.01em;
 }
-.mn-resist-modal .modal-close-button { top:14px; right:16px; color:#c9d1dc; }
-.mn-resist-modal .modal-close-button:hover { color:#fff; background:rgba(255,255,255,.08); }
-.mn-resist-modal .modal-content { flex:1; min-height:0; margin:0; padding:0 24px 20px; overflow:auto; }
+.mn-record-modal .modal-close-button { top:14px; right:16px; color:#c9d1dc; }
+.mn-record-modal .modal-close-button:hover { color:#fff; background:rgba(255,255,255,.08); }
+.mn-record-modal .modal-content { flex:1; min-height:0; margin:0; padding:0 24px 20px; overflow:auto; }
 .mn-resist__head { display:flex; flex-wrap:wrap; align-items:center; gap:8px 22px; padding:14px 0 12px; border-bottom:1px solid rgba(29,36,51,.14); }
 .mn-resist__lead { flex:1 1 100%; color:#5d6878; font:500 12px/1.5 "Pretendard","Noto Sans KR",sans-serif; }
 .mn-resist__facts { display:flex; flex-wrap:wrap; align-items:center; gap:6px 24px; }
@@ -9120,8 +9125,52 @@ body .mn-codex .mn-codex__petal {
 .mn-resist__card .mn-record__resist-note { margin-top:6px; font-size:13px; }
 .mn-resist__card .mn-record__resist-trail { margin-top:10px; }
 .mn-resist__card .mn-record__resist-row-actions { margin-top:16px; padding-top:10px; border-top:1px solid rgba(29,36,51,.08); }
+/* 스테이터스 고치기 창 (작가 2026-11-01): 수치 → 전투 → 의지 · 실현, 큰 축 줄을 누르면 세부 줄 */
+.mn-status__notice { margin-top:12px; padding:8px 10px; color:#9b3b2f; border:1px solid rgba(155,59,47,.4); font:600 12px/1.4 "Pretendard","Noto Sans KR",sans-serif; }
+.mn-status__lead { padding:14px 0 10px; color:#5d6878; font:500 12px/1.5 "Pretendard","Noto Sans KR",sans-serif; border-bottom:1px solid rgba(29,36,51,.14); }
+.mn-status__section { padding:12px 0 14px; border-bottom:1px solid rgba(29,36,51,.12); }
+.mn-status__title { margin-bottom:8px; color:#131b28; font:700 15px/1.2 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:.08em; }
+.mn-status__pair { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px 16px; }
+.mn-status__field { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.mn-status__input {
+  box-sizing:border-box; width:100%; min-width:0; height:30px; margin:0; padding:0 9px; border:1px solid rgba(29,36,51,.2); border-radius:0;
+  background:#fff; color:#131b28; font:500 13px/1 "Pretendard","Noto Sans KR",sans-serif; box-shadow:none;
+}
+.mn-status__input:focus { border-color:#9a7b3c; outline:none; box-shadow:none; }
+.mn-status__input::placeholder { color:#a3acba; }
+.mn-status__input.is-bad { border-color:#9b3b2f; background:#fbefed; }
+.mn-status__log { margin-top:12px; }
+.mn-status__log-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 12px; margin-bottom:6px; }
+.mn-status__log-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,.6fr) 1.6em; align-items:center; gap:8px; padding:4px 0; }
+.mn-status__log-row.is-latest .mn-status__input { border-color:rgba(154,123,60,.55); }
+.mn-status__add { margin-left:auto; padding:5px 9px; cursor:pointer; color:#7a5f2c; border:1px dashed rgba(154,123,60,.6); font:700 11px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.06em; white-space:nowrap; }
+.mn-status__add:hover, .mn-status__add:focus-visible { border-style:solid; background:rgba(154,123,60,.08); outline:none; }
+.mn-status__remove { display:flex; align-items:center; justify-content:center; width:1.6em; height:1.6em; cursor:pointer; color:#8c97a8; font:600 15px/1 "Pretendard",sans-serif; }
+.mn-status__remove:hover, .mn-status__remove:focus-visible { color:#9b3b2f; outline:none; }
+.mn-status__row { display:grid; grid-template-columns:minmax(6.5em,auto) auto minmax(0,1fr) 5.4em; align-items:center; gap:10px; padding:5px 0; }
+.mn-status__row.is-big { padding:7px 0; border-top:1px solid rgba(29,36,51,.08); }
+.mn-status__axes > .mn-status__row.is-big:first-child { border-top:0; }
+.mn-status__axis { color:#2c3a52; font:700 13px/1.2 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; }
+.mn-status__row.is-big > .mn-status__axis { color:#131b28; font:700 14px/1.2 "Noto Serif KR","MN Bodoni Moda",serif; }
+.mn-status__grade { display:inline-flex; align-items:center; }
+.mn-status__grade .mn-status__input { width:6.4em; text-align:center; font:700 13px/1 "Noto Serif KR","Pretendard",serif; }
+.mn-status__step { display:flex; align-items:center; justify-content:center; width:26px; height:30px; cursor:pointer; color:#4e6382; border:1px solid rgba(29,36,51,.2); background:#e4e8ef; font:700 14px/1 "Pretendard",sans-serif; user-select:none; }
+.mn-status__step:first-child { border-right:0; }
+.mn-status__step:last-child { border-left:0; }
+.mn-status__step:hover, .mn-status__step:focus-visible { color:#eef1f5; background:#2c3a52; border-color:#2c3a52; outline:none; }
+.mn-status__toggle { justify-self:end; padding:5px 8px; cursor:pointer; color:#4e6382; border:1px solid rgba(29,36,51,.16); font:700 11px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; white-space:nowrap; }
+.mn-status__toggle:hover, .mn-status__toggle:focus-visible, .mn-status__toggle.is-open { color:#7a5f2c; border-color:rgba(154,123,60,.55); outline:none; }
+.mn-status__subs { margin:0 0 8px; padding:4px 12px 8px 14px; border-left:2px solid rgba(154,123,60,.5); background:rgba(29,36,51,.03); }
+.mn-status__subs .mn-status__row { grid-template-columns:minmax(6.5em,auto) auto minmax(0,1fr) 1.6em; }
+.mn-status__more { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; margin-top:6px; }
+.mn-status__more .mn-status__add { margin-left:0; align-self:center; }
+.mn-status__foot { position:sticky; bottom:-20px; display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; margin:0 -24px -20px; padding:12px 24px 16px; background:#e4e8ef; border-top:1px solid rgba(29,36,51,.14); }
 @media (max-width:700px) {
-  .mn-resist-modal .modal-content { padding:0 14px 16px; }
+  .mn-record-modal .modal-content { padding:0 14px 16px; }
+  .mn-status__row, .mn-status__row.is-big { grid-template-columns:minmax(4.6em,auto) auto minmax(0,1fr); }
+  .mn-status__row > .mn-status__input:not(.is-grade) { grid-column:1 / -1; grid-row:2; }
+  .mn-status__toggle, .mn-status__row > .mn-status__remove, .mn-status__row > span:empty { grid-column:3; grid-row:1; justify-self:end; }
+  .mn-status__log-row { grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,.6fr) 1.6em; }
   .mn-resist__body { grid-template-columns:minmax(0,1fr); }
   .mn-resist__list { max-height:none; padding-right:0; border-right:0; border-bottom:1px solid rgba(29,36,51,.14); }
   .mn-resist__side { padding-top:12px; }
