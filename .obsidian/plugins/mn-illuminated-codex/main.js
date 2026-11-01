@@ -6589,21 +6589,25 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       if (!resists.length) {
         box.createDiv({ cls: "mn-record__resist-empty", text: "아직 정하지 않았어요 · 「이름: 패시브 · M3 Ⅳ · 충격 — 메모」처럼 한 줄씩 적어요" });
       } else {
-        // 접힌 요약: 몇 개 · 갈래별 · 가장 높은 등급 · 더 강해진 것
-        const best = resists.reduce((top, r) => (rank(r) > rank(top) ? r : top), resists[0]);
-        const grown = resists.filter((r) => r.history.length).length;
+        // 접힌 요약은 둘만(작가 2026-11-01): 몇 개 가졌는지 · 평균 수준. 평균은 등급을 적은 것만, M0 Ⅰ부터 센 칸 수의 평균을 반올림
+        const graded = resists.filter((r) => r.grade);
+        const meanIndex = graded.length ? Math.round(graded.reduce((sum, r) => sum + r.grade.tier * 10 + r.grade.step - 1, 0) / graded.length) : -1;
+        const mean = meanIndex >= 0 ? { tier: Math.floor(meanIndex / 10), step: (meanIndex % 10) + 1 } : null;
         const bar = box.createDiv({ cls: "mn-record__resist-bar" });
         const facts = bar.createDiv({ cls: "mn-record__resist-facts" });
-        const fact = (label, value, cls = "") => {
+        const fact = (label, cls = "", title = "") => {
           const item = facts.createSpan({ cls: `mn-record__resist-fact${cls}` });
+          if (title) item.setAttr("title", title);
           item.createSpan({ cls: "mn-record__label", text: label });
-          item.createSpan({ cls: "mn-record__resist-fact-value", text: value });
+          return item.createSpan({ cls: "mn-record__resist-fact-value" });
         };
-        fact("보유", `${resists.length}`, " is-count");
-        tally.forEach(([kind, count]) => fact(kind, `${count}`));
-        if (unsorted) fact("갈래 미정", `${unsorted}`);
-        if (best.grade) fact("가장 높은", `${gradeText(best.grade)} · ${best.name}`);
-        if (grown) fact("강해진 것", `${grown}`);
+        fact("보유", " is-count").setText(`${resists.length}`);
+        const average = fact("평균", " is-mean", mean && graded.length < resists.length ? `등급을 적은 ${graded.length}개의 평균이에요` : "");
+        if (mean) {
+          average.addClass("mn-record__grade");
+          average.createSpan({ cls: "mn-record__grade-tier", text: `M${mean.tier}` });
+          average.createSpan({ cls: "mn-record__grade-step", text: GRADE_STEPS[mean.step - 1] });
+        } else average.setText("미정");
         const toggle = bar.createSpan({ cls: "mn-record__resist-toggle" });
         const panel = box.createDiv({ cls: "mn-record__resist-panel" });
         const setOpen = (open) => {

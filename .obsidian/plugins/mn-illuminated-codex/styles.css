@@ -8989,6 +8989,10 @@ body .mn-codex .mn-codex__petal {
 .mn-record__resist-facts { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 18px; min-width:0; flex:1; }
 .mn-record__resist-fact { display:inline-flex; align-items:baseline; gap:7px; color:#2c3a52; font:600 13px/1.4 "Pretendard","Noto Sans KR",sans-serif; }
 .mn-record__resist-fact.is-count .mn-record__resist-fact-value { color:#7a5f2c; font:700 18px/1 "MN Bodoni Moda",Didot,"Noto Serif KR",serif; }
+.mn-record__resist-fact.is-mean .mn-record__resist-fact-value:not(.mn-record__grade) { color:#8c97a8; }
+.mn-record__resist-fact.is-mean .mn-record__grade-tier { font-size:17px; }
+.mn-record__resist-fact.is-mean .mn-record__grade-step { font-size:15px; }
+.mn-record__resist-fact.is-count { margin-right:6px; }
 .mn-record__resist-toggle { flex:none; margin-left:auto; color:#4e6382; font:700 12px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.08em; white-space:nowrap; }
 .mn-record__resist-panel { padding:4px 14px 8px; border:1px solid rgba(29,36,51,.14); border-top:0; }
 .mn-record__resist-panel[hidden] { display:none; }
