@@ -9088,6 +9088,7 @@ body .mn-codex .mn-codex__petal {
 .mn-record__resist-name { color:#131b28; font:700 15px/1.25 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:.02em; transition:color .15s ease; }
 .mn-record__resist-kind { padding:3px 7px 4px; border:1px solid rgba(78,99,130,.55); color:#4e6382; font:700 10px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.12em; }
 .mn-record__resist-kind.is-active { color:#eef1f5; background:#2c3a52; border-color:#2c3a52; }
+.mn-record__resist-kind.is-complete { color:#7d6230; background:rgba(154,123,60,.1); border-color:rgba(154,123,60,.7); }
 .mn-record__resist-grown { color:#9a7b3c; font:700 11px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; }
 .mn-record__resist-meta { display:flex; flex-wrap:wrap; gap:4px 18px; color:#2c3a52; font:500 12px/1.5 "Pretendard","Noto Sans KR",sans-serif; }
 .mn-record__resist-meta-item { display:inline-flex; align-items:baseline; gap:7px; }
@@ -9139,6 +9140,32 @@ body .mn-codex .mn-codex__petal {
 .mn-resist__card-top { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; }
 .mn-resist__card-name { color:#131b28; font:700 21px/1.2 "Noto Serif KR","MN Bodoni Moda",serif; letter-spacing:.01em; }
 .mn-resist__card-grade { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:10px 0 10px; padding-bottom:10px; border-bottom:1px solid rgba(29,36,51,.1); }
+.mn-resist__complete { color:#9a7b3c; font:600 12px/1.4 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; }
+.mn-record__resist-keep.is-hidden { display:none; }
+.mn-record__resist-button.is-done { cursor:default; color:#7d6230; border-color:rgba(154,123,60,.45); }
+/* 그때 일(얻은 때 있었던 일을 적는 노트, 작가 2026-11-01): 이름을 누르면 새 탭에서 열고, 앞부분을 짧게 */
+.mn-resist__story { margin-top:10px; padding:8px 10px 9px; border-left:2px solid rgba(154,123,60,.55); background:rgba(154,123,60,.06); }
+.mn-resist__story.is-empty { padding:6px 10px; background:none; border-left-color:rgba(29,36,51,.14); }
+.mn-resist__story-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; }
+.mn-resist__story-link { cursor:pointer; color:#2c3a52; font:700 13px/1.4 "Noto Serif KR","MN Bodoni Moda",serif; text-decoration:underline; text-decoration-color:rgba(154,123,60,.6); text-underline-offset:3px; }
+.mn-resist__story-link.is-missing { color:#8c97a8; text-decoration-style:dashed; }
+.mn-resist__story-link:hover, .mn-resist__story-link:focus-visible { color:#7a5f2c; outline:none; }
+.mn-resist__story-make { cursor:pointer; color:#7a5f2c; font:700 11px/1.4 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.06em; }
+.mn-resist__story-make:hover, .mn-resist__story-make:focus-visible { text-decoration:underline; outline:none; }
+.mn-resist__story-text { margin-top:4px; color:#3d475a; font:500 12px/1.6 "Pretendard","Noto Sans KR",sans-serif; }
+.mn-resist__story-text:empty { display:none; }
+/* 틀에서 가져오기(더하기 칸 맨 위) */
+.mn-resist__template { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin-bottom:10px; padding-bottom:9px; border-bottom:1px dashed rgba(29,36,51,.14); }
+.mn-resist__template-empty { color:#8c97a8; font:500 12px/1.4 "Pretendard","Noto Sans KR",sans-serif; }
+.mn-resist select.mn-resist__template-select {
+  -webkit-appearance:none; appearance:none; box-sizing:border-box; width:auto; min-width:12em; height:28px; margin:0; padding:0 26px 0 10px;
+  border:1px solid rgba(29,36,51,.22); border-radius:0; box-shadow:none; cursor:pointer; color:#2c3a52; background-color:#fff;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0h8L4 5z' fill='%234e6382'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 9px center; background-size:8px 5px; font:600 12px/1 "Pretendard","Noto Sans KR",sans-serif;
+}
+.mn-resist select.mn-resist__template-select:hover { border-color:rgba(154,123,60,.55); background-color:#fff; box-shadow:none; }
+.mn-resist select.mn-resist__template-select:focus, .mn-resist select.mn-resist__template-select:focus-visible { border-color:#9a7b3c; outline:none; box-shadow:none; }
+.mn-resist__template-select option { color:#131b28; background:#fff; }
 .mn-resist__card .mn-record__resist-note { margin-top:6px; font-size:13px; }
 .mn-resist__card .mn-record__resist-trail { margin-top:10px; }
 .mn-resist__card .mn-record__resist-row-actions { margin-top:16px; padding-top:10px; border-top:1px solid rgba(29,36,51,.08); }

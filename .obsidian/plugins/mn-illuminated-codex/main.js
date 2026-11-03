@@ -60,14 +60,28 @@ const parseRecordGrade = (value) => {
   return step >= 0 && step < 10 ? { tier: Number(match[1]), step: step + 1 } : null;
 };
 const recordGradeText = (grade) => `M${grade.tier} ${GRADE_STEPS[grade.step - 1]}`;
-const RECORD_KINDS = Object.freeze(["패시브", "액티브"]);
-// 내성주 평균 수준: 등급을 적은 것만, M0 Ⅰ부터 센 칸 수의 평균을 반올림 (작가 2026-11-01)
+// 내성주 갈래: 완성형 = 얻음으로써 이미 완성되는 내성주(예: 통찰안, 작가 2026-11-01) — 더 강해지는 기록을 남기지 않음
+const RECORD_KINDS = Object.freeze(["패시브", "액티브", "완성형"]);
+const resistKindClass = (kind) => `mn-record__resist-kind${kind === "액티브" ? " is-active" : kind === "완성형" ? " is-complete" : ""}`;
+// 완성형 등급은 단(M3)만 — Ⅰ~Ⅹ 칸 없이 (작가 2026-11-01). 「M3 Ⅳ」로 적혀 있어도 단만 읽음. step 0 = 단만
+const parseResistGrade = (value, kind) => {
+  if (kind !== "완성형") return parseRecordGrade(value);
+  const match = String(value || "").trim().match(/^M\s*(\d+)/iu);
+  return match ? { tier: Number(match[1]), step: 0 } : null;
+};
+const resistGradeText = (grade) => (grade.step ? recordGradeText(grade) : `M${grade.tier}`);
+// 내성주 틀(작가 2026-11-01 「내가 가진 걸 대상도 가진 경우가 은근 있어서」): 여러 인물이 같이 쓰는 이름 · 갈래 · 메모. 두 PC가 git으로 나눠 쓰니 노트에 둠
+const RESIST_TEMPLATE_PATH = "The Rule - 본편의 규칙/내성주 틀.md";
+// 「그때 일」 노트(얻은 때 있었던 일)를 새로 만들 때 두는 곳
+const RESIST_STORY_FOLDER = "The Main - 인물/내성주 기록";
+// 내성주 평균 수준: 등급을 적은 것만, M0 Ⅰ부터 센 칸 수의 평균을 반올림 (작가 2026-11-01). 완성형은 단만 있어서 빼요(작가 2026-11-01)
 const recordResistMean = (resists) => {
-  const graded = resists.filter((resist) => resist.grade);
+  const graded = resists.filter((resist) => resist.grade && resist.grade.step);
   if (!graded.length) return { graded, mean: null };
   const index = Math.round(graded.reduce((sum, resist) => sum + resist.grade.tier * 10 + resist.grade.step - 1, 0) / graded.length);
   return { graded, mean: { tier: Math.floor(index / 10), step: (index % 10) + 1 } };
 };
+const recordResistMeanNote = (resists, graded) => `${resists.some((resist) => resist.kind === "완성형") ? "완성형은 빼고, " : ""}등급을 적은 ${graded.length}개의 평균이에요`;
 
 /** 괄호 · 따옴표 밖의 구분자로만 나눔 (선택자 목록 · 선언 목록) */
 const splitTopLevel = (text, separator) => {
@@ -1420,13 +1434,14 @@ class ResistPanelModal extends Modal {
   onOpen() {
     this.modalEl.addClass("mn-record-modal", "mn-resist-modal");
     this.titleEl.setText(`${this.name} · 내성주`);
-    const draw = () => this.plugin.recordResistManager(this.contentEl, this.sourcePath, this.options);
+    const draw = () => this.plugin.recordResistManager(this.contentEl, this.sourcePath, this.options, () => this.close());
     draw();
     const cache = this.app && this.app.metadataCache;
     if (cache && typeof cache.on === "function") {
       let timer = 0;
+      // 이 인물 노트나 내성주 틀 노트가 바뀌면 다시 그림
       this.changedRef = cache.on("changed", (file) => {
-        if (!file || file.path !== this.sourcePath) return;
+        if (!file || (file.path !== this.sourcePath && file.path !== RESIST_TEMPLATE_PATH)) return;
         clearTimeout(timer);
         timer = setTimeout(draw, 120);
       });
@@ -6777,8 +6792,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     return match ? { axis: match[1].trim(), value: match[2].trim(), note: (match[3] || "").trim() } : { axis: text.trim(), value: "", note: "" };
   }
 
-  /** 내성주(작가 설명 2026-11-01): 극한의 경험 · 감각 · 충격으로 몸에 새겨진 고유한 능력(패시브 또는 액티브). 더 강해질 수 있고, 몇 개를 가졌는지가 중요한 지표.
-   *  속성 「내성주」, 없으면 기록표 블록 초안. 한 줄 「통찰안: 패시브 · M3 Ⅳ · 충격 — 메모」 또는 { 이름, 갈래, 등급, 계기, 얻은 때, 메모, 강해진 기록: ["시점 · M2 Ⅶ", …] } */
+  /** 내성주(작가 설명 2026-11-01): 극한의 경험 · 감각 · 충격으로 몸에 새겨진 고유한 능력(패시브 · 액티브 · 완성형). 더 강해질 수 있고(완성형은 얻을 때 이미 완성), 몇 개를 가졌는지가 중요한 지표.
+   *  속성 「내성주」, 없으면 기록표 블록 초안. 한 줄 「통찰안: 완성형 · M3 · 충격 — 메모」 또는 { 이름, 갈래, 등급, 계기, 얻은 때, 그때 일: "[[노트]]", 메모, 강해진 기록: ["시점 · M2 Ⅶ", …] } */
   recordResists(sourcePath, options = {}) {
     const vault = this.app && this.app.vault;
     const cache = this.app && this.app.metadataCache;
@@ -6787,6 +6802,15 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const present = (value) => (Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "");
     const draft = !present(front["내성주"]) && !!options && present(options["내성주"]);
     const source = present(front["내성주"]) ? front["내성주"] : draft ? options["내성주"] : null;
+    const resists = this.recordResistList(source);
+    return { file, source, draft, resists };
+  }
+
+  /** 내성주 목록(속성 값) → [{ no, name, kind, gradeText, grade, cause, when, story(그때 일 노트 이름), note, history, raw }] — 인물 노트와 틀 노트가 같이 씀 */
+  recordResistList(source) {
+    const present = (value) => (Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "");
+    // 「[[노트|별칭]]」 → 노트 (그때 일은 이을 노트 이름이 필요해서 별칭 대신 대상)
+    const linkTarget = (value) => { const text = this.asText(value).trim(); const match = text.match(/^\[\[([^\]|#]+)/u); return (match ? match[1] : text).trim(); };
     const resists = (Array.isArray(source) ? source : source ? [source] : []).map((item) => {
       let raw = item;
       if (raw && typeof raw === "object" && !Array.isArray(raw)) {
@@ -6794,7 +6818,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         if (pick("이름", "name")) {
           return {
             name: this.plainLink(pick("이름", "name")), kind: this.plainLink(pick("갈래", "종류")), gradeText: this.plainLink(pick("등급")),
-            cause: this.plainLink(pick("계기")), when: this.plainLink(pick("얻은 때", "시점")), note: this.plainLink(pick("메모", "설명")),
+            cause: this.plainLink(pick("계기")), when: this.plainLink(pick("얻은 때", "시점")), story: linkTarget(pick("그때 일")), note: this.plainLink(pick("메모", "설명")),
             history: [].concat(pick("강해진 기록") || []).map((entry) => this.plainLink(entry)).filter(Boolean), raw: item,
           };
         }
@@ -6804,25 +6828,77 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       if (!row.axis || /^(미정|\?|-|—)$/u.test(row.axis)) return null;
       const parts = row.value.split(/\s*·\s*/u).filter(Boolean);
       const kind = parts.find((part) => RECORD_KINDS.includes(part)) || "";
-      const gradeText = parts.find((part) => parseRecordGrade(part)) || "";
-      return { name: row.axis, kind, gradeText, cause: parts.filter((part) => part !== kind && part !== gradeText).join(" · "), when: "", note: row.note, history: [], raw: item };
+      const gradeText = parts.find((part) => parseResistGrade(part, kind)) || "";
+      return { name: row.axis, kind, gradeText, cause: parts.filter((part) => part !== kind && part !== gradeText).join(" · "), when: "", story: "", note: row.note, history: [], raw: item };
     }).filter(Boolean);
-    resists.forEach((resist, index) => { resist.no = index + 1; resist.grade = parseRecordGrade(resist.gradeText); });
-    return { file, source, draft, resists };
+    resists.forEach((resist, index) => { resist.no = index + 1; resist.grade = parseResistGrade(resist.gradeText, resist.kind); });
+    return resists;
+  }
+
+  /** 내성주 틀 노트(RESIST_TEMPLATE_PATH)의 속성 「내성주 틀」 → { file, templates } */
+  recordResistTemplates() {
+    const vault = this.app && this.app.vault;
+    const cache = this.app && this.app.metadataCache;
+    const file = vault && typeof vault.getAbstractFileByPath === "function" ? vault.getAbstractFileByPath(RESIST_TEMPLATE_PATH) : null;
+    const front = (file && cache && cache.getFileCache(file)?.frontmatter) || {};
+    return { file, templates: this.recordResistList(front["내성주 틀"]) };
+  }
+
+  /** 내성주 하나를 틀로: 이름 · 갈래 · 메모만(등급 · 계기 · 얻은 때는 사람마다 달라서 뺌). 같은 이름이 있으면 새로 씀. 틀 노트가 없으면 만듦 */
+  async saveResistTemplate(resist) {
+    const vault = this.app && this.app.vault;
+    const manager = this.app && this.app.fileManager;
+    if (!vault || !manager || typeof manager.processFrontMatter !== "function") throw new Error("보관소에 쓸 수 없어요");
+    let { file } = this.recordResistTemplates();
+    if (!file) {
+      const folder = RESIST_TEMPLATE_PATH.replace(/\/[^/]*$/u, "");
+      if (folder && !vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
+      file = await vault.create(RESIST_TEMPLATE_PATH, [
+        "---", "분류: 내성주 틀", "내성주 틀: []", "---", "",
+        "# 내성주 틀", "",
+        "여러 인물이 같이 가진 내성주의 이름 · 갈래 · 메모를 모아 두는 노트예요.",
+        "기록표 내성주 패널에서 내성주를 고르고 「틀로 저장」하면 여기에 쌓이고, 「＋ 내성주 더하기」 → 「틀에서 가져오기」로 다른 인물에게 불러와요.",
+        "등급 · 계기 · 얻은 때는 사람마다 달라서 틀에 넣지 않아요. 속성에 손으로 적어도 돼요.", "",
+      ].join("\n"));
+    }
+    const entry = { 이름: resist.name };
+    if (resist.kind) entry["갈래"] = resist.kind;
+    if (resist.note) entry["메모"] = resist.note;
+    let replaced = false;
+    await manager.processFrontMatter(file, (front) => {
+      const list = Array.isArray(front["내성주 틀"]) ? front["내성주 틀"] : front["내성주 틀"] ? [front["내성주 틀"]] : [];
+      // recordResistList는 빈 줄을 건너뛰니 번호 대신 같은 이름의 원래 값을 찾아 바꿈
+      const found = this.recordResistList(list).find((template) => template.name === resist.name);
+      const at = found ? list.indexOf(found.raw) : -1;
+      if (at >= 0) { list[at] = entry; replaced = true; } else list.push(entry);
+      front["내성주 틀"] = list;
+    });
+    return replaced;
+  }
+
+  /** 그때 일 노트(얻은 때 있었던 일) 앞부분: 속성 · 제목 · 인용 줄을 뺀 첫 글 몇 줄 */
+  resistStoryExcerpt(text) {
+    const body = String(text || "").replace(/^---\n[\s\S]*?\n---\n?/u, "");
+    const lines = body.split("\n").map((line) => line.trim()).filter((line) => line && !/^(#|>|```|%%)/u.test(line));
+    const joined = lines.join(" ");
+    return joined.length > 140 ? `${joined.slice(0, 140)}…` : joined;
   }
 
   /** 내성주 관리 패널 안: 머리(보유 · 평균) → 도구(갈래 · 차례 · 찾기 · ＋ 더하기) → 왼쪽 목록 · 오른쪽 자세히 / 더하기 / 고치기.
    *  적으면 노트 속성 「내성주」에 씀(블록 초안이었으면 그 내용째 속성으로 옮김). 속성이 바뀌면 ResistPanelModal이 다시 부름 */
-  recordResistManager(root, sourcePath, options = {}) {
+  recordResistManager(root, sourcePath, options = {}, close = null) {
     const { file, draft, resists } = this.recordResists(sourcePath, options);
+    const { templates } = this.recordResistTemplates();
     const KINDS = RECORD_KINDS;
+    const vault = this.app && this.app.vault;
+    const cache = this.app && this.app.metadataCache;
     root.empty();
     root.addClass("mn-resist");
     // 거르기 · 차례 · 고른 줄은 노트마다 기억(패널을 닫았다 열어도 그대로)
     if (!this.recordResistState) this.recordResistState = new Map();
     if (!this.recordResistState.has(sourcePath)) this.recordResistState.set(sourcePath, { kind: "전체", sort: "적은 차례", query: "", selected: 0, mode: "view", confirm: 0 });
     const state = this.recordResistState.get(sourcePath);
-    const redraw = () => this.recordResistManager(root, sourcePath, options);
+    const redraw = () => this.recordResistManager(root, sourcePath, options, close);
     const press = (node, run) => {
       node.setAttr("role", "button");
       node.setAttr("tabindex", "0");
@@ -6838,6 +6914,49 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       state.selected = select;
       await manager.processFrontMatter(file, (fm) => { fm["내성주"] = items.length ? items : "미정"; });
     };
+    // 적을 값 → 속성 한 칸. 한 줄로 담을 수 있으면 「이름: 갈래 · 등급 · 계기 — 메모」, 아니면 { 이름, 갈래, … }
+    const itemOf = (resist, data, history) => {
+      const fields = { 이름: data.name, 갈래: data.kind, 등급: data.grade, 계기: data.cause, "얻은 때": data.when, "그때 일": data.story ? `[[${data.story}]]` : "", 메모: data.note };
+      const wasObject = resist && resist.raw && typeof resist.raw === "object";
+      if (wasObject || data.when || data.story || history.length || /[:：]/u.test(data.name) || /—/u.test(data.cause)) {
+        const item = wasObject ? { ...resist.raw } : {};
+        ["name", "종류", "시점", "설명"].forEach((alias) => delete item[alias]);
+        Object.entries(fields).forEach(([key, value]) => { if (value) item[key] = value; else delete item[key]; });
+        if (history.length) item["강해진 기록"] = history; else delete item["강해진 기록"];
+        return item;
+      }
+      const value = [data.kind, data.grade, data.cause].filter(Boolean).join(" · ");
+      return value || data.note ? `${data.name}:${value ? ` ${value}` : ""}${data.note ? ` — ${data.note}` : ""}` : data.name;
+    };
+    const dataOf = (resist) => ({ name: resist.name, kind: resist.kind, grade: resist.grade ? resistGradeText(resist.grade) : resist.gradeText, cause: resist.cause, when: resist.when, story: resist.story, note: resist.note });
+    // 그때 일 노트 열기 — 없으면 「인물 · 내성주」 이름으로 만들고(속성만, 글은 작가가) 이 내성주에 이어 둠. 패널을 닫고 새 탭에서 엶
+    const person = file && file.basename ? file.basename : "인물";
+    const openStory = async (resist) => {
+      const workspace = this.app && this.app.workspace;
+      let target = resist.story;
+      let note = target && cache && typeof cache.getFirstLinkpathDest === "function" ? cache.getFirstLinkpathDest(target, sourcePath) : null;
+      if (!note) {
+        if (!writable || !vault || typeof vault.create !== "function") return;
+        target = (target || `${person} · ${resist.name}`).replace(/[\\/:*?"<>|#^[\]]/gu, "").trim();
+        const path = normalizePath(`${RESIST_STORY_FOLDER}/${target}.md`);
+        note = vault.getAbstractFileByPath(path);
+        if (!note) {
+          if (!vault.getAbstractFileByPath(RESIST_STORY_FOLDER)) await vault.createFolder(RESIST_STORY_FOLDER);
+          const q = (value) => JSON.stringify(value);
+          note = await vault.create(path, [
+            "---", "분류: 기록", "종류: 내성주", `인물: ${q(`[[${person}]]`)}`, `내성주: ${q(resist.name)}`, `얻은 때: ${q(resist.when || "미정")}`, "---", "",
+            `# ${target}`, "", "",
+          ].join("\n"));
+        }
+        if (resist.story !== target) {
+          const items = resists.map((r) => r.raw);
+          items[resist.no - 1] = itemOf(resist, { ...dataOf(resist), story: target }, resist.history);
+          await save(items, resist.no);
+        }
+      }
+      if (close) close();
+      if (workspace && typeof workspace.openLinkText === "function") await workspace.openLinkText(note.path || target, sourcePath, "tab");
+    };
     const rank = (resist) => (resist.grade ? resist.grade.tier * 10 + resist.grade.step : -1);
     const tally = KINDS.map((kind) => [kind, resists.filter((r) => r.kind === kind).length]).filter(([, count]) => count);
     const unsorted = resists.filter((r) => !KINDS.includes(r.kind)).length;
@@ -6851,7 +6970,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       const mark = parent.createSpan({ cls: `mn-record__grade${grade ? "" : " is-unset"}` });
       if (grade) {
         mark.createSpan({ cls: "mn-record__grade-tier", text: `M${grade.tier}` });
-        mark.createSpan({ cls: "mn-record__grade-step", text: GRADE_STEPS[grade.step - 1] });
+        if (grade.step) mark.createSpan({ cls: "mn-record__grade-step", text: GRADE_STEPS[grade.step - 1] });
       } else mark.setText(text || "등급 미정");
       return mark;
     };
@@ -6863,12 +6982,12 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
 
     // 머리: 무엇인지 · 보유 · 평균
     const head = root.createDiv({ cls: "mn-resist__head" });
-    head.createDiv({ cls: "mn-resist__lead", text: "극한의 경험 · 감각 · 충격이 몸에 새긴 고유한 능력(패시브 · 액티브) · 더 강해질 수 있고, 몇 개를 가졌는지가 중요한 지표" });
+    head.createDiv({ cls: "mn-resist__lead", text: "극한의 경험 · 감각 · 충격이 몸에 새긴 고유한 능력(패시브 · 액티브 · 완성형) · 더 강해질 수 있고(완성형은 얻을 때 이미 완성), 몇 개를 가졌는지가 중요한 지표" });
     const facts = head.createDiv({ cls: "mn-resist__facts" });
     const count = facts.createSpan({ cls: `mn-resist__fact is-count${resists.length ? "" : " is-unset"}` });
     count.createSpan({ cls: "mn-record__label", text: "보유" });
     count.createSpan({ cls: "mn-resist__fact-value", text: resists.length ? `${resists.length}` : "미정" });
-    const average = facts.createSpan({ cls: "mn-resist__fact", attr: mean && graded.length < resists.length ? { title: `등급을 적은 ${graded.length}개의 평균이에요` } : {} });
+    const average = facts.createSpan({ cls: "mn-resist__fact", attr: mean && graded.length < resists.length ? { title: recordResistMeanNote(resists, graded) } : {} });
     average.createSpan({ cls: "mn-record__label", text: "평균" });
     gradeInto(average, mean, "미정");
     if (draft) facts.createSpan({ cls: "mn-record__draft", text: "미리보기", attr: { title: "속성에 아직 없고 기록표 블록에 적은 초안이에요 · 여기서 적으면 속성으로 옮겨져요" } });
@@ -6922,18 +7041,37 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       row.createSpan({ cls: "mn-record__resist-no", text: String(resist.no).padStart(2, "0") });
       const title = row.createSpan({ cls: "mn-record__resist-title" });
       title.createSpan({ cls: "mn-record__resist-name", text: resist.name });
-      if (resist.kind) title.createSpan({ cls: `mn-record__resist-kind${resist.kind === "액티브" ? " is-active" : ""}`, text: resist.kind });
+      if (resist.kind) title.createSpan({ cls: resistKindClass(resist.kind), text: resist.kind });
       if (resist.history.length) title.createSpan({ cls: "mn-record__resist-grown", text: `↑ ${resist.history.length}`, attr: { title: `더 강해진 기록 ${resist.history.length}번` } });
       gradeInto(row, resist.grade, resist.gradeText);
       press(row, () => { state.selected = resist.no; state.mode = "view"; state.confirm = 0; redraw(); });
     });
 
     const selected = resists.find((r) => r.no === state.selected) || null;
-    // 더하기 · 고치기 칸. 등급은 「M3 Ⅳ」 · 「M3 IV」 · 「M3 4」 다 받아서 「M3 Ⅳ」로 적음.
-    // 고칠 때 등급이 바뀌면 옛 등급을 강해진 기록에 남길지 고름(기본 남김 — 내성주는 더 강해지니까)
+    // 더하기 · 고치기 칸. 등급은 「M3 Ⅳ」 · 「M3 IV」 · 「M3 4」 다 받아서 「M3 Ⅳ」로 적음(완성형은 단만 「M3」).
+    // 고칠 때 등급이 바뀌면 옛 등급을 강해진 기록에 남길지 고름(기본 남김 — 내성주는 더 강해지니까. 완성형은 묻지 않음)
     const formOf = (host, resist) => {
       const form = host.createDiv({ cls: "mn-record__resist-form" });
       form.createDiv({ cls: "mn-record__resist-form-title", text: resist ? `${resist.name} 고치기` : "내성주 더하기" });
+      // 더할 땐 틀에서 가져오기: 이름 · 갈래 · 메모를 채움. 이 인물이 이미 가진 이름은 고를 수 없음
+      let pickTemplate = null;
+      if (!resist) {
+        const from = form.createDiv({ cls: "mn-resist__template" });
+        from.createSpan({ cls: "mn-record__label", text: "틀에서 가져오기" });
+        if (templates.length) {
+          const select = from.createEl("select", { cls: "mn-resist__template-select", attr: { "aria-label": "내성주 틀 고르기" } });
+          select.createEl("option", { text: `틀 고르기 (${templates.length})`, attr: { value: "" } });
+          templates.forEach((template) => {
+            const held = resists.some((r) => r.name === template.name);
+            const option = select.createEl("option", { text: `${template.name}${template.kind ? ` · ${template.kind}` : ""}${held ? " (이미 있음)" : ""}`, attr: { value: String(template.no) } });
+            if (held) option.disabled = true;
+          });
+          select.addEventListener("change", () => {
+            const template = templates.find((t) => String(t.no) === select.value);
+            if (template && pickTemplate) pickTemplate(template);
+          });
+        } else from.createSpan({ cls: "mn-resist__template-empty", text: "아직 틀이 없어요 · 내성주를 고르고 「틀로 저장」하면 생겨요" });
+      }
       const grid = form.createDiv({ cls: "mn-record__resist-form-grid" });
       const field = (label, value, placeholder, wide = false) => {
         const wrap = grid.createEl("label", { cls: `mn-record__resist-field${wide ? " is-wide" : ""}` });
@@ -6947,51 +7085,63 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       kindWrap.createSpan({ cls: "mn-record__label", text: "갈래" });
       const kindGroup = kindWrap.createDiv({ cls: "mn-record__resist-group" });
       let kind = resist ? resist.kind : "";
-      const kindChips = ["패시브", "액티브", "미정"].map((value) => {
+      let keepWrap = null;
+      const kindChips = [...KINDS, "미정"].map((value) => {
         const node = kindGroup.createSpan({ cls: "mn-record__resist-chip", text: value });
         press(node, () => { kind = value === "미정" ? "" : value; paintKind(); });
         return [node, value];
       });
-      const paintKind = () => kindChips.forEach(([node, value]) => node.toggleClass("is-on", (kind || "미정") === value));
-      paintKind();
-      const grade = field("등급", resist && resist.gradeText, "예: M3 Ⅳ");
+      const grade = field("등급", resist && (resist.grade ? resistGradeText(resist.grade) : resist.gradeText), "예: M3 Ⅳ");
       const cause = field("계기", resist && resist.cause, "예: 충격 · 감각 · 경험");
       const when = field("얻은 때", resist && resist.when, "예: 시점");
+      const story = field("그때 일 (노트)", resist && resist.story, "노트 이름");
+      // 그때 일은 보관소 노트 이름을 골라 이음(사건 · 세션 기록 등). 없는 이름이면 카드에서 누를 때 만들어요
+      if (vault && typeof vault.getMarkdownFiles === "function") {
+        const id = `mn-resist-notes-${Date.now()}`;
+        const names = form.createEl("datalist", { attr: { id } });
+        [...new Set(vault.getMarkdownFiles().map((note) => note.basename))].sort((a, b) => a.localeCompare(b, "ko")).forEach((value) => names.createEl("option", { attr: { value } }));
+        story.setAttr("list", id);
+      }
       const note = field("메모", resist && resist.note, "어떤 능력인지", true);
       let keep = null;
-      if (resist && resist.grade) {
-        const wrap = form.createEl("label", { cls: "mn-record__resist-keep" });
-        keep = wrap.createEl("input", { attr: { type: "checkbox" } });
+      if (resist && resist.grade && resist.grade.step) {
+        keepWrap = form.createEl("label", { cls: "mn-record__resist-keep" });
+        keep = keepWrap.createEl("input", { attr: { type: "checkbox" } });
         keep.checked = true;
-        wrap.appendText(` 등급이 바뀌면 옛 등급(${recordGradeText(resist.grade)})을 강해진 기록에 남기기`);
+        keepWrap.appendText(` 등급이 바뀌면 옛 등급(${resistGradeText(resist.grade)})을 강해진 기록에 남기기`);
       }
+      // 완성형은 단만 적고(「M3」), 더 강해지지 않으니 「옛 등급 남기기」를 숨김
+      const paintKind = () => {
+        kindChips.forEach(([node, value]) => node.toggleClass("is-on", (kind || "미정") === value));
+        grade.setAttr("placeholder", kind === "완성형" ? "예: M3 (단만)" : "예: M3 Ⅳ");
+        if (keepWrap) keepWrap.toggleClass("is-hidden", kind === "완성형");
+      };
+      paintKind();
+      pickTemplate = (template) => {
+        name.value = template.name;
+        kind = template.kind;
+        if (template.note) note.value = template.note;
+        paintKind();
+        grade.focus();
+      };
       const foot = form.createDiv({ cls: "mn-record__resist-form-foot" });
       const error = foot.createSpan({ cls: "mn-record__resist-error" });
       const cancel = foot.createSpan({ cls: "mn-record__resist-button", text: "그만" });
       const ok = foot.createSpan({ cls: "mn-record__resist-button is-primary", text: resist ? "고치기" : "더하기" });
       const submit = async () => {
-        const data = { name: name.value.trim(), kind, grade: grade.value.trim(), cause: cause.value.trim(), when: when.value.trim(), note: note.value.trim() };
+        const storyName = story.value.trim().replace(/^\[\[/u, "").replace(/\]\]$/u, "").replace(/[|#].*$/u, "").trim();
+        const data = { name: name.value.trim(), kind, grade: grade.value.trim(), cause: cause.value.trim(), when: when.value.trim(), story: storyName, note: note.value.trim() };
         if (!data.name) { error.setText("이름을 적어 주세요"); name.focus(); return; }
         if (data.grade && !/^(미정|\?|-|—)$/u.test(data.grade)) {
-          const parsed = parseRecordGrade(data.grade);
-          if (!parsed) { error.setText("등급은 「M3 Ⅳ」처럼 적어요"); grade.focus(); return; }
-          data.grade = recordGradeText(parsed);
+          const parsed = parseResistGrade(data.grade, data.kind);
+          if (!parsed) { error.setText(data.kind === "완성형" ? "완성형 등급은 「M3」처럼 단만 적어요" : "등급은 「M3 Ⅳ」처럼 적어요"); grade.focus(); return; }
+          data.grade = resistGradeText(parsed);
         } else data.grade = "";
         const items = resists.map((r) => r.raw);
         const history = resist ? [...resist.history] : [];
-        if (resist && resist.grade && keep && keep.checked && data.grade && data.grade !== recordGradeText(resist.grade)) history.push(`${resist.when || "미정"} · ${recordGradeText(resist.grade)}`);
-        const fields = { 이름: data.name, 갈래: data.kind, 등급: data.grade, 계기: data.cause, "얻은 때": data.when, 메모: data.note };
-        const wasObject = resist && resist.raw && typeof resist.raw === "object";
-        let item;
-        if (wasObject || data.when || history.length || /[:：]/u.test(data.name) || /—/u.test(data.cause)) {
-          item = wasObject ? { ...resist.raw } : {};
-          ["name", "종류", "시점", "설명"].forEach((alias) => delete item[alias]);
-          Object.entries(fields).forEach(([key, value]) => { if (value) item[key] = value; else delete item[key]; });
-          if (history.length) item["강해진 기록"] = history; else delete item["강해진 기록"];
-        } else {
-          const value = [data.kind, data.grade, data.cause].filter(Boolean).join(" · ");
-          item = value || data.note ? `${data.name}:${value ? ` ${value}` : ""}${data.note ? ` — ${data.note}` : ""}` : data.name;
-        }
+        const old = resist && resist.grade && resist.grade.step ? resistGradeText(resist.grade) : "";
+        if (old && keep && keep.checked && data.kind !== "완성형" && data.grade && data.grade !== old) history.push(`${resist.when || "미정"} · ${old}`);
+        const item = itemOf(resist, data, history);
         if (resist) items[resist.no - 1] = item; else items.push(item);
         ok.setText("적는 중…");
         await save(items, resist ? resist.no : items.length);
@@ -7012,15 +7162,16 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       side.createDiv({ cls: "mn-resist__hint", text: resists.length ? "왼쪽에서 내성주를 고르면 여기에 자세히 나와요" : writable ? "「＋ 내성주 더하기」로 하나씩 적어요" : "속성 「내성주」에 「이름: 패시브 · M3 Ⅳ · 충격 — 메모」처럼 한 줄씩 적어요" });
       return;
     }
-    // 고른 내성주 자세히: 이름 · 갈래 · 등급 → 계기 · 얻은 때 → 메모 → 강해진 기록 → 고치기 · 지우기
+    // 고른 내성주 자세히: 이름 · 갈래 · 등급 → 계기 · 얻은 때 → 그때 일 → 메모 → 강해진 기록 → 고치기 · 틀로 저장 · 지우기
     const card = side.createDiv({ cls: "mn-resist__card" });
     const top = card.createDiv({ cls: "mn-resist__card-top" });
     top.createSpan({ cls: "mn-record__resist-no", text: String(selected.no).padStart(2, "0") });
     top.createSpan({ cls: "mn-resist__card-name", text: selected.name });
-    if (selected.kind) top.createSpan({ cls: `mn-record__resist-kind${selected.kind === "액티브" ? " is-active" : ""}`, text: selected.kind });
+    if (selected.kind) top.createSpan({ cls: resistKindClass(selected.kind), text: selected.kind });
     const gradeLine = card.createDiv({ cls: "mn-resist__card-grade" });
     gradeInto(gradeLine, selected.grade, selected.gradeText);
-    if (selected.grade) pipsInto(gradeLine, selected.grade);
+    if (selected.grade && selected.grade.step) pipsInto(gradeLine, selected.grade);
+    if (selected.kind === "완성형") gradeLine.createSpan({ cls: "mn-resist__complete", text: "얻을 때 이미 완성 · 평균에서 빠져요" });
     const detail = [["계기", selected.cause], ["얻은 때", selected.when]].filter(([, value]) => value);
     if (detail.length) {
       const line = card.createDiv({ cls: "mn-record__resist-meta" });
@@ -7029,6 +7180,24 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         meta.createSpan({ cls: "mn-record__label", text: label });
         meta.createSpan({ text: value });
       });
+    }
+    // 그때 일: 얻은 때 있었던 일을 적는 노트. 이름을 누르면 새 탭에서 열고(없으면 만들고), 앞부분을 여기 보여 줌
+    if (selected.story || writable) {
+      const storyFile = selected.story && cache && typeof cache.getFirstLinkpathDest === "function" ? cache.getFirstLinkpathDest(selected.story, sourcePath) : null;
+      const storyBox = card.createDiv({ cls: `mn-resist__story${selected.story ? "" : " is-empty"}` });
+      const storyHead = storyBox.createDiv({ cls: "mn-resist__story-head" });
+      storyHead.createSpan({ cls: "mn-record__label", text: "그때 일" });
+      if (selected.story) {
+        const link = storyHead.createSpan({ cls: `mn-resist__story-link${storyFile ? "" : " is-missing"}`, text: selected.story, attr: { title: storyFile ? "눌러서 노트 열기 (새 탭)" : "아직 없는 노트예요 · 누르면 만들어서 열어요" } });
+        press(link, () => openStory(selected));
+        const text = storyBox.createDiv({ cls: "mn-resist__story-text", text: storyFile ? "" : "아직 없는 노트예요 · 이름을 누르면 만들어요" });
+        if (storyFile && vault && typeof vault.cachedRead === "function") {
+          vault.cachedRead(storyFile).then((body) => text.setText(this.resistStoryExcerpt(body) || "아직 아무것도 안 적었어요 · 이름을 눌러 적어요")).catch(() => {});
+        }
+      } else {
+        const make = storyHead.createSpan({ cls: "mn-resist__story-make", text: "＋ 노트로 적기", attr: { title: `「${person} · ${selected.name}」 노트를 만들어 이어 두고 새 탭에서 열어요` } });
+        press(make, () => openStory(selected));
+      }
     }
     if (selected.note) card.createDiv({ cls: "mn-record__profile-note mn-record__resist-note", text: selected.note });
     // 더 강해진 내력: 「시점 · 등급」 → 옛 등급에서 지금까지 화살표로
@@ -7040,7 +7209,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         trail.createSpan({ cls: "mn-record__resist-step", text: value ? `${value}${time && time !== "미정" ? ` (${time})` : ""}` : time });
         trail.createSpan({ cls: "mn-record__resist-arrow", text: "→" });
       });
-      trail.createSpan({ cls: "mn-record__resist-step is-now", text: selected.grade ? `${recordGradeText(selected.grade)} 지금` : "지금" });
+      trail.createSpan({ cls: "mn-record__resist-step is-now", text: selected.grade ? `${resistGradeText(selected.grade)} 지금` : "지금" });
     }
     if (!detail.length && !selected.note && !selected.history.length) card.createDiv({ cls: "mn-record__resist-empty", text: "계기 · 메모를 아직 안 적었어요" });
     if (!writable) return;
@@ -7057,6 +7226,25 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       return;
     }
     const edit = actions.createSpan({ cls: "mn-record__resist-button", text: "✎ 고치기" });
+    // 틀로 저장: 이름 · 갈래 · 메모만 틀 노트에. 같은 이름 틀이 있으면 「틀 새로 쓰기」, 내용까지 같으면 「틀에 있음」
+    const template = templates.find((t) => t.name === selected.name);
+    const same = template && template.kind === selected.kind && template.note === selected.note;
+    const keepTemplate = actions.createSpan({
+      cls: `mn-record__resist-button${same ? " is-done" : ""}`, text: same ? "✓ 틀에 있음" : template ? "틀 새로 쓰기" : "틀로 저장",
+      attr: { title: same ? "같은 이름 · 갈래 · 메모의 틀이 있어요" : template ? `「${selected.name}」 틀을 지금 갈래 · 메모로 새로 써요` : "이름 · 갈래 · 메모를 틀로 저장해 다른 인물에게 불러와요" },
+    });
+    if (!same) {
+      press(keepTemplate, async () => {
+        keepTemplate.setText("적는 중…");
+        try {
+          const replaced = await this.saveResistTemplate(selected);
+          new Notice(`「${selected.name}」 ${replaced ? "틀을 새로 썼어요" : "틀로 저장했어요"} · ${RESIST_TEMPLATE_PATH}`);
+        } catch (error) {
+          new Notice(`틀로 저장하지 못했어요: ${error && error.message ? error.message : error}`);
+        }
+        setTimeout(redraw, 300);
+      });
+    }
     const remove = actions.createSpan({ cls: "mn-record__resist-button", text: "지우기" });
     press(edit, () => { state.mode = "edit"; state.confirm = 0; redraw(); });
     press(remove, () => { state.confirm = selected.no; redraw(); });
@@ -7391,14 +7579,14 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       press(stat, openPanel);
       // 아래 칸: 보유 · 평균 한 줄 + 「관리 패널」
       const box = sheet.createDiv({ cls: "mn-record__section mn-record__section--resist" });
-      sectionHead(box, "내성주", "극한의 경험 · 감각 · 충격이 몸에 새긴 고유한 능력 · 더 강해질 수 있음", "내성주");
+      sectionHead(box, "내성주", "극한의 경험 · 감각 · 충격이 몸에 새긴 고유한 능력 · 더 강해질 수 있음(완성형은 얻을 때 이미 완성)", "내성주");
       const { graded, mean } = recordResistMean(resists);
       const bar = box.createDiv({ cls: "mn-record__resist-bar", attr: { title: "눌러서 내성주 관리 패널 열기" } });
       const facts = bar.createDiv({ cls: "mn-record__resist-facts" });
       const count = facts.createSpan({ cls: `mn-record__resist-fact is-count${resists.length ? "" : " is-unset"}` });
       count.createSpan({ cls: "mn-record__label", text: "보유" });
       count.createSpan({ cls: "mn-record__resist-fact-value", text: resists.length ? `${resists.length}` : "미정" });
-      const average = facts.createSpan({ cls: "mn-record__resist-fact is-mean", attr: mean && graded.length < resists.length ? { title: `등급을 적은 ${graded.length}개의 평균이에요` } : {} });
+      const average = facts.createSpan({ cls: "mn-record__resist-fact is-mean", attr: mean && graded.length < resists.length ? { title: recordResistMeanNote(resists, graded) } : {} });
       average.createSpan({ cls: "mn-record__label", text: "평균" });
       const value = average.createSpan({ cls: "mn-record__resist-fact-value" });
       if (mean) {
