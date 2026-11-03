@@ -38,12 +38,13 @@ const VARIANT_TOKEN = /(\.[\w-]*variant-silver-knight)(?![\w-])/gu;
 // 능력 등급 한 단 안의 열 칸: M0 Ⅰ부터, Ⅹ 다음은 다음 단 Ⅰ (작가와 정함 2026-10-30)
 const GRADE_STEPS = Object.freeze(["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ", "Ⅶ", "Ⅷ", "Ⅸ", "Ⅹ"]);
 // 큰 축과 세부 스테이터스 (작가가 고름 2026-11-01, 큰 축은 무력 · 민첩 · 플라즈마 · 내구도 · 감각 다섯). 「큰 축: 등급」은 오각형에, 「큰 축 > 세부: 등급」은 큰 축을 누르면 그 축의 세부 다각형으로
+//   민첩 · 플라즈마 · 내구도 세부는 작가가 다시 고름 2026-11-03 (플라즈마 관통력 · 무력 화력도 같은 날 더함, 화력 = 플라즈마를 두른 무력의 결과값)
 const RECORD_AXES = Object.freeze({
   "전투 등급": [
-    ["무력", ["완력", "각력", "악력"]],
-    ["민첩", ["순발력", "속도", "반응", "몸놀림"]],
-    ["플라즈마", ["출력", "운용", "강화", "방출", "지속"]],
-    ["내구도", ["맷집", "지구력", "회복력"]],
+    ["무력", ["완력", "각력", "악력", "화력"]],
+    ["민첩", ["순발력", "가속도", "최고속도", "반사신경", "유연성"]],
+    ["플라즈마", ["위력", "변형력", "운용", "강화", "지속", "총량", "회복", "관통력"]],
+    ["내구도", ["지구력", "회복력", "흡수력", "내구력"]],
     ["감각", ["동체시력", "기척", "간파"]],
   ],
 });
@@ -6544,7 +6545,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
 
     // 고치는 동안의 사본: 큰 축마다 { axis, grade, note, subs: [{ axis, grade, note, custom }] }
     const frameOf = (key) => {
-      const canon = (RECORD_AXES[key] || []).map(([axis, subs]) => [axis, subs]);
+      const canon = this.recordAxesOf(key).map(([axis, subs]) => [axis, subs]);
       (DEFAULTS[key] || []).forEach((axis) => { if (!canon.some(([name]) => name === axis)) canon.push([axis, []]); });
       const bigs = canon.map(([axis, subs]) => ({ axis, grade: "", note: "", subs: subs.map((sub) => ({ axis: sub, grade: "", note: "", custom: false })) }));
       const big = (name) => {
@@ -6699,9 +6700,42 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     };
     drawLog();
 
+    // 세부 이름 바꾸기(작가 2026-11-03 「추가는 있는 주제에 왜 이름변경은 없누」): 이름을 누르면 그 자리에서 고치고 Enter(Esc는 되돌림).
+    //   따로 더한 세부는 이 인물만, 정해 둔 세부는 모든 인물에 같이 — 저장할 때 이름표(data.json)와 다른 인물 노트의 같은 줄도 새 이름으로
+    const subName = (parent, big, sub, redraw) => {
+      const cell = parent.createSpan({ cls: "mn-status__axis is-renamable", text: sub.axis, attr: { title: sub.custom ? "눌러서 이름 바꾸기 · 이 인물만" : "눌러서 이름 바꾸기 · 정해 둔 세부라 모든 인물에 같이 바뀌어요" } });
+      press(cell, () => {
+        if (cell.querySelector("input")) return;
+        cell.empty();
+        const input = cell.createEl("input", { cls: "mn-status__input mn-status__rename", attr: { type: "text", "aria-label": `${sub.axis} 새 이름` } });
+        input.value = sub.axis;
+        input.focus();
+        input.select();
+        let finished = false;
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          const value = input.value.replace(/[:：>›]/gu, " ").replace(/\s+/gu, " ").trim();
+          if (value && value !== sub.axis && !big.subs.some((other) => other !== sub && other.axis === value)) {
+            if (!sub.custom && !sub.from) sub.from = sub.axis;
+            sub.axis = value;
+          }
+          redraw();
+        };
+        // 칸 안의 키는 줄(press)로 올라가지 않게 — 띄어쓰기가 「누르기」로 먹히지 않도록
+        input.addEventListener("keydown", (event) => {
+          event.stopPropagation();
+          if (event.key === "Enter") { event.preventDefault(); finish(); }
+          else if (event.key === "Escape") { event.preventDefault(); input.value = sub.axis; finish(); }
+        });
+        input.addEventListener("click", (event) => event.stopPropagation());
+        input.addEventListener("blur", finish);
+      });
+    };
+
     // ③ 틀마다: 큰 축 줄(이름 · 단 · Ⅰ~Ⅹ · 메모 · 세부) → 「세부」를 누르면 그 아래에 세부 줄(정해 둔 세부 + 따로 더한 세부)
     model.frames.forEach((frame) => {
-      const box = section(frame.title, "단을 고르고 Ⅰ~Ⅹ 칸을 눌러요 · 「세부」를 누르면 그 축의 세부");
+      const box = section(frame.title, "단을 고르고 Ⅰ~Ⅹ 칸을 눌러요 · 「세부」를 누르면 그 축의 세부 · 세부 이름을 누르면 이름 바꾸기");
       const list = box.createDiv({ cls: "mn-status__axes" });
       const best = () => frame.bigs.map((big) => big.grade).filter((grade) => parseRecordGrade(grade)).sort((a, b) => {
         const x = parseRecordGrade(a), y = parseRecordGrade(b);
@@ -6722,7 +6756,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
           const subs = list.createDiv({ cls: "mn-status__subs" });
           big.subs.forEach((sub, index) => {
             const row = subs.createDiv({ cls: "mn-status__row" });
-            row.createSpan({ cls: "mn-status__axis", text: sub.axis });
+            subName(row, big, sub, drawFrame);
             gradeField(row, sub, () => big.grade || best());
             textInput(row, sub.note, "메모", (value) => { sub.note = value; });
             if (sub.custom) {
@@ -6761,6 +6795,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       });
       const log = model.log.filter((row) => row.time || row.power || row.resist).map((row) => `${row.time || "미정"} · ${row.power || "미정"} · ${row.resist || "미정"}`);
       const number = (value) => (NUMBER.test(value) ? Number(value) : value);
+      const renamed = model.frames.flatMap((frame) => frame.bigs.flatMap((big) => big.subs.filter((sub) => sub.from && sub.from !== sub.axis).map((sub) => ({ key: frame.key, big: big.axis, from: sub.from, to: sub.axis }))));
       ok.setText("적는 중…");
       await manager.processFrontMatter(file, (fm) => {
         // 기본 정보는 바뀐 칸만 씀. 비우면 「미정」(원래 없던 칸을 비워 두면 안 씀)
@@ -6781,8 +6816,55 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
         if (log.length || present(fm["투력 기록"]) || drafts.includes("투력 기록")) fm["투력 기록"] = log.length ? log : "미정";
         Object.entries(lists).forEach(([key, value]) => { fm[key] = value; });
       });
+      if (renamed.length) await this.recordRenameSubs(renamed, file);
       done();
     });
+  }
+
+  /** 정해 둔 큰 축 · 세부(RECORD_AXES)에 작가가 바꾼 세부 이름(data.json 「recordSubNames」: 틀 › 큰 축 › 원래 이름 → 새 이름)을 입힘 */
+  recordAxesOf(key) {
+    const names = (this.persistedData && this.persistedData.recordSubNames && this.persistedData.recordSubNames[key]) || {};
+    return (RECORD_AXES[key] || []).map(([axis, subs]) => [axis, subs.map((sub) => (names[axis] && names[axis][sub]) || sub)]);
+  }
+
+  /** 정해 둔 세부 이름 바꾸기: 이름표를 고치고, 다른 노트 속성의 「큰 축 > 옛 이름」 줄도 새 이름으로.
+   *  그 노트에 이미 새 이름 줄이 있으면 그 노트는 건드리지 않음(옛 줄은 따로 더한 세부로 남음) */
+  async recordRenameSubs(renames, skipFile) {
+    const all = JSON.parse(JSON.stringify((this.persistedData && this.persistedData.recordSubNames) || {}));
+    renames.forEach(({ key, big, from, to }) => {
+      const frame = (all[key] = all[key] || {});
+      const names = (frame[big] = frame[big] || {});
+      const original = Object.keys(names).find((sub) => names[sub] === from) || from;
+      if (original === to) delete names[original];
+      else names[original] = to;
+    });
+    this.persistedData = { ...(this.persistedData || {}), recordSubNames: all };
+    if (typeof this.saveData === "function") await this.saveData(this.persistedData);
+
+    const vault = this.app && this.app.vault;
+    const cache = this.app && this.app.metadataCache;
+    const manager = this.app && this.app.fileManager;
+    if (!vault || !cache || !manager || typeof manager.processFrontMatter !== "function") return;
+    const ALIAS = { 내구: "내구도", 민첩함: "민첩" };
+    const esc = (text) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    const pattern = (big, sub) => new RegExp(`^(\\s*(?:${[big, ...Object.keys(ALIAS).filter((name) => ALIAS[name] === big)].map(esc).join("|")})\\s*[>›]\\s*)${esc(sub)}(?=\\s*(?:[:：]|$))`, "u");
+    const axisOf = (item) => (item && typeof item === "object" ? Object.keys(item)[0] || "" : String(item || ""));
+    const has = (list, big, sub) => Array.isArray(list) && list.some((item) => pattern(big, sub).test(axisOf(item)));
+    for (const target of vault.getMarkdownFiles()) {
+      if (skipFile && target.path === skipFile.path) continue;
+      const front = cache.getFileCache(target)?.frontmatter;
+      if (!front || !renames.some(({ key, big, from }) => has(front[key], big, from))) continue;
+      await manager.processFrontMatter(target, (fm) => {
+        renames.forEach(({ key, big, from, to }) => {
+          if (!has(fm[key], big, from) || has(fm[key], big, to)) return;
+          const re = pattern(big, from);
+          const put = `$1${to.replace(/\$/gu, "$$$$")}`;
+          fm[key] = fm[key].map((item) => (item && typeof item === "object"
+            ? Object.fromEntries(Object.entries(item).map(([name, value]) => [name.replace(re, put), value]))
+            : typeof item === "string" ? item.replace(re, put) : item));
+        });
+      });
+    }
   }
 
   /** 기록표 한 줄 「축: 값 — 메모」(또는 { 축: 값 }) → { axis, value, note } */
@@ -7393,7 +7475,7 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const AXIS_ALIAS = { 내구: "내구도", 민첩함: "민첩" };
     const gradeIndex = (grade) => grade.tier * 10 + grade.step;
     const buildFrame = (title, key) => {
-      const canon = RECORD_AXES[key] || [];
+      const canon = this.recordAxesOf(key);
       const axes = new Map();
       const ensure = (name) => {
         if (!axes.has(name)) axes.set(name, { axis: name, value: "", note: "", grade: null, written: [] });

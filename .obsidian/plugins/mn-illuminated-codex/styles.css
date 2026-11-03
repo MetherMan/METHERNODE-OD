@@ -9222,6 +9222,9 @@ body .mn-codex .mn-codex__petal {
 .mn-status__axes > .mn-status__row.is-big:first-child { border-top:0; }
 .mn-status__axis { color:#2c3a52; font:700 13px/1.2 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; }
 .mn-status__row.is-big > .mn-status__axis { color:#131b28; font:700 14px/1.2 "Noto Serif KR","MN Bodoni Moda",serif; }
+.mn-status__axis.is-renamable { cursor:text; }
+.mn-status__axis.is-renamable:hover, .mn-status__axis.is-renamable:focus-visible { color:#7a5f2c; text-decoration:underline dotted rgba(154,123,60,.8); text-underline-offset:3px; outline:none; }
+.mn-status__axis .mn-status__rename { width:100%; min-width:0; padding:3px 6px; font:inherit; letter-spacing:normal; }
 .mn-status__toggle { justify-self:end; padding:5px 8px; cursor:pointer; color:#4e6382; border:1px solid rgba(29,36,51,.16); font:700 11px/1 "Pretendard","Noto Sans KR",sans-serif; letter-spacing:.04em; white-space:nowrap; }
 .mn-status__toggle:hover, .mn-status__toggle:focus-visible, .mn-status__toggle.is-open { color:#7a5f2c; border-color:rgba(154,123,60,.55); outline:none; }
 .mn-status__subs { margin:0 0 8px; padding:4px 12px 8px 14px; border-left:2px solid rgba(154,123,60,.5); background:rgba(29,36,51,.03); }
