@@ -2469,6 +2469,10 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
   }
 
   async openMelyBookFromCover(cover, sourcePath) {
+    // 미리 만드는 중이면 다 될 때까지 표지를 그대로 둠 (만드는 중인 책장으로 바로 바꾸면 표지만 사라지고 빈 화면이 됐음). 2026-11-12
+    if (cover?._mnMelyInlineBookPending) {
+      try { await cover._mnMelyInlineBookPending; } catch (error) { /* 아래에서 새로 만듦 */ }
+    }
     const container = this.findMelyDeckContainer(cover);
     const members = this.collectMelySequenceMembers(container, sourcePath);
     const coverIndex = members.indexOf(cover);
@@ -2560,9 +2564,14 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
     const earlyVariant = this.asText(sourceData.layout_variant).trim().toLowerCase();
     if (/^[a-z0-9-]{1,40}$/u.test(earlyVariant)) book.classList.add(`mn-codex-host--variant-${earlyVariant}`);
     // 미리 만들기: 표지와 같은 폭으로 화면 밖에서 그려 쪽을 나누고, 다 되면 숨겨 둠 (NEXT 를 누르면 바로 보임)
+    // 화면 밖에서는 loading="lazy" 그림을 브라우저가 영영 안 불러오는데, 옵시디언 글 그리기는 쪽 안의 그림이 다 불러와지길 기다림
+    // → 표지에 없는 그림(예: 능력 그림)이 책장에 있으면 미리 만들기가 끝나지 않아 NEXT 를 눌러도 책장이 안 나왔음(아이패드에서 발견).
+    // 미리 만드는 동안 들어오는 그림은 바로 불러오게 함. 2026-11-12
+    let stopEagerImages = null;
     if (prebuild) {
       book.classList.add("mn-codex-host--prebuilding");
       book.style.cssText = `position:fixed;left:-30000px;top:0;width:${Math.round(cover.getBoundingClientRect().width)}px;visibility:hidden;pointer-events:none;`;
+      stopEagerImages = this.loadImagesEagerly(book);
     }
     cover.insertAdjacentElement("afterend", book);
     cover._mnMelyInlineBook = book;
@@ -2590,6 +2599,8 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       book.remove();
       cover.hidden = false;
       throw error;
+    } finally {
+      if (stopEagerImages) stopEagerImages();
     }
 
     if (typeof component.register === "function") {
@@ -2599,6 +2610,26 @@ module.exports = class MnIlluminatedCodexPlugin extends Plugin {
       });
     }
     return book;
+  }
+
+  /** root 안의 loading="lazy" 그림(지금 있는 것 · 앞으로 들어오는 것)을 바로 불러오게 바꿈. 돌려주는 함수를 부르면 지켜보기를 멈춤 */
+  loadImagesEagerly(root) {
+    const eager = (node) => {
+      if (!node || node.nodeType !== 1) return;
+      if (node.tagName === "IMG") {
+        if (node.getAttribute("loading") === "lazy") node.setAttribute("loading", "eager");
+        return;
+      }
+      for (const img of Array.from(node.querySelectorAll("img[loading='lazy']"))) img.setAttribute("loading", "eager");
+    };
+    eager(root);
+    const view = root.ownerDocument.defaultView || window;
+    if (typeof view.MutationObserver !== "function") return () => {};
+    const observer = new view.MutationObserver((records) => {
+      for (const record of records) for (const node of Array.from(record.addedNodes)) eager(node);
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    return () => observer.disconnect();
   }
 
   connectMelyCoverToBook(cover, book) {
