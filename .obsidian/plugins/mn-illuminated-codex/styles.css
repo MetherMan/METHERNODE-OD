@@ -8710,7 +8710,9 @@ body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--lef
 body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ov-grid dd { color:var(--mn-sk-ivory); }
 body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ov-name,
 body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ov-stat-value { color:var(--mn-sk-ivory); }
-body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__prose--page p.mn-codex__ov-lead { color:#c9d1dc; }
+/* 소개 한 줄: 바탕 규칙의 color 가 !important 라 석판 쪽에서 어두운 글자 그대로였음(그림 없는 인물 = 개요가 석판 쪽). 이명도 석판 쪽 색으로. 2026-11-15 */
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__prose--page p.mn-codex__ov-lead { color:#c9d1dc !important; }
+body .mn-codex--layout-book.mn-codex--variant-silver-knight .mn-codex__page--left .mn-codex__ov-alias { color:#9fb2cc; }
 /* 시안: 책장 넘김 · 은빛 빛줄기 (작가 요청 2026-10-28) ---------------------------------------------------------------------
    움직임은 회전(transform) · 투명도(opacity)만 — 그래픽 카드가 맡아 프레임 부담이 적음. 「효과 없음」(book_effects) · 움직임 줄이기 설정이면 안 함 */
 body .mn-codex.mn-codex--turning .mn-codex__book--turn { transition:none !important; }
